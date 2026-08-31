@@ -1,0 +1,105 @@
+{
+  "app": { "name": "Raqmi Dawam", "tagline": "Workforce management, done right." },
+  "nav": {
+    "dashboard": "Dashboard",
+    "company": "Company",
+    "users": "Users",
+    "roles": "Roles & Permissions",
+    "audit": "Audit Log",
+    "profile": "Profile",
+    "logout": "Log out",
+    "platform": "Super Admin"
+  },
+  "auth": {
+    "login": "Log in",
+    "register": "Create account",
+    "email": "Email",
+    "password": "Password",
+    "confirm_password": "Confirm password",
+    "name": "Full name",
+    "forgot": "Forgot your password?",
+    "no_account": "Don't have an account?",
+    "have_account": "Already have an account?",
+    "reset": "Reset password",
+    "send_reset_link": "Send reset link",
+    "logging_in": "Logging in…",
+    "verify_email_notice": "Please verify your email address.",
+    "resend_verification": "Resend verification email"
+  },
+  "onboarding": {
+    "title": "Create your company",
+    "subtitle": "Set up your organization to get started.",
+    "company_name": "Company name",
+    "legal_name": "Legal name (optional)",
+    "country": "Country code (e.g. SA)",
+    "timezone": "Timezone",
+    "currency": "Default currency",
+    "language": "Default language",
+    "create": "Create company",
+    "creating": "Creating…"
+  },
+  "company": {
+    "title": "Company settings",
+    "name": "Display name",
+    "legal_name": "Legal name",
+    "country": "Country",
+    "timezone": "Timezone",
+    "currency": "Currency",
+    "language": "Default language",
+    "status": "Status",
+    "save": "Save changes",
+    "saved": "Saved."
+  },
+  "users": {
+    "title": "Users",
+    "invite": "Invite user",
+    "invite_email": "Email to invite",
+    "send_invite": "Send invitation",
+    "member": "Member",
+    "status": "Status",
+    "roles": "Roles",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "invited": "Invited"
+  },
+  "roles": {
+    "title": "Roles & Permissions",
+    "role": "Role",
+    "permissions": "Permissions",
+    "system": "System"
+  },
+  "audit": {
+    "title": "Audit Log",
+    "action": "Action",
+    "actor": "Actor",
+    "when": "When",
+    "empty": "No audit entries yet."
+  },
+  "profile": {
+    "title": "Your profile",
+    "name": "Name",
+    "language": "Language",
+    "timezone": "Timezone",
+    "save": "Save",
+    "saved": "Saved."
+  },
+  "platform": {
+    "title": "Super Admin",
+    "login_title": "Super Admin sign in",
+    "tenants": "Companies",
+    "company": "Company",
+    "members": "Members",
+    "status": "Status",
+    "created": "Created",
+    "audit": "Platform audit"
+  },
+  "common": {
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "language": "Language",
+    "welcome": "Welcome",
+    "forbidden": "You do not have access to this area.",
+    "error": "Something went wrong. Please try again."
+  }
+}

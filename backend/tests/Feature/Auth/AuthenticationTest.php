@@ -64,6 +64,11 @@ class AuthenticationTest extends TestCase
             ->assertOk();
     }
 
+    public function test_guest_cannot_access_protected_endpoint(): void
+    {
+        $this->getJson('/api/me')->assertUnauthorized();
+    }
+
     public function test_email_verification_marks_the_user_verified(): void
     {
         $user = User::factory()->unverified()->create();
