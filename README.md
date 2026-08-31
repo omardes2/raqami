@@ -168,6 +168,38 @@ logging of important actions, automated tests for major features, maintained
 bilingual RTL/LTR support, no hard-coded translations, and no secrets in version
 control.
 
+## Branching & Git Workflow
+
+`main` is the stable production/integration baseline. **No sprint development
+happens directly on `main`.** Each sprint (and any change) is built on a feature
+branch and merged into `main` through a reviewed, CI-passing Pull Request.
+
+```
+main
+ └── feature/sprint-X-...        # e.g. feature/sprint-1-organization-employees
+      → implement
+      → run local tests (backend: php artisan test + pint; frontend: lint + build)
+      → push
+      → GitHub CI runs (Backend CI + Frontend CI)
+      → open Pull Request into main
+      → review
+      → merge (only when CI is green)
+```
+
+Rules:
+
+- Branch off `main`: `git checkout main && git pull && git checkout -b feature/sprint-1-organization-employees`.
+- Keep feature branches focused on a single sprint/change.
+- Every PR into `main` must have **green CI** (Backend + Frontend jobs) before merge.
+- Never force-push or delete `main`; never rewrite `main`'s history.
+
+> **Repository settings (owner action required).** Making `main` the default
+> branch and enforcing the rules above (required CI checks, required PR, no
+> force-push, no deletion) are GitHub **repository settings** that must be
+> applied by the repository owner in the GitHub UI/API — they cannot be set
+> from the CI/automation environment. See the stabilization report / project
+> owner notes for the exact steps.
+
 ## License
 
 Proprietary — © Raqmi Dawam. All rights reserved. Not for redistribution.
