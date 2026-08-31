@@ -254,6 +254,45 @@ providers — are captured here as **ADRs**.
 
 ---
 
+## Sprint 0 Implementation Notes
+
+Implementation-level decisions made while building Sprint 0. These are
+**consistent with**, and do not reinterpret, the owner-approved ADRs above.
+
+- **Framework versions:** Laravel 13 (current stable) + React 19/TypeScript on
+  Vite. First-party SPA auth via **Laravel Sanctum** (HTTP-only cookie/session);
+  `HasApiTokens` retained on `User` so future mobile/API token auth needs no
+  rework (ADR-004).
+- **Testing framework:** **PHPUnit** (Laravel default) — integrates cleanly with
+  the selected Laravel version; tenant-isolation and authorization suites run
+  against PostgreSQL as a non-superuser role so RLS is genuinely exercised.
+- **RLS mechanism:** tenant context is carried in PostgreSQL session GUCs
+  `app.tenant_id`, `app.user_id`, and `app.platform_readonly`, set/reset by a
+  `TenantContext` service. Tables use `ENABLE` + `FORCE ROW LEVEL SECURITY`.
+  The app-layer global scope and RLS are two independent layers (ADR-002).
+- **ULID storage:** stored as `char(26)` (the approved 26-char representation,
+  ADR-008); no binary optimization.
+- **Identity vs membership:** `users` is a global identity table (no tenant_id);
+  `tenant_memberships` links users to tenants many-to-many, so one person may
+  belong to several companies. User identity stays separate from the future
+  Employee/HR record.
+- **Super Admin:** a separate `platform_admins` table + `platform` auth guard,
+  entirely outside tenant RBAC. Cross-tenant reads happen only through an
+  audited, explicit `platform_readonly` context; writes never bypass tenant
+  scope (ADR-004/SECURITY).
+- **Audit immutability:** append-only enforced by RLS (no UPDATE/DELETE policy)
+  **and** a database trigger that rejects mutation even for a superuser.
+- **Authorization scopes:** role assignments carry `scope_type`
+  (company/branch/department/team) + nullable `scope_id`. Company scope is
+  active now; branch/department/team `scope_id`s have no FK because those tables
+  do not exist yet (ADR-015). Owner holds all Sprint 0 permissions but does
+  **not** bypass tenant isolation.
+- **Seams only:** `PaymentGateway` and `AiProvider` contracts ship with inert
+  default drivers that make no external calls (ADR-010/011). GDPR tables exist
+  as concept-level foundations (ADR-013).
+- **Queues:** a `TenantAware` job trait + `ApplyTenantContext` middleware require
+  jobs to carry explicit tenant context; workers never rely on ambient state.
+
 ## Remaining Unresolved Decisions
 
 These are **not** required to start Sprint 0, but must be decided before the

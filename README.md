@@ -7,10 +7,13 @@ subscriptions and billing, employee and organizational management, attendance
 audit logging, and an AI assistant into one bilingual (**Arabic RTL** /
 **English LTR**) product.
 
-> **Project status: Planning & documentation phase.**
-> No application framework, package, or database migration has been created yet.
-> This repository currently contains **only** the planning and documentation
-> foundation. See [`CLAUDE.md`](CLAUDE.md) for the binding development rules.
+> **Project status: Sprint 0 (Platform Foundation) implemented.**
+> The repository now contains the working platform foundation — a Laravel
+> API-first backend (`backend/`) and a React + TypeScript SPA (`frontend/`) —
+> alongside the planning docs. Later sprints (Attendance, Tasks, Leave, Payroll,
+> Billing integrations, AI, Reports) are **not** implemented. See
+> [`CLAUDE.md`](CLAUDE.md) for the binding development rules and
+> [`docs/SPRINTS.md`](docs/SPRINTS.md) for the roadmap.
 
 ---
 
@@ -76,6 +79,86 @@ multi-tenancy, authentication, companies, users, roles & permissions,
 localization, audit logs, the Super Admin foundation, and the automated-testing
 foundation. **Sprint 0 has not been implemented yet** and must not be started
 until explicitly requested.
+
+## Repository Layout
+
+| Path | What it is |
+|---|---|
+| `backend/` | Laravel (PHP) API-first backend — modular monolith |
+| `frontend/` | React + TypeScript SPA (Vite) |
+| `docs/` | Product & architecture documentation |
+| `.github/workflows/ci.yml` | CI: backend tests + style, frontend lint + build |
+
+The backend is organized as a **modular monolith** under `backend/app/Modules/`:
+`Tenancy`, `Identity`, `Authorization`, `Audit`, `Platform`, `Onboarding`,
+`Localization`, `Compliance`, plus `Billing`/`Ai` contract seams. Future business
+modules (Attendance, Tasks, Payroll, Billing, AI) will be added as separate
+modules and are intentionally absent now.
+
+## Getting Started (local development)
+
+**Prerequisites:** PHP 8.4+, Composer, Node 20+/22, PostgreSQL 16, Redis.
+
+### 1. Database (PostgreSQL) — non-superuser app role
+
+Row-Level Security only protects tenants when the app connects as a
+**non-superuser** role (superusers and, without `FORCE`, table owners bypass
+RLS). Create a restricted role and databases:
+
+```sql
+CREATE ROLE raqmi LOGIN PASSWORD 'change-me' NOSUPERUSER NOCREATEROLE NOBYPASSRLS CREATEDB;
+CREATE DATABASE raqmi_dawam       OWNER raqmi;
+CREATE DATABASE raqmi_dawam_test  OWNER raqmi;
+```
+
+### 2. Backend
+
+```bash
+cd backend
+composer install
+cp .env.example .env          # then set DB_PASSWORD etc. (never commit .env)
+php artisan key:generate
+php artisan migrate --seed    # creates schema + RLS; seeds permissions + a dev Super Admin
+php artisan serve             # http://localhost:8000
+```
+
+Redis powers cache/session/queue in local/dev (`.env` defaults). Queue workers:
+`php artisan queue:work`.
+
+### 3. Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev                   # http://localhost:5173 (proxies /api to :8000)
+```
+
+Open `http://localhost:5173`, register an account, create your company, and you
+are in. The Super Admin portal is at `/platform/login` (seeded dev credentials
+come from `PLATFORM_ADMIN_EMAIL` / `PLATFORM_ADMIN_PASSWORD`).
+
+## Testing
+
+Backend tests run against PostgreSQL as the non-superuser role so tenant
+isolation and RLS are exercised for real:
+
+```bash
+cd backend
+php artisan test          # tenant isolation (app + RLS), auth, authorization,
+                          # platform separation, localization, audit
+vendor/bin/pint --test    # code style
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm run lint
+npm run build             # type-check + production build
+```
+
+CI runs all of the above on every push (`.github/workflows/ci.yml`) using an
+ephemeral database — **no production secrets required**.
 
 ## Contributing
 
