@@ -12,6 +12,12 @@ team management, and AI-assisted task generation.
 - Integrate with notifications, reports, and AI (task generation, workload
   analysis).
 
+## 1a. V1 Scope (ADR-016)
+
+Tasks V1 includes: **tasks, subtasks, Kanban workflow, priorities, due dates,
+comments, attachments, assignees, and teams.** **Advanced dependencies and Gantt
+charts are deferred** to a later release.
+
 ## 2. Concepts
 
 ### 2.1 Teams
@@ -20,13 +26,25 @@ A **team** groups employees (within or across departments) with an optional
 
 ### 2.2 Tasks
 A **task** has: title, description, assignee (employee), optional team, status,
-priority, due date, and provenance (`ai_generated` flag). Tasks support comments
-and (future) attachments.
+priority, due date, and provenance (`ai_generated` flag). Tasks support
+**comments** and **attachments**, and can have **subtasks** (via a
+`parent_task_id` self-reference).
 
 **Status:** `todo → in_progress → blocked → done` (or `cancelled`).
 **Priority:** `low | medium | high | urgent`.
 
-### 2.3 Assignment & Visibility
+### 2.3 Kanban Workflow
+Tasks are organized on a **Kanban board** of columns (e.g., To Do / In Progress /
+Blocked / Done), configurable per team/board with optional WIP limits. A task's
+`board_column_id` and `position` place it on the board; moving a card updates
+both. See `DATABASE.md` (`board_columns`, `tasks`, `task_attachments`).
+
+### 2.4 Subtasks
+A task may have **subtasks** for breaking work down. Subtasks are tasks with a
+`parent_task_id`; they carry their own status/assignee and roll up to the parent
+for progress visibility.
+
+### 2.5 Assignment & Visibility
 - Employees see their **own** tasks (`task.view.own`).
 - Managers/leads see their **team's** tasks (`task.view` scoped to team).
 - Company Admin/HR see company tasks per permissions.
@@ -56,7 +74,8 @@ Create task ─► assign (employee/team) ─► track status ─► complete
 
 ## 5. Data Touchpoints
 
-See `DATABASE.md`: `teams`, `team_member`, `tasks`, `task_comments`.
+See `DATABASE.md`: `teams`, `team_member`, `board_columns`, `tasks` (with
+`parent_task_id`, `board_column_id`), `task_comments`, `task_attachments`.
 
 ## 6. Permissions
 
@@ -73,7 +92,8 @@ See `PERMISSIONS.md` (Tasks module): `task.view`, `task.view.own`,
 Cover: assignment/visibility rules, status transitions, due-date reminders, AI
 proposal → human-confirm flow, and tenant isolation.
 
-## 9. Open Questions
+## 9. Decision Status
 
-- Do we need sub-tasks, dependencies, or Kanban boards in v1? (See
-  `DECISIONS.md`.)
+**Decided (ADR-016):** subtasks and Kanban boards **are** in V1 (with priorities,
+due dates, comments, attachments, assignees, teams). **Advanced dependencies and
+Gantt charts are deferred.** No open task questions block their sprint.

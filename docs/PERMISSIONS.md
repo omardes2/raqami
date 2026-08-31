@@ -29,6 +29,25 @@ There are two permission universes:
 
 A tenant-scoped user can **never** be granted platform-scope permissions.
 
+### 2.1 Organizational scopes within a tenant (ADR-015)
+
+Inside a tenant, every role grant also carries an **organizational scope** that
+bounds *which* resources the permission applies to:
+
+| Scope | Meaning |
+|---|---|
+| **Company** | The whole tenant (all branches/departments/teams). |
+| **Branch** | A specific branch and everything under it. |
+| **Department / Team** | A specific department or team and its members. |
+
+**An authorized manager may only access users and resources within their
+assigned scope.** Authorization is therefore a three-part check:
+**tenant → permission → organizational scope**. A grant is stored as
+`(user, role, scope_type, scope_id)` (see `DATABASE.md` → `user_role`).
+Company-scope grants have no `scope_id`; branch/department/team grants name the
+specific node. A user may hold different roles at different scopes (e.g., HR at
+company scope, Manager at one branch).
+
 ## 3. System Roles (defaults)
 
 ### Platform scope
@@ -148,6 +167,9 @@ person who **approves** it; configurable per tenant.
 
 ## 6. Enforcement
 
+- **Three-part check** (ADR-015): every module evaluates **tenant → permission →
+  organizational scope** before any read/write. A manager with a branch/team
+  scope cannot reach resources outside it, even with the right permission.
 - **Policy checks** are evaluated in every module before any read/write.
 - Sensitive fields are stripped from responses unless the user holds the
   relevant `*.sensitive.view` or `payroll.view` permission.
@@ -161,7 +183,8 @@ person who **approves** it; configurable per tenant.
 Role creation/changes, permission grants/revokes, and any use of sensitive or
 platform permissions are recorded in audit logs (`SECURITY.md`).
 
-## 8. Open Questions
+## 8. Decision Status
 
-- Do we need per-branch/department scoping on manager permissions in v1, or is
-  team-based scoping sufficient? (See `DECISIONS.md`.)
+Manager scoping is **decided (ADR-015)**: the authorization architecture supports
+**Company / Branch / Department-Team** scopes, and managers are bounded to their
+assigned scope. No open permission questions block Sprint 0.

@@ -14,6 +14,19 @@ around sensitive compensation data.
 - Generate bilingual (Arabic/English) payslips.
 - Make approved payroll **immutable** and fully audited.
 
+## 1a. Generic Payroll Core (ADR-014)
+
+The system is built as a **generic Payroll Core**. **No taxes or statutory
+payroll rules for any single country are hard-coded.** The core handles the
+country-agnostic mechanics — gathering inputs (attendance, leave, overtime,
+allowances, deductions), computing gross/net, running the approval workflow,
+generating payslips. **Country-specific rules (taxes, social contributions,
+statutory rounding, mandated payslip fields) are provided later through modular
+country rule providers** (`country_rule_sets` in `DATABASE.md`) that plug into
+the core. A company references the rule provider for its country; the core reads
+rules from the provider rather than embedding them. Adding a new country means
+adding a provider, not changing the core.
+
 ## 2. Inputs
 
 Payroll for a period is computed from:
@@ -24,8 +37,9 @@ Payroll for a period is computed from:
 - **Allowances:** fixed/variable (housing, transport, etc.).
 - **Deductions:** loans, penalties, taxes/contributions (as configured).
 
-> Tax/contribution rules are region-specific and configurable; exact rulesets
-> are an open decision (see `DECISIONS.md`).
+> Tax/contribution rules come from a **modular country rule provider** (ADR-014),
+> never hard-coded in the core. Which country provider(s) ship first is an open
+> decision (see `DECISIONS.md`).
 
 ## 3. Payroll Run Lifecycle
 
@@ -66,7 +80,8 @@ net    = gross − deductions
 
 ## 6. Data Touchpoints
 
-See `DATABASE.md`: `payroll_runs`, `payroll_items` (**sensitive**), `payslips`.
+See `DATABASE.md`: `country_rule_sets` (modular country providers),
+`payroll_runs`, `payroll_items` (**sensitive**), `payslips`.
 
 ## 7. Permissions (sensitive)
 
@@ -92,8 +107,11 @@ Mandatory coverage for: calculation correctness (gross/net, overtime, leave
 effects, rounding), separation-of-duties enforcement, immutability after
 approval, payslip localization, and tenant isolation of payroll data.
 
-## 10. Open Questions
+## 10. Decision Status & Open Questions
 
-- Regional tax/contribution rulesets and statutory payslip fields.
-- Disbursement integrations (bank files, payment providers) — future.
-- Multi-currency payroll for multinational tenants? (See `DECISIONS.md`.)
+- **Decided (ADR-014):** generic Payroll Core; country rules are modular
+  providers, never hard-coded.
+- **Open (needed before the first country ships, not for the core):** which
+  country rule provider(s) go first, their statutory rules/rounding, statutory
+  payslip fields, and whether multi-currency payroll is required. Disbursement
+  integrations (bank files, payment providers) are future. (See `DECISIONS.md`.)

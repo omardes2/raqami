@@ -9,11 +9,17 @@ schema work. Types are indicative (PostgreSQL-oriented).
 ## 1. Conventions
 
 - **Engine:** PostgreSQL (see `ARCHITECTURE.md`).
-- **Tenancy:** shared database, shared schema. **Every tenant-owned table has a
-  `tenant_id`** (FK → `tenants.id`), indexed, and included in uniqueness/index
-  keys. Row-Level Security (RLS) enforces isolation as defense-in-depth.
-- **Primary keys:** `id` — prefer **UUID** (or ULID) for tenant-scoped entities
-  to avoid enumeration and ease future sharding.
+- **Tenancy (ADR-002):** shared database, shared schema. **Every tenant-owned
+  table has a `tenant_id`** (FK → `tenants.id`), indexed, and included in
+  uniqueness/index keys. Isolation is enforced by a Laravel tenant context +
+  global query scopes + PostgreSQL Row-Level Security (RLS) + automated
+  cross-tenant isolation tests. Cross-tenant access is a **critical security
+  vulnerability**.
+- **Primary keys:** `id` — **ULID** for application entities (ADR-008), unless
+  there is a strong technical reason not to (documented per exception). ULIDs are
+  time-ordered and sortable, avoid enumeration, and ease future scaling. Storage
+  representation (26-char string vs 16-byte binary) is confirmed at Sprint 0
+  kickoff.
 - **Timestamps:** `created_at`, `updated_at` on all tables; `deleted_at` for
   soft deletes where appropriate.
 - **Money:** store as integer minor units (e.g., cents) + `currency` (ISO 4217),
@@ -81,8 +87,11 @@ schema work. Types are indicative (PostgreSQL-oriented).
 **role_permission** (pivot)
 - `role_id`, `permission_id`.
 
-**user_role** (pivot)
-- `user_id`, `role_id`, `tenant_id`.
+**user_role** (pivot, with scope — ADR-015)
+- `user_id`, `role_id`, `tenant_id`, `scope_type`
+  (`company|branch|department|team`), `scope_id` (nullable for company scope).
+  A role is granted **within a scope**, so an authorized manager only reaches
+  users/resources inside their assigned branch/department/team.
 
 > Optionally an `employee` may be linked to a `user` (employees who log in).
 
@@ -131,7 +140,8 @@ schema work. Types are indicative (PostgreSQL-oriented).
   `center_lng`, `radius_meters` (or `polygon` GEOGRAPHY), `enforcement`
   (`enforce|warn|off`), timestamps.
 
-**attendance_records** (high volume — candidate for partitioning by month)
+**attendance_records** (high volume — partitioning is a **future** strategy only,
+not built initially; see ADR-009)
 - `id`, `tenant_id`, `employee_id`, `date`, `shift_id` (nullable),
   `check_in_at`, `check_out_at`, `check_in_lat`, `check_in_lng`,
   `check_out_lat`, `check_out_lng`, `check_in_within_geofence` (bool),
@@ -155,11 +165,17 @@ schema work. Types are indicative (PostgreSQL-oriented).
   `days`, `reason`, `status` (`pending|approved|rejected|cancelled`),
   `approver_id`, `decided_at`, `decision_note`, timestamps.
 
-### 2.6 Tasks & Teams (see `TASKS.md`)
+### 2.6 Tasks & Teams (see `TASKS.md`) — Tasks V1 (ADR-016)
+
+**board_columns** (Kanban workflow, per tenant/team/board)
+- `id`, `tenant_id`, `team_id` (nullable), `name` (translatable), `position`,
+  `wip_limit` (nullable), timestamps.
 
 **tasks**
-- `id`, `tenant_id`, `title`, `description`, `created_by`, `assignee_id`
-  (employee), `team_id` (nullable), `status`
+- `id`, `tenant_id`, `parent_task_id` (self-FK, nullable → **subtasks**),
+  `board_column_id` (nullable → Kanban position), `position` (within column),
+  `title`, `description`, `created_by`, `assignee_id` (employee),
+  `team_id` (nullable), `status`
   (`todo|in_progress|blocked|done|cancelled`), `priority`
   (`low|medium|high|urgent`), `due_at`, `completed_at`, `ai_generated` (bool),
   timestamps.
@@ -167,7 +183,21 @@ schema work. Types are indicative (PostgreSQL-oriented).
 **task_comments**
 - `id`, `tenant_id`, `task_id`, `author_id`, `body`, timestamps.
 
-### 2.7 Payroll (see `PAYROLL.md`)
+**task_attachments**
+- `id`, `tenant_id`, `task_id`, `uploaded_by`, `file_url` (private storage),
+  `filename`, `content_type`, `size_bytes`, timestamps.
+
+> Advanced dependencies and Gantt charts are **deferred** (ADR-016).
+
+### 2.7 Payroll (see `PAYROLL.md`) — generic core, modular country rules (ADR-014)
+
+**country_rule_sets** (pluggable country payroll providers; no country rules
+hard-coded into the core)
+- `id`, `country_code` (ISO 3166), `provider_key`, `version`, `is_active`,
+  `parameters` (JSONB: statutory rates, rounding, contribution rules),
+  `effective_from`, `effective_to`, timestamps.
+  *(A tenant/company references the rule set applicable to its country; the
+  Payroll Core reads rules from the provider rather than embedding them.)*
 
 **payroll_runs**
 - `id`, `tenant_id`, `period_start`, `period_end`, `status`
@@ -191,7 +221,8 @@ schema work. Types are indicative (PostgreSQL-oriented).
 
 ### 2.9 Audit Logs (see `SECURITY.md`) — append-only
 
-**audit_logs** (high volume — candidate for partitioning)
+**audit_logs** (high volume — partitioning is a **future** strategy only, not
+built initially; see ADR-009)
 - `id`, `tenant_id` (nullable for platform actions), `actor_user_id`,
   `actor_type` (`user|system|super_admin`), `action` (e.g.,
   `payroll.approved`), `entity_type`, `entity_id`, `before` (JSONB, redacted),
@@ -211,6 +242,32 @@ schema work. Types are indicative (PostgreSQL-oriented).
 - `id`, `tenant_id`, `type` (`report|insight|task_gen|workload`), `status`,
   `input` (JSONB), `result` (JSONB), `requested_by`, timestamps.
 
+### 2.11 Compliance — GDPR-ready seams (ADR-013)
+
+> Lightweight tables that make the platform GDPR-ready without premature
+> complexity. See `SECURITY.md`.
+
+**consents** (consent tracking where applicable)
+- `id`, `tenant_id` (nullable for platform-level), `subject_type`
+  (`user|employee`), `subject_id`, `consent_type`, `granted` (bool),
+  `granted_at`, `revoked_at`, `source`, timestamps.
+
+**data_export_requests** (account/data export)
+- `id`, `tenant_id`, `requested_by`, `subject_type`, `subject_id`, `status`
+  (`pending|processing|ready|delivered|failed`), `export_url` (private,
+  signed), `requested_at`, `completed_at`, timestamps.
+
+**data_deletion_requests** (data deletion workflows)
+- `id`, `tenant_id`, `requested_by`, `subject_type`, `subject_id`, `status`
+  (`pending|approved|processing|completed|rejected`), `reason`,
+  `scheduled_for`, `completed_at`, `approved_by`, timestamps.
+  *(Deletion respects legal retention holds and destructive-change approval —
+  `CLAUDE.md` rule 2.)*
+
+**retention_policies** (data retention policies)
+- `id`, `tenant_id` (nullable for platform default), `data_class`,
+  `retention_days`, `action` (`delete|anonymize`), `is_active`, timestamps.
+
 ---
 
 ## 3. Key Relationships (conceptual ER)
@@ -227,10 +284,15 @@ employees 1───* attendance_records
 employees 1───* leave_requests *───1 leave_types
 employees 1───* leave_balances *───1 leave_types
 tenants 1───* tasks *───1 employees (assignee)
+tasks 1───* tasks (parent_task_id → subtasks)
+tasks *───1 board_columns  (Kanban)
+tasks 1───* task_comments · tasks 1───* task_attachments
+country_rule_sets ──used by── payroll_runs (generic core, modular country rules)
 payroll_runs 1───* payroll_items 1───1 payslips *───1 employees
 tenants 1───* notifications *───1 users
 tenants 1───* audit_logs
 tenants 1───* ai_conversations 1───* ai_messages
+tenants 1───* consents · data_export_requests · data_deletion_requests · retention_policies
 ```
 
 ## 4. Indexing & Performance (guidelines)
@@ -238,9 +300,12 @@ tenants 1───* ai_conversations 1───* ai_messages
 - Composite indexes lead with `tenant_id` (e.g.,
   `(tenant_id, employee_id, date)` on `attendance_records`).
 - Uniqueness is **per tenant** (e.g., `unique(tenant_id, employee_number)`).
-- Partition high-volume, time-series tables (`attendance_records`,
-  `audit_logs`, `notifications`) by month/range as data grows.
-- Keep analytics off the transactional path (read replicas / OLAP later).
+- **No partitioning in the initial system (ADR-009).** Indexes are chosen so
+  that partitioning of high-volume, time-series tables (`attendance_records`,
+  `audit_logs`, `notifications`) can be introduced **later** without a data-model
+  rewrite.
+- Keep analytics off the transactional path (read replicas / OLAP are **future**
+  strategies).
 
 ## 5. Data Protection
 
@@ -251,10 +316,14 @@ tenants 1───* ai_conversations 1───* ai_messages
 - Audit logs are append-only and never carry raw secrets (redact in
   `before`/`after`).
 
-## 6. Not Yet Decided
+## 6. Settled & Still Open
 
-- Final PK type (UUID vs ULID), exact partitioning cadence, and RLS policy
-  details are pending the tenancy/database ADRs in
-  [`DECISIONS.md`](DECISIONS.md).
+**Settled (see `DECISIONS.md`):** PK type = **ULID** (ADR-008); tenancy =
+**shared DB + `tenant_id` + RLS** (ADR-002); **no partitioning initially**
+(ADR-009).
+
+**Still open (do not block Sprint 0):** ULID storage representation (26-char
+string vs 16-byte binary) — confirmed at kickoff; exact RLS policy SQL; first
+country payroll rule set(s) for `country_rule_sets`.
 
 > Reminder: **Do not create migrations yet.** This is a conceptual model only.

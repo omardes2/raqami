@@ -1,10 +1,14 @@
 # Development Roadmap & Sprints — Raqmi Dawam
 
-**Status:** Proposed roadmap (planning phase). Work proceeds **incrementally by
+**Status:** Roadmap with **owner-approved architecture** (2026-08-31, see
+[`DECISIONS.md`](DECISIONS.md) ADR-001…018). Work proceeds **incrementally by
 sprint** (`CLAUDE.md` rule 11). **Do not implement future sprints unless
-explicitly requested** (rule 12). **Sprint 0 is NOT to be implemented yet.**
+explicitly requested** (rule 12). **Sprint 0 is defined and approved in scope but
+is NOT to be implemented yet** — implementation waits for an explicit go.
 
-Sprint sizing is indicative; the owner sets the actual cadence.
+Sprint sizing is indicative; the owner sets the actual cadence. The approved
+stack is **Laravel + PostgreSQL + Redis + React (TypeScript)**, modular monolith,
+API-first.
 
 ---
 
@@ -46,38 +50,53 @@ every later sprint builds on. **This sprint is defined here but must not be
 started until explicitly requested.**
 
 **In scope:**
-1. **Application foundation** — project scaffolding, configuration, environment
-   setup (`.env.example`, no secrets), base CI, coding standards.
-2. **SaaS multi-tenancy** — tenant model, tenant resolution (subdomain/auth
-   context), global tenant scope, RLS backstop, and enforced isolation.
+1. **Application foundation** — Laravel backend + React/TS SPA scaffolding,
+   configuration, environment setup (`.env.example`, no secrets), base CI,
+   coding standards, `.gitignore`, containerized dev setup.
+2. **SaaS multi-tenancy (ADR-002)** — tenant model, tenant resolution
+   (subdomain/auth context), **Laravel tenant context + global query scopes +
+   PostgreSQL RLS**, and enforced isolation. **ULID** primary keys (ADR-008).
 3. **Authentication** — registration, email verification, login/logout, password
    reset, session/token handling, MFA capability for privileged roles.
 4. **Companies (tenants)** — company/tenant entity and minimal onboarding to
    provision a tenant.
 5. **Users** — user model, invitations, per-tenant user management, locale per
    user.
-6. **Roles & permissions** — RBAC layer, permission catalog, system roles,
-   policy checks, sensitive-field gating.
-7. **Localization** — i18n framework, Arabic (RTL) + English (LTR), no
-   hard-coded strings, locale-aware formatting.
+6. **Roles & permissions (ADR-015)** — RBAC layer, permission catalog, system
+   roles, policy checks, sensitive-field gating, and **Company / Branch /
+   Department-Team scoping** so managers are bounded to their scope.
+7. **Localization (ADR-012)** — i18n framework, Arabic (RTL) + English (LTR) from
+   day one, no hard-coded strings, locale-aware formatting.
 8. **Audit logs** — append-only audit service capturing critical foundation
    events (auth, role/permission changes, tenant actions).
 9. **Super Admin foundation** — central portal scaffold with the audited
    cross-tenant context and platform-scope permissions.
 10. **Automated testing foundation** — test framework, CI gate, and the
     mandatory **tenant isolation** and **permission** test suites.
+11. **Provider-abstraction seams (structure only, no integrations)** — define the
+    **Payment Gateway** (ADR-010) and **AI Provider** (ADR-011) interfaces, and
+    scaffold **GDPR-ready** hooks (ADR-013: export/deletion/retention/consent
+    tables) so later sprints plug in without rework. No provider integrations and
+    no AI/payment logic are built in Sprint 0.
 
 **Explicitly NOT in Sprint 0:** attendance, leave, tasks, payroll, billing
-payments, reports, AI features, mobile API. Those come in later sprints.
+payments/online gateways, reports, AI features, mobile API, country payroll rule
+providers, table partitioning. Those come in later sprints (partitioning is a
+future scaling strategy only — ADR-009).
 
 **Definition of Done (Sprint 0):**
-- A company can be provisioned as an isolated tenant.
-- Users authenticate and are authorized via RBAC.
-- Cross-tenant access is impossible and **proven by tests**.
+- A company can be provisioned as an isolated tenant (ULID keys).
+- Users authenticate and are authorized via RBAC **with Company/Branch/Team
+  scope**.
+- Cross-tenant access is impossible and **proven by automated isolation tests**
+  (tenant context + global scopes + RLS).
 - UI works in Arabic (RTL) and English (LTR) with no hard-coded strings.
 - Critical actions are audited.
 - Super Admin foundation exists (audited).
-- CI runs tests including isolation & permission suites; no secrets in VCS.
+- Payment Gateway and AI Provider abstraction interfaces exist (no integrations);
+  GDPR-ready seams scaffolded.
+- CI runs tests including isolation & permission suites; no secrets in VCS
+  (`.env.example` placeholders only).
 
 > **Reminder:** Per the current task and `CLAUDE.md` rule 12, **do not implement
 > Sprint 0 yet.** This document defines its scope for approval only.
@@ -87,34 +106,46 @@ payments, reports, AI features, mobile API. Those come in later sprints.
 ## Later Sprints (summary scope)
 
 - **Sprint 1 — Organization:** branches, departments (hierarchy), employees
-  (incl. sensitive fields gated), teams.
-- **Sprint 2 — SaaS billing:** plans, subscription lifecycle, card/bank/manual
-  payments, invoices, dunning; gateway ADR accepted.
-- **Sprint 3 — Attendance core:** work schedules, check-in/out (server-time),
-  grace periods, daily status reconciliation.
-- **Sprint 4 — Attendance advanced:** shifts (incl. overnight/rotating),
-  overtime, GPS capture, geofencing (enforce/warn/off).
+  (incl. sensitive fields gated), teams — all scope-aware (ADR-015).
+- **Sprint 2 — SaaS billing:** plans, subscription lifecycle, **Payment Gateway
+  abstraction** with **bank transfer + cash/manual** flows, invoices, dunning
+  (ADR-010). Online card provider integration is a later sprint.
+- **Sprint 3 — Attendance core (ADR-017):** work schedules, web/mobile
+  check-in/out (server-time), grace periods, daily status reconciliation.
+- **Sprint 4 — Attendance advanced (ADR-017):** shifts (incl.
+  overnight/rotating), overtime, GPS capture, geofencing (enforce/warn/off).
+  Biometric/face/kiosk are deferred.
 - **Sprint 5 — Leave management:** leave types/policies, balances/accruals,
   request→approval, payroll/attendance integration.
-- **Sprint 6 — Tasks & teams:** task lifecycle, assignment/visibility,
-  comments, notifications/reminders.
-- **Sprint 7 — Payroll:** runs, calculation from attendance/leave/overtime,
-  approval (separation of duties), immutable records, bilingual payslips.
+- **Sprint 6 — Tasks & teams (ADR-016):** tasks, **subtasks, Kanban workflow**,
+  priorities, due dates, comments, **attachments**, assignees, teams,
+  notifications/reminders. Dependencies/Gantt deferred.
+- **Sprint 7 — Payroll (ADR-014):** **generic Payroll Core** — runs, calculation
+  from attendance/leave/overtime, approval (separation of duties), immutable
+  records, bilingual payslips. **First country rule provider** added here (or a
+  dedicated follow-up), never hard-coded.
 - **Sprint 8 — Reports & notifications:** reporting/exports, notification
   channels (in-app/email, later SMS/push).
-- **Sprint 9 — AI features:** assistant, insights/reports, task generation,
-  workload analysis — permission-aware, tenant-isolated; provider ADR accepted.
+- **Sprint 9 — AI features (ADR-011):** assistant, insights/reports, task
+  generation, workload analysis — behind the **AI Provider abstraction**,
+  permission-/scope-aware, tenant-isolated, no autonomous sensitive/destructive
+  actions.
 - **Sprint 10 — Mobile API & hardening:** finalize versioned mobile API,
-  performance/scale work (read replicas, partitioning), security hardening,
-  observability.
+  security hardening, observability, and — **only as load justifies** — the
+  deferred scaling strategies (read replicas, table partitioning, service
+  extraction) per ADR-009/018.
 
 ---
 
 ## Cross-Sprint Backlog (ongoing)
 
-- Performance & scale (partitioning of attendance/audit, read replicas,
-  caching).
+- Performance & scale — **future strategies only** (partitioning of
+  attendance/audit, read replicas, caching), introduced when load justifies
+  (ADR-009/018).
 - Observability (logs, metrics, tracing, alerting).
-- Compliance & data-residency work per approved regions.
+- GDPR-ready operations maturing over time (export/deletion/retention/consent —
+  ADR-013) and data-residency work per approved regions.
+- Additional country payroll rule providers (ADR-014).
+- Additional payment gateway drivers, incl. regional (ADR-010).
 - Documentation kept in sync with implementation.
 - Backups/restore drills before production.

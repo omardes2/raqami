@@ -5,8 +5,11 @@ This log records important product and architecture decisions (`CLAUDE.md` rule
 providers — are captured here as **ADRs**.
 
 **Statuses:** `Proposed` · `Accepted` · `Superseded` · `Rejected`.
-Nothing here is implemented yet — the entries below are **Proposed** and require
-owner approval.
+
+> **Owner approval — 2026-08-31.** The project owner reviewed the foundation
+> documentation and approved the architecture decisions below. ADR-001…008 are
+> now **Accepted**, and ADR-009…017 record the additional approved decisions.
+> Sprint 0 implementation has **not** started.
 
 ---
 
@@ -26,117 +29,248 @@ owner approval.
 ---
 
 ## ADR-001: Backend framework — Laravel (PHP)
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-31
 - **Context:** Need a productive, mature framework for a feature-rich SaaS
   (auth, queues, policies, migrations, testing) with strong multi-tenancy
   support.
 - **Options:** Laravel (PHP), NestJS (Node/TS), Django (Python), Rails (Ruby).
-- **Decision (proposed):** **Laravel** for velocity, ecosystem, and SaaS/tenancy
-  maturity.
+- **Decision:** **Laravel** for velocity, ecosystem, and SaaS/tenancy maturity.
 - **Consequences:** PHP toolchain; strong batteries-included features; team must
   know Laravel conventions.
-- **Approved by:** _pending_
+- **Approved by:** Project Owner (2026-08-31)
 
 ## ADR-002: Multi-tenancy strategy — shared DB + `tenant_id` + RLS
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-31
 - **Context:** Must scale to thousands of tenants / hundreds of thousands of
   employees with complete isolation at reasonable ops cost.
 - **Options:** (A) shared DB/schema + `tenant_id`; (B) schema-per-tenant;
   (C) database-per-tenant.
-- **Decision (proposed):** **Pattern A** (shared DB, shared schema, mandatory
-  `tenant_id`) enforced by a global query scope **plus PostgreSQL RLS**; reserve
-  **Pattern C** for exceptional enterprise/regulated tenants later.
+- **Decision:** **Pattern A** — a single **shared PostgreSQL database with a
+  shared schema**. **Every tenant-owned record must include `tenant_id`.**
+  Isolation is enforced through **(1) a Laravel tenant context, (2) global query
+  scopes, (3) PostgreSQL Row-Level Security (RLS), and (4) automated
+  cross-tenant isolation tests.** Cross-tenant data access is treated as a
+  **critical security vulnerability**. Dedicated database-per-tenant is reserved
+  as a future option for exceptional enterprise/regulated tenants only.
 - **Consequences:** Lowest ops cost, highest scale; isolation must be rigorously
   enforced and tested at every layer.
-- **Approved by:** _pending_
+- **Approved by:** Project Owner (2026-08-31)
 
 ## ADR-003: Primary database — PostgreSQL
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-31
-- **Context:** Need robust relational DB with RLS, JSONB, partitioning, strong
-  indexing for tenancy and high-volume attendance/audit data.
+- **Context:** Need robust relational DB with RLS, JSONB, and strong indexing
+  for tenancy and high-volume attendance/audit data.
 - **Options:** PostgreSQL, MySQL/MariaDB.
-- **Decision (proposed):** **PostgreSQL** (RLS + partitioning support are
-  decisive).
-- **Consequences:** Postgres-specific features (RLS, partitioning) become part
-  of the design.
-- **Approved by:** _pending_
+- **Decision:** **PostgreSQL** (RLS support is decisive for tenant isolation).
+- **Consequences:** Postgres-specific features (RLS) become part of the design.
+- **Approved by:** Project Owner (2026-08-31)
 
 ## ADR-004: API-first + SPA frontend (React/TypeScript)
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-31
 - **Context:** Three portals plus a **future mobile API** argue for an
   API-first backend consumed by SPA clients.
 - **Options:** Server-rendered; SPA + JSON API; hybrid.
-- **Decision (proposed):** **API-first (versioned REST/JSON)** with a **React
-  (TS)** SPA; RTL/LTR via an i18n layer.
+- **Decision:** **API-first (versioned REST/JSON)** with a **React (TypeScript)**
+  SPA for the SaaS application; RTL/LTR via an i18n layer.
 - **Consequences:** API contracts and versioning discipline; reusable API for
   mobile.
-- **Approved by:** _pending_
+- **Approved by:** Project Owner (2026-08-31)
 
 ## ADR-005: Cache/queue — Redis; async workers
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-31
 - **Context:** Heavy work (payroll, reports, AI, notifications, geofence checks)
   must run off the request path.
-- **Decision (proposed):** **Redis** for cache/sessions/queues; queue workers
-  for async jobs.
+- **Decision:** **Redis** for cache/sessions/queues; queue workers for async
+  jobs.
 - **Consequences:** Additional infra component; scalable background processing.
-- **Approved by:** _pending_
+- **Approved by:** Project Owner (2026-08-31)
 
 ## ADR-006: Object storage — S3-compatible
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-08-31
 - **Context:** Store payslips, invoices, exports, proof-of-payment, attachments.
-- **Decision (proposed):** **S3-compatible** storage with private access +
-  signed URLs.
-- **Approved by:** _pending_
+- **Decision:** **S3-compatible** storage with private access + signed URLs.
+- **Approved by:** Project Owner (2026-08-31)
 
-## ADR-007: Modular monolith to start
-- **Status:** Proposed
+## ADR-007: Modular monolith to start (no microservices)
+- **Status:** Accepted
 - **Date:** 2026-08-31
 - **Context:** Balance delivery speed with future scale.
-- **Decision (proposed):** Build a **modular monolith** with clear module
-  boundaries; extract heavy/independent concerns (AI, reporting, payroll
-  workers) into services as load demands.
-- **Approved by:** _pending_
+- **Decision:** Build a **modular monolith**, **API-first**. **Microservices are
+  explicitly out of scope at this stage.** Heavy/independent concerns (AI,
+  reporting, payroll workers) may be extracted into services later only if load
+  demands.
+- **Approved by:** Project Owner (2026-08-31)
 
-## ADR-008: Primary key type — UUID/ULID for tenant-scoped entities
-- **Status:** Proposed
+## ADR-008: Primary key type — ULID
+- **Status:** Accepted
 - **Date:** 2026-08-31
-- **Context:** Avoid enumeration, ease future sharding/isolation.
-- **Decision (proposed):** UUID or ULID for tenant-scoped entities (final choice
-  pending).
-- **Approved by:** _pending_
+- **Context:** Avoid enumeration, keep keys sortable and generation-friendly.
+- **Decision:** Use **ULID** for application entities **unless there is a strong
+  technical reason not to** (documented per exception).
+- **Consequences:** Lexicographically sortable, time-ordered identifiers; store
+  consistently (e.g., 26-char string or 16-byte binary) across the schema.
+- **Approved by:** Project Owner (2026-08-31)
+
+## ADR-009: No table partitioning in the initial system
+- **Status:** Accepted
+- **Date:** 2026-08-31
+- **Context:** High-volume tables (attendance, audit) will eventually grow large,
+  but partitioning adds complexity that is premature now.
+- **Decision:** **Do not implement table partitioning initially.** Document
+  partitioning (and read replicas / OLAP) as a **future scaling strategy only**.
+  Design indexes so partitioning can be introduced later without a data model
+  rewrite.
+- **Approved by:** Project Owner (2026-08-31)
+
+## ADR-010: Payment Gateway abstraction (provider-agnostic billing)
+- **Status:** Accepted
+- **Date:** 2026-08-31
+- **Context:** Billing must support multiple methods and future regional gateways
+  without coupling to any one provider.
+- **Decision:** Introduce a **Payment Gateway abstraction**. Billing logic must
+  **not** be coupled directly to Stripe, Cybersource, or any single provider.
+  The abstraction must support: **card payment gateway, bank transfer,
+  cash/manual payment, and future regional payment gateways.** Actual online
+  gateway integration is deferred to a later sprint.
+- **Consequences:** A driver/adapter interface with pluggable providers; manual
+  and bank-transfer flows implemented without an online gateway first.
+- **Approved by:** Project Owner (2026-08-31)
+
+## ADR-011: AI Provider abstraction and AI action boundaries
+- **Status:** Accepted
+- **Date:** 2026-08-31
+- **Context:** Avoid lock-in to a single AI provider and constrain what AI may do.
+- **Decision:** Create an **AI Provider abstraction**; business logic must never
+  depend directly on a single AI provider. **AI must not autonomously** modify
+  payroll, approve payroll, change attendance records, approve leave, modify
+  financial transactions, or perform destructive actions. Any such future
+  AI-assisted action **requires explicit authorized user confirmation**.
+- **Approved by:** Project Owner (2026-08-31)
+
+## ADR-012: Internationalization — Arabic RTL + English LTR from day one
+- **Status:** Accepted
+- **Date:** 2026-08-31
+- **Context:** Bilingual support is a core product property.
+- **Decision:** **Arabic (RTL) and English (LTR) are mandatory from the first
+  implementation.** **No UI text may be hard-coded**; all strings come from i18n
+  resources.
+- **Approved by:** Project Owner (2026-08-31)
+
+## ADR-013: GDPR-ready compliance posture
+- **Status:** Accepted
+- **Date:** 2026-08-31
+- **Context:** The platform should be designed for data-protection compliance
+  without premature complexity.
+- **Decision:** Design the platform to be **GDPR-ready**. Architecture must
+  support: **account/data export, data deletion workflows, data retention
+  policies, consent tracking where applicable, audit logs, and sensitive-data
+  protection.** Do **not** implement unnecessary compliance complexity yet.
+- **Approved by:** Project Owner (2026-08-31)
+
+## ADR-014: Generic Payroll Core (country rules are modular)
+- **Status:** Accepted
+- **Date:** 2026-08-31
+- **Context:** Payroll must serve many countries without baking one country's
+  rules into the core.
+- **Decision:** Build a **generic Payroll Core**. **Do not hard-code taxes or
+  statutory payroll rules for any single country.** Country-specific rules are
+  implemented later through **modular country rule providers** plugged into the
+  core.
+- **Approved by:** Project Owner (2026-08-31)
+
+## ADR-015: Scoped authorization — Company / Branch / Department-Team
+- **Status:** Accepted
+- **Date:** 2026-08-31
+- **Context:** Managers must be limited to their assigned part of the
+  organization.
+- **Decision:** The authorization architecture must support **Company scope,
+  Branch scope, and Department/Team scope.** An authorized manager may only
+  access users and resources **within their assigned scope.**
+- **Consequences:** Permissions carry a scope dimension in addition to the
+  action; scope checks join the tenant + permission checks.
+- **Approved by:** Project Owner (2026-08-31)
+
+## ADR-016: Tasks V1 feature set
+- **Status:** Accepted
+- **Date:** 2026-08-31
+- **Context:** Define what ships in the first Tasks release.
+- **Decision:** Tasks V1 includes **tasks, subtasks, Kanban workflow,
+  priorities, due dates, comments, attachments, assignees, and teams.**
+  **Advanced dependencies and Gantt charts are deferred.**
+- **Approved by:** Project Owner (2026-08-31)
+
+## ADR-017: Attendance V1 methods
+- **Status:** Accepted
+- **Date:** 2026-08-31
+- **Context:** Define attendance capture methods for the first release.
+- **Decision:** Primary attendance methods are **web/mobile check-in, GPS, and
+  geofencing.** **Biometric devices, face recognition, and kiosk integrations
+  are future features.**
+- **Approved by:** Project Owner (2026-08-31)
 
 ---
 
-## Decisions Requiring Owner Approval (consolidated)
+## ADR-018: Scaling posture — simple scalable architecture first
+- **Status:** Accepted
+- **Date:** 2026-08-31
+- **Context:** Must target thousands of companies and hundreds of thousands of
+  employees while avoiding premature infrastructure complexity.
+- **Decision:** Design for that scale but **prefer a simple, scalable
+  architecture first** (stateless app tier, Redis, async workers, well-indexed
+  Postgres). Defer partitioning, read replicas, OLAP stores, and service
+  extraction until real load justifies them (see ADR-009).
+- **Approved by:** Project Owner (2026-08-31)
 
-The following need the owner's sign-off before/at the start of implementation:
+---
 
-1. **Technical stack** (ADR-001, 003, 004, 005, 006): Laravel + PostgreSQL +
-   Redis + React (TS) + S3-compatible storage.
-2. **Multi-tenancy strategy** (ADR-002): shared DB + `tenant_id` + RLS, with
-   dedicated-DB option reserved for enterprise.
-3. **Architecture style** (ADR-007): modular monolith, API-first.
-4. **Primary key strategy** (ADR-008): UUID vs ULID.
-5. **Payment gateway provider(s)** for Visa/Mastercard and supported
-   regions/currencies (`SAAS-BILLING.md`).
-6. **AI provider(s)** and data-handling/training terms and data residency
-   (`AI-FEATURES.md`).
-7. **Target regions & compliance** posture (GDPR-like rights, data residency,
-   certifications) (`SECURITY.md`).
-8. **Payroll rulesets**: regional tax/contribution rules, rounding, multi-currency
-   payroll (`PAYROLL.md`).
-9. **Attendance policy defaults**: overtime rules, kiosk/biometric device support
-   (`ATTENDANCE.md`).
-10. **Manager permission scoping**: team-based vs branch/department scoping in v1
-    (`PERMISSIONS.md`).
-11. **Tasks scope**: sub-tasks/dependencies/Kanban in v1 or later (`TASKS.md`).
-12. **Sprint roadmap & Sprint 0 scope** as proposed in `SPRINTS.md`.
+## Final Architecture Decisions (summary)
 
-> Once approved, update the relevant ADR statuses to **Accepted** with the
-> approver and date.
+| # | Area | Decision | ADR |
+|---|---|---|---|
+| 1 | Backend | Laravel (PHP) | 001 |
+| 2 | Database | PostgreSQL | 003 |
+| 3 | Cache/Queue | Redis + async workers | 005 |
+| 4 | Frontend | React + TypeScript (SPA) | 004 |
+| 5 | Architecture | Modular monolith, API-first, **no microservices** | 007 |
+| 6 | Multi-tenancy | Shared DB + shared schema; `tenant_id` everywhere; tenant context + global scopes + RLS + isolation tests | 002 |
+| 7 | Primary keys | ULID (unless strong reason not to) | 008 |
+| 8 | Partitioning | **Not now**; future scaling strategy only | 009 |
+| 9 | Payments | Payment Gateway abstraction (card/bank/manual + future regional) | 010 |
+| 10 | AI | AI Provider abstraction; no autonomous sensitive/destructive actions | 011 |
+| 11 | i18n | Arabic RTL + English LTR from day one; no hard-coded text | 012 |
+| 12 | Compliance | GDPR-ready (export/deletion/retention/consent/audit/sensitive-data) | 013 |
+| 13 | Payroll | Generic Payroll Core; country rules are modular providers | 014 |
+| 14 | Permission scopes | Company / Branch / Department-Team scoping | 015 |
+| 15 | Tasks V1 | tasks, subtasks, Kanban, priorities, due dates, comments, attachments, assignees, teams | 016 |
+| 16 | Attendance V1 | web/mobile check-in, GPS, geofencing | 017 |
+| 17 | Scaling | Simple scalable architecture first | 018 |
+| 18 | Object storage | S3-compatible + signed URLs | 006 |
+
+---
+
+## Remaining Unresolved Decisions
+
+These are **not** required to start Sprint 0, but must be decided before the
+sprint that needs them:
+
+1. **Card gateway provider(s)** and supported regions/currencies — needed for
+   the online-payment sprint (billing abstraction is provider-agnostic, so this
+   does not block Sprint 0). (`SAAS-BILLING.md`)
+2. **AI provider(s)** and data-handling/training/residency terms — needed for
+   the AI sprint (abstraction lets the choice be deferred). (`AI-FEATURES.md`)
+3. **Target regions & specific compliance certifications** beyond GDPR-ready
+   posture. (`SECURITY.md`)
+4. **First country payroll rule provider(s)** (which country/countries, statutory
+   rules, rounding, multi-currency payroll). (`PAYROLL.md`)
+5. **Attendance overtime policy defaults** and legal rounding per region.
+   (`ATTENDANCE.md`)
+6. **Notification channels beyond in-app/email** (SMS/push provider) — later
+   sprint. (`SPRINTS.md`)
+7. **ULID storage representation** (26-char string vs 16-byte binary) — a
+   Sprint 0 implementation detail to confirm at kickoff. (`DATABASE.md`)

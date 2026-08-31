@@ -13,6 +13,12 @@ days & hours, shifts, grace periods, overtime, GPS attendance, and geofencing.
 - Feed clean, auditable data into leave, reports, and payroll.
 - Work in both web and (future) mobile via the API.
 
+## 1a. V1 Scope (ADR-017)
+
+**Primary attendance methods in V1:** **web/mobile check-in, GPS, and
+geofencing.** **Biometric devices, face recognition, and kiosk integrations are
+future features** and are out of scope for the first release.
+
 ## 2. Concepts
 
 ### 2.1 Working Schedules (working days & hours)
@@ -124,7 +130,10 @@ Mandatory coverage for: grace-period math, overtime computation, overnight
 shifts, geofence enforce/warn/off, timezone correctness, and tenant isolation of
 attendance data.
 
-## 10. Open Questions
+## 10. Decision Status & Open Questions
 
-- Overtime policy defaults and legal rounding rules per region.
-- Kiosk/biometric device support in scope? (See `DECISIONS.md`.)
+- **Decided (ADR-017):** V1 methods are web/mobile check-in, GPS, geofencing;
+  biometric/face/kiosk are deferred.
+- **Open (does not block V1):** overtime policy defaults and legal rounding rules
+  per region — tied to the first country payroll rule provider (see
+  `PAYROLL.md`, `DECISIONS.md`).

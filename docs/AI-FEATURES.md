@@ -68,16 +68,23 @@ User ─► AI request ─► [Permission + Tenant guard] ─► Context builder
 See `DATABASE.md`: `ai_conversations`, `ai_messages`, `ai_jobs`. All are
 tenant-scoped.
 
-## 5. Guardrails (non-negotiable)
+## 5. Guardrails (non-negotiable) — ADR-011
 
+0. **Provider abstraction:** all AI access goes through an **AI Provider
+   abstraction**. Business logic must **never** depend directly on a single AI
+   provider, so the provider can be swapped without touching business code.
 1. **Tenant isolation:** an AI feature can never read/write another tenant's
    data (`CLAUDE.md` rules 3–4).
-2. **Permission-aware:** AI context and actions respect the user's permissions;
-   sensitive data is excluded unless permitted (`CLAUDE.md` rule 5).
+2. **Permission-aware:** AI context and actions respect the user's permissions
+   **and organizational scope** (ADR-015); sensitive data is excluded unless
+   permitted (`CLAUDE.md` rule 5).
 3. **No secrets to providers:** credentials, tokens, `.env` values, and raw
    card/bank data are never sent to an AI provider.
-4. **Human-in-the-loop for writes:** AI-proposed changes (tasks, adjustments)
-   require explicit human confirmation.
+4. **No autonomous sensitive/destructive actions.** AI must **not**
+   autonomously: modify payroll, approve payroll, change attendance records,
+   approve leave, modify financial transactions, or perform destructive actions.
+   Any such future AI-assisted action **requires explicit authorized user
+   confirmation** — the AI may only *propose*; an authorized human commits.
 5. **Auditability:** AI actions that change data are audited (`CLAUDE.md` rule
    6). AI usage may be logged for cost/quality.
 6. **Privacy & data handling:** what tenant data may leave the platform for
@@ -107,8 +114,11 @@ Cover: tenant isolation of AI context, permission-scoped context building,
 sensitive-field exclusion, human-confirm flow for writes, and audit logging of
 AI-driven changes.
 
-## 9. Open Questions (see `DECISIONS.md`)
+## 9. Decision Status & Open Questions
 
-- AI provider(s) and data-handling/training terms.
-- Which features are in early tiers vs premium.
-- On-region/data-residency requirements for AI processing.
+- **Decided (ADR-011):** AI Provider abstraction; no autonomous
+  sensitive/destructive actions; explicit authorized confirmation for any
+  AI-assisted write.
+- **Open (deferred by the abstraction; needed at the AI sprint):** AI provider(s)
+  and data-handling/training/residency terms; which features are early-tier vs
+  premium. (See `DECISIONS.md`.)

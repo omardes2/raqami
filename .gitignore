@@ -1,0 +1,83 @@
+# === Secrets & environment ===
+# Never commit real environment files or secrets. Only .env.example is tracked.
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+auth.json
+secrets.*
+.secrets/
+
+# === PHP / Laravel (backend) ===
+/vendor/
+/storage/*.key
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/logs/*
+/bootstrap/cache/*
+/public/storage
+/public/hot
+Homestead.yaml
+Homestead.json
+.phpunit.result.cache
+.phpunit.cache/
+
+# === Node / React (frontend) ===
+node_modules/
+/dist/
+/build/
+.next/
+.turbo/
+.vite/
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# === Package manager locks are TRACKED (do not ignore) ===
+# composer.lock, package-lock.json, yarn.lock, pnpm-lock.yaml are committed.
+
+# === Build / compiled assets ===
+/public/build/
+mix-manifest.json
+
+# === Testing / coverage ===
+.coverage
+htmlcov/
+.pytest_cache/
+
+# === Logs & temp ===
+*.log
+logs/
+tmp/
+temp/
+*.cache
+
+# === OS files ===
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# === Editors / IDEs ===
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# === Docker local overrides ===
+docker-compose.override.yml
+
+# === Misc local artifacts ===
+/.claude/settings.local.json

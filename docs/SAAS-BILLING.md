@@ -44,14 +44,33 @@ trialing ─► active ─► past_due ─► suspended ─► cancelled
 
 Tenant `status` mirrors subscription state to gate access.
 
+## 3a. Payment Gateway Abstraction (ADR-010)
+
+Billing logic is **provider-agnostic**. It talks to a **Payment Gateway
+abstraction** (a driver/adapter interface), never directly to Stripe,
+Cybersource, or any single provider. The abstraction supports:
+
+- **Card payment gateway** (Visa/Mastercard) — pluggable online providers.
+- **Bank transfer** — recorded/reconciled.
+- **Cash / manual payment** — recorded with proof.
+- **Future regional payment gateways** — added as new drivers without touching
+  billing logic.
+
+**Actual online gateway integration is deferred to a later sprint.** The
+foundation implements the abstraction plus the manual and bank-transfer flows;
+online card providers plug in later behind the same interface. Which provider(s)
+and regions/currencies are an open decision (`DECISIONS.md`) and **do not block**
+the foundation because the abstraction isolates that choice.
+
 ## 4. Payment Methods
 
 ### 4.1 Visa / Mastercard (card gateway)
-- Handled by a PCI-compliant **payment gateway**; the platform stores only
-  tokens/references, **never raw card data**.
+- Handled by a PCI-compliant **payment gateway** behind the Payment Gateway
+  abstraction; the platform stores only tokens/references, **never raw card
+  data**.
 - Supports initial charge, recurring charges, retries, and refunds.
-- Gateway selection is an open decision (see `DECISIONS.md`) — candidates should
-  support the target regions and currencies.
+- Online integration is deferred; gateway selection is an open decision (see
+  `DECISIONS.md`) — candidates should support the target regions and currencies.
 
 ### 4.2 Bank Transfer
 - Tenant receives bank details and an invoice reference.
@@ -103,8 +122,11 @@ Cover: plan-limit enforcement, proration math, dunning transitions, manual/bank
 payment recording + reconciliation, webhook verification/idempotency, and tenant
 isolation of billing data.
 
-## 11. Open Questions (see `DECISIONS.md`)
+## 11. Decision Status & Open Questions
 
-- Card gateway provider(s) and supported regions/currencies.
-- Tax/VAT handling on invoices per region.
-- Reseller/partner billing model (if any).
+- **Decided (ADR-010):** provider-agnostic **Payment Gateway abstraction**
+  (card/bank/manual + future regional); online gateway integration deferred to a
+  later sprint.
+- **Open (does not block the abstraction):** card gateway provider(s) and
+  supported regions/currencies; tax/VAT handling on invoices per region;
+  reseller/partner billing model (if any). (See `DECISIONS.md`.)
