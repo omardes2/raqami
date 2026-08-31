@@ -46,7 +46,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    refresh().finally(() => setLoading(false))
+    let active = true
+    const bootstrap = async () => {
+      await refresh()
+      // setState runs after the await (not synchronously in the effect) and is
+      // guarded so an unmount mid-request can't set state on a gone component.
+      if (active) setLoading(false)
+    }
+    void bootstrap()
+    return () => {
+      active = false
+    }
   }, [refresh])
 
   const login = useCallback(async (email: string, password: string) => {
