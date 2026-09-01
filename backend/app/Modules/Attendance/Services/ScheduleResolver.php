@@ -8,6 +8,7 @@ use App\Modules\Attendance\Models\WorkSchedule;
 use App\Modules\Attendance\Models\WorkScheduleAssignment;
 use App\Modules\Attendance\Models\WorkScheduleDay;
 use App\Modules\Attendance\Support\ResolvedWorkDay;
+use App\Modules\Attendance\Support\ScheduledSegment;
 use App\Modules\Employees\Models\Employee;
 use App\Modules\Organization\Models\Department;
 use App\Modules\Organization\Models\TeamMembership;
@@ -106,7 +107,7 @@ class ScheduleResolver
             );
         }
 
-        return $this->buildWorkDay($schedule, $this->dayFor($schedule, (int) $workDate->dayOfWeek), $workDate, $timezone);
+        return $this->buildWorkDay($schedule, $this->dayFor($schedule, $workDate), $workDate, $timezone);
     }
 
     /**
@@ -127,47 +128,107 @@ class ScheduleResolver
         $previousTz = $previousSchedule->timezone ?: $fallbackTimezone;
         $previousLocalDate = $instantUtc->setTimezone($previousTz)->startOfDay()->subDay();
 
-        $previousDay = $this->dayFor($previousSchedule, (int) $previousLocalDate->dayOfWeek);
-        if ($previousDay === null || ! $previousDay->isOvernight()) {
+        $previousDay = $this->dayFor($previousSchedule, $previousLocalDate);
+        if ($previousDay === null) {
             return null;
         }
 
-        [$prevStart, $prevEnd] = $this->boundaries(
-            $previousLocalDate,
-            $previousTz,
-            (string) $previousDay->start_time,
-            (string) $previousDay->end_time,
-        );
+        $resolvedPrevious = $this->buildWorkDay($previousSchedule, $previousDay, $previousLocalDate, $previousTz);
 
-        // Inside the overnight window [start, end): this shift began yesterday.
-        if ($instantUtc->greaterThanOrEqualTo($prevStart) && $instantUtc->lessThan($prevEnd)) {
-            return $this->buildWorkDay($previousSchedule, $previousDay, $previousLocalDate, $previousTz);
+        // If the instant falls inside any of the previous day's segment windows
+        // (a shift that began yesterday and runs past midnight), attribute it to
+        // that previous work_date. Covers overnight AND overnight-split segments.
+        foreach ($resolvedPrevious->segments as $segment) {
+            if ($instantUtc->greaterThanOrEqualTo($segment->startAt) && $instantUtc->lessThan($segment->endAt)) {
+                return $resolvedPrevious;
+            }
         }
 
         return null;
     }
 
-    /** Assemble a ResolvedWorkDay for a concrete (schedule, day, work_date, tz). */
+    /**
+     * Assemble a ResolvedWorkDay for a concrete (schedule, day, work_date, tz),
+     * resolving the day's expected SEGMENTS (split shifts) to UTC. Scalars reflect
+     * the first segment; $segments carries the whole day.
+     */
     private function buildWorkDay(WorkSchedule $schedule, ?WorkScheduleDay $day, CarbonImmutable $workDate, string $timezone): ResolvedWorkDay
     {
-        $isWorking = $day !== null && $day->is_working_day && $day->start_time && $day->end_time;
+        $segments = ($day !== null && $day->is_working_day)
+            ? $this->segmentsFor($day, $schedule, $workDate, $timezone)
+            : [];
 
-        [$startUtc, $endUtc] = $isWorking
-            ? $this->boundaries($workDate, $timezone, (string) $day->start_time, (string) $day->end_time)
-            : [null, null];
+        $first = $segments[0] ?? null;
 
         return new ResolvedWorkDay(
             schedule: $schedule,
             day: $day,
             workDate: $workDate,
             timezone: $timezone,
-            isWorkingDay: (bool) $isWorking,
-            scheduledStartAt: $startUtc,
-            scheduledEndAt: $endUtc,
-            graceMinutes: $day?->grace_minutes ?? $schedule->grace_minutes,
-            breakMinutes: $day?->break_minutes ?? $schedule->break_minutes,
-            overtimeAfterMinutes: $schedule->overtime_after_minutes,
+            isWorkingDay: $segments !== [],
+            scheduledStartAt: $first?->startAt,
+            scheduledEndAt: $first?->endAt,
+            graceMinutes: $first?->graceMinutes ?? ($day?->grace_minutes ?? $schedule->grace_minutes),
+            breakMinutes: $first?->breakMinutes ?? ($day?->break_minutes ?? $schedule->break_minutes),
+            overtimeAfterMinutes: $first?->overtimeAfterMinutes ?? $schedule->overtime_after_minutes,
+            segments: $segments,
         );
+    }
+
+    /**
+     * Resolve a day's expected segments to UTC, ordered by start. Falls back to
+     * the day's own start/end (legacy single window) when no segment rows exist.
+     *
+     * @return array<int, ScheduledSegment>
+     */
+    private function segmentsFor(WorkScheduleDay $day, WorkSchedule $schedule, CarbonImmutable $workDate, string $timezone): array
+    {
+        $rows = $day->segments;
+        if ($rows->isEmpty() && $day->start_time && $day->end_time) {
+            // Legacy compatibility: synthesize one segment from the day window.
+            [$startUtc, $endUtc] = $this->boundaries($workDate, $timezone, (string) $day->start_time, (string) $day->end_time);
+
+            return [new ScheduledSegment(
+                1, $startUtc, $endUtc,
+                $day->grace_minutes ?? $schedule->grace_minutes,
+                $day->break_minutes ?? $schedule->break_minutes,
+                $schedule->overtime_after_minutes,
+            )];
+        }
+
+        $segments = [];
+        foreach ($rows as $row) {
+            [$startUtc, $endUtc] = $this->boundaries($workDate, $timezone, (string) $row->start_time, (string) $row->end_time);
+            $segments[] = new ScheduledSegment(
+                (int) $row->sequence,
+                $startUtc,
+                $endUtc,
+                $row->grace_minutes ?? $day->grace_minutes ?? $schedule->grace_minutes,
+                $row->break_minutes ?? $day->break_minutes ?? $schedule->break_minutes,
+                $row->overtime_after_minutes ?? $schedule->overtime_after_minutes,
+            );
+        }
+
+        usort($segments, fn (ScheduledSegment $a, ScheduledSegment $b) => $a->startAt <=> $b->startAt);
+
+        return $segments;
+    }
+
+    /**
+     * The day-pattern that applies to $workDate: weekday (0-6) for weekly
+     * schedules, or the cycle-day-index for rotating (cyclic) schedules.
+     */
+    private function dayIndexFor(WorkSchedule $schedule, CarbonImmutable $workDate): int
+    {
+        if (! $schedule->isCyclic()) {
+            return (int) $workDate->dayOfWeek;
+        }
+
+        $anchor = CarbonImmutable::parse($schedule->anchor_date)->startOfDay();
+        $length = (int) $schedule->cycle_length_days;
+        $daysSince = (int) floor($anchor->diffInDays($workDate, false));
+
+        return (($daysSince % $length) + $length) % $length;
     }
 
     /**
@@ -189,10 +250,12 @@ class ScheduleResolver
         return [$start->utc(), $end->utc()];
     }
 
-    private function dayFor(WorkSchedule $schedule, int $weekday): ?WorkScheduleDay
+    /** The WorkScheduleDay for a work_date (weekday or cycle-day), segments loaded. */
+    private function dayFor(WorkSchedule $schedule, CarbonImmutable $workDate): ?WorkScheduleDay
     {
-        return $schedule->days->firstWhere('weekday', $weekday)
-            ?? $schedule->days()->where('weekday', $weekday)->first();
+        $index = $this->dayIndexFor($schedule, $workDate);
+
+        return $schedule->days()->with('segments')->where('weekday', $index)->first();
     }
 
     /**
