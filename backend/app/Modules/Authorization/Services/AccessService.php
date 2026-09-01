@@ -58,6 +58,45 @@ class AccessService
         return $this->permissionsFor($user, $scopeType, $scopeId)->contains($permission);
     }
 
+    /**
+     * All (scope_type, scope_id) grants under which the user holds the given
+     * permission in the active tenant. Used to scope list queries and row-level
+     * access to real Branch/Department/Team entities (ADR-015).
+     *
+     * @return Collection<int, array{scope_type:string, scope_id:?string}>
+     */
+    public function scopeGrantsFor(User $user, string $permission): Collection
+    {
+        if (! $this->context->hasTenant()) {
+            return collect();
+        }
+
+        return RoleAssignment::query()
+            ->where('user_id', $user->getKey())
+            ->with('role.permissions')
+            ->get()
+            ->filter(fn (RoleAssignment $a) => ($a->role?->permissions ?? collect())
+                ->pluck('key')->contains($permission))
+            ->map(fn (RoleAssignment $a) => [
+                'scope_type' => $a->scope_type,
+                'scope_id' => $a->scope_id,
+            ])
+            ->values();
+    }
+
+    /** True if the user holds the permission at ANY scope (route-level gate). */
+    public function hasAtAnyScope(User $user, string $permission): bool
+    {
+        return $this->scopeGrantsFor($user, $permission)->isNotEmpty();
+    }
+
+    /** True if the user holds the permission company-wide (unscoped access). */
+    public function hasCompanyWide(User $user, string $permission): bool
+    {
+        return $this->scopeGrantsFor($user, $permission)
+            ->contains(fn (array $g) => $g['scope_type'] === 'company');
+    }
+
     /** Roles held by a user in the active tenant (for display). */
     public function roleSlugsFor(User $user): Collection
     {

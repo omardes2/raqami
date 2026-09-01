@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Authorization\Middleware\EnsurePermission;
+use App\Modules\Authorization\Middleware\EnsurePermissionAnyScope;
 use App\Modules\Localization\Middleware\SetLocale;
 use App\Modules\Platform\Middleware\EnsurePlatformAdmin;
 use App\Modules\Tenancy\Middleware\EnsureTenantContext;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant' => ResolveTenant::class,
             'tenant.required' => EnsureTenantContext::class,
             'permission' => EnsurePermission::class,
+            'permission.any' => EnsurePermissionAnyScope::class,
             'platform' => EnsurePlatformAdmin::class,
         ]);
     })
