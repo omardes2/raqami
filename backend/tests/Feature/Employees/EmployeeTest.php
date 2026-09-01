@@ -5,17 +5,21 @@ namespace Tests\Feature\Employees;
 use App\Modules\Audit\Models\AuditLog;
 use App\Modules\Employees\Models\Employee;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\InteractsWithBilling;
 use Tests\Concerns\InteractsWithTenancy;
 use Tests\TestCase;
 
 class EmployeeTest extends TestCase
 {
+    use InteractsWithBilling;
     use InteractsWithTenancy;
     use RefreshDatabase;
 
     public function test_create_employee_generates_unique_number(): void
     {
         [$owner, $tenant] = $this->createCompanyWithOwner();
+        // Entitlements are fail-closed: a usable subscription is required.
+        $this->subscribeTenant($tenant, $this->makePlan());
 
         $first = $this->actingAs($owner)->withHeaders($this->tenantHeaders($tenant))
             ->postJson('/api/employees', ['first_name' => 'A', 'last_name' => 'One'])

@@ -340,3 +340,87 @@ consistent with the approved ADRs; no ADR is changed.
   route-model binding executes under the correct tenant/RLS context.
 - **Employee number:** default `EMP-000123` generator; company-configurable
   formats deferred. ULID remains the internal PK (ADR-008).
+
+## Sprint 2 Implementation Notes
+
+Implementation-level decisions for Sprint 2 (SaaS Billing & Subscriptions),
+consistent with the approved ADRs; no approved ADR is changed.
+
+- **Billing domain split (platform-global vs tenant-linked):** `plans`,
+  `plan_features`, `coupons`, and `bank_accounts` are **platform-global**
+  configuration (no `tenant_id`, no RLS) — never duplicated per tenant.
+  `subscriptions`, `subscription_changes`, `subscription_events`,
+  `billing_profiles`, `invoices`, `invoice_items`, `payments`,
+  `bank_transfer_submissions`, `coupon_redemptions`, and `billing_counters` are
+  **tenant-linked** (`tenant_id` + FORCE RLS, same `tenant_isolation` +
+  `platform_readonly` policies as Sprint 0/1). This **refines** the conceptual
+  note in `DATABASE.md` that placed subscriptions/invoices/payments in the
+  "central" context: they belong to the TENANT and are RLS-isolated, while the
+  Super Admin portal reads them cross-tenant only through the audited
+  platform read-only context. Reinforces ADR-002; does not change it.
+- **Subscription belongs to the tenant, not a user:** one primary subscription
+  per tenant (`unique(tenant_id)`); users act on it only via `billing.*`
+  permissions.
+- **Status as value objects:** subscription/invoice/payment statuses are PHP
+  enums; `SubscriptionStatus` owns the allowed-transition map and lifecycle is
+  driven by `SubscriptionManager` (invalid transitions rejected). No arbitrary
+  status strings.
+- **Money:** integer minor units everywhere; one currency per invoice/payment;
+  no FX conversion in Sprint 2. Totals are always computed server-side.
+- **Downgrades never delete data:** recorded as a scheduled `subscription_change`
+  applied at period end, with an over-cap warning when current usage exceeds the
+  target plan; upgrades apply immediately.
+- **Payment application is transactional + idempotent:** `PaymentService`
+  locks the invoice, enforces currency match, rejects overpayment (no account
+  credits in Sprint 2), supports partial payments, and activates/renews the
+  subscription on full payment. Bank-transfer approval and manual/cash payment
+  run inside the target tenant's context (RLS-safe) even though the actor is a
+  platform admin, with a row-lock + status guard preventing double application.
+- **Employee-limit entitlement (ADR-015 adjacent):** enforced at the employee
+  creation entry point via `EntitlementService`; countable employees exclude
+  `terminated`/`archived`; a tenant with no active plan is unlimited (fail-open).
+- **Payment provider abstraction unchanged (ADR-010):** no real card provider
+  integrated; `WebhookIngestionService` + `idempotency_records` establish the
+  idempotent webhook seam without a public endpoint or provider SDK.
+- **Invoice numbering:** per-tenant `INV-YYYY-######` via an atomic
+  `INSERT ... ON CONFLICT ... RETURNING` counter (`billing_counters`);
+  never exposes the DB id; concurrency-safe.
+
+## Sprint 2 — Commercial Hardening Notes
+
+Final commercial-hardening decisions for Sprint 2 (consistent with the approved
+ADRs; none is changed):
+
+- **Fail-CLOSED entitlements.** Product entitlements require an explicit USABLE
+  commercial state (trialing / active / grace_period). No subscription, expired,
+  suspended, or canceled grant nothing — there is no implicit unlimited fallback.
+  Onboarding bootstraps a trial from the single **platform-configured default
+  trial plan** (`plans.is_default_trial`, partial-unique "one active default")
+  when one exists; otherwise the tenant stays fail-closed until it picks a plan.
+  Billing/account/recovery routes never gate on subscription usability.
+- **Upgrades are PAYMENT-GATED.** A plan upgrade records a *pending*
+  `subscription_change` linked to an invoice; the new plan/limits apply only when
+  that invoice is fully paid (`SubscriptionManager::applyPendingChangeForInvoice`,
+  invoked by `PaymentService`). Downgrades stay scheduled at period end and never
+  delete data. No card proration.
+- **Reactivation.** A terminal (canceled/expired) subscription is reactivated via
+  an explicit, payment-gated purchase on the same single per-tenant row — never a
+  silent restart, never a second free trial; history is preserved.
+- **Invoice numbers are GLOBALLY unique.** Numbering moved from the per-tenant
+  `billing_counters` (removed) to a platform-global `invoice_number_sequences`
+  table (atomic `INSERT ... ON CONFLICT ... RETURNING`); `invoices.invoice_number`
+  now carries a **global** unique constraint. Still `INV-YYYY-######`, no DB id
+  exposed.
+- **Employee-limit concurrency.** The entitlement check and the insert run in one
+  transaction under a per-tenant PostgreSQL **advisory xact lock**, so concurrent
+  creates cannot exceed the plan cap.
+- **Currency exponents.** `CurrencyMetadata` (+ config `currency_exponents`) and a
+  frontend mirror format minor units by ISO exponent (JOD = 3, others = 2).
+  Authoritative arithmetic stays in integer minor units.
+- **Lifecycle processor.** `SubscriptionLifecycleProcessor` + the idempotent
+  `billing:process-lifecycle` command process due trial/grace expiry, scheduled
+  cancellation, and scheduled downgrade per-tenant with failure isolation. No
+  cron is configured here.
+- **Client-safe errors.** Invalid commercial transitions (terminal change/cancel,
+  no pending cancellation, cross-currency) surface as localized HTTP 422, never a
+  raw 500.

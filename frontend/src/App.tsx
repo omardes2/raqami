@@ -18,10 +18,21 @@ import Branches from './pages/org/Branches'
 import Departments from './pages/org/Departments'
 import Teams from './pages/org/Teams'
 import JobTitles from './pages/org/JobTitles'
+import BillingLayout from './pages/billing/BillingLayout'
+import BillingOverview from './pages/billing/BillingOverview'
+import BillingSubscription from './pages/billing/BillingSubscription'
+import BillingInvoices from './pages/billing/BillingInvoices'
+import BillingPayments from './pages/billing/BillingPayments'
+import BillingDetails from './pages/billing/BillingDetails'
 import PlatformLogin from './pages/platform/PlatformLogin'
 import PlatformLayout from './pages/platform/PlatformLayout'
 import PlatformDashboard from './pages/platform/PlatformDashboard'
 import PlatformAudit from './pages/platform/PlatformAudit'
+import PlatformBilling from './pages/platform/PlatformBilling'
+import PlatformPlans from './pages/platform/PlatformPlans'
+import PlatformCoupons from './pages/platform/PlatformCoupons'
+import PlatformBankAccounts from './pages/platform/PlatformBankAccounts'
+import PlatformBankTransfers from './pages/platform/PlatformBankTransfers'
 
 export default function App() {
   return (
@@ -47,6 +58,13 @@ export default function App() {
           <Route path="/departments" element={<Departments />} />
           <Route path="/teams" element={<Teams />} />
           <Route path="/job-titles" element={<JobTitles />} />
+          <Route path="/billing" element={<BillingLayout />}>
+            <Route index element={<BillingOverview />} />
+            <Route path="subscription" element={<BillingSubscription />} />
+            <Route path="invoices" element={<BillingInvoices />} />
+            <Route path="payments" element={<BillingPayments />} />
+            <Route path="details" element={<BillingDetails />} />
+          </Route>
           <Route path="/company" element={<CompanyPage />} />
           <Route path="/users" element={<Users />} />
           <Route path="/roles" element={<Roles />} />
@@ -59,6 +77,11 @@ export default function App() {
       <Route path="/platform/login" element={<PlatformLogin />} />
       <Route path="/platform" element={<PlatformLayout />}>
         <Route index element={<PlatformDashboard />} />
+        <Route path="plans" element={<PlatformPlans />} />
+        <Route path="coupons" element={<PlatformCoupons />} />
+        <Route path="bank-accounts" element={<PlatformBankAccounts />} />
+        <Route path="transfers" element={<PlatformBankTransfers />} />
+        <Route path="billing" element={<PlatformBilling />} />
         <Route path="audit" element={<PlatformAudit />} />
       </Route>
 

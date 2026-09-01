@@ -218,3 +218,23 @@ row-level checks (department scope expands to its subtree). Route gates use
 `permission:<key>` (company-scope) for org-structure management. Cross-scope
 access returns a scope-safe **404**. `employees.view_sensitive` gates sensitive
 fields in `EmployeeResource`; list endpoints never return sensitive fields.
+
+---
+
+## 10. Sprint 2 permissions (implemented)
+
+Added tenant billing permissions (module `billing`):
+
+- `billing.view`, `billing.manage`
+- `billing.subscription.view`, `billing.subscription.change`
+- `billing.invoices.view`, `billing.payments.view`
+- `billing.bank_transfer.submit`
+
+Default mappings: **Owner** = all (still tenant-scoped). **Admin** = full billing
+(view/manage/subscription/invoices/payments/bank-transfer). **Accountant** =
+`billing.view` + subscription/invoices/payments **view** + `bank_transfer.submit`
+(no `billing.manage`, no `subscription.change`). **HR Manager / Department
+Manager / Team Leader / Employee** = no billing by default. Billing gates use
+`permission:<key>` (company scope) since billing is company-wide, not org-scoped.
+**Platform (Super Admin) billing** is a separate identity/guard and is never part
+of tenant RBAC.

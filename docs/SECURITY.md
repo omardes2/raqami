@@ -156,3 +156,47 @@ tests, especially:
 - **Two logs, two purposes:** the immutable `audit_logs` records security
   events; `employee_history_events` is the HR business timeline. Neither stores
   secrets or document contents.
+
+---
+
+## 15. Sprint 2 additions (SaaS Billing & Subscriptions)
+
+- **RLS extended** to all tenant-linked billing tables (subscriptions,
+  subscription_changes, subscription_events, billing_profiles, invoices,
+  invoice_items, payments, bank_transfer_submissions, coupon_redemptions,
+  billing_counters) with the same `tenant_isolation` + `platform_readonly`
+  (ENABLE + FORCE) policies. Platform-global tables (plans, plan_features,
+  coupons, bank_accounts) and infra tables (payment_webhook_events,
+  idempotency_records) are intentionally not tenant-scoped.
+- **Server-authoritative money:** all invoice/payment totals are computed
+  server-side from line items; the client never supplies totals. Overpayment is
+  rejected (no account credits); payment currency must match invoice currency.
+- **Separation of duties:** a tenant user can never approve their own
+  bank-transfer or record a succeeded payment — approval/manual recording is
+  platform-admin-only. Writes still run under the target tenant's RLS context.
+- **Idempotency / no double-charge:** invoice row-lock + status guard on
+  bank-transfer approval and payment application; `idempotency_records` and a
+  unique `payments.idempotency_key` back the webhook seam. No provider SDK, no
+  public webhook endpoint, no card data stored.
+- **Private receipts:** bank-transfer proofs live on a private disk
+  (`proof_storage_key` hidden from serialization); downloads are authorized +
+  streamed. Bank-account `internal_notes` are platform-only.
+- **Mass assignment / IDOR:** all writes use validated FormRequests; `tenant_id`
+  is stamped by the tenant context; cross-tenant billing access returns a
+  scope-safe 404 and cross-tenant writes are blocked by the tenant guard.
+
+## 16. Sprint 2 — commercial hardening (security-relevant)
+
+- **Fail-closed entitlements:** product features require a usable subscription;
+  "no subscription" never means unlimited. Billing/recovery routes stay reachable.
+- **No unpaid entitlement:** plan upgrades and reactivations apply only after the
+  linked invoice is fully paid (payment-gated), enforced server-side.
+- **Employee-limit race closed:** the check + insert share one transaction under a
+  per-tenant advisory lock.
+- **Platform read-only cannot write:** verified by test — under the audited
+  read-only context, RLS permits SELECT only; writes affect zero tenant rows.
+- **Raw-RLS coverage** now asserts isolation on every tenant-linked billing table
+  (subscriptions, subscription_changes, subscription_events, billing_profiles,
+  invoices, invoice_items, payments, bank_transfer_submissions, coupon_redemptions).
+- **Invoice numbers** are globally unique (unambiguous for reconciliation/audit).
+- **Client-safe 422s** for invalid commercial transitions (no internal 500s).

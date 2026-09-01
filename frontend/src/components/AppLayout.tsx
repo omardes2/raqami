@@ -28,6 +28,7 @@ export default function AppLayout() {
     { to: '/departments', label: t('nav.departments'), show: can('departments.view') },
     { to: '/teams', label: t('nav.teams'), show: can('teams.view') },
     { to: '/job-titles', label: t('nav.job_titles'), show: can('job_titles.view') },
+    { to: '/billing', label: t('nav.billing'), show: can('billing.view') },
     { to: '/company', label: t('nav.company'), show: can('company.view') },
     { to: '/users', label: t('nav.users'), show: can('user.view') },
     { to: '/roles', label: t('nav.roles'), show: can('role.view') },

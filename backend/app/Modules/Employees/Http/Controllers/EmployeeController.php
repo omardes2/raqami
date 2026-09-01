@@ -3,6 +3,7 @@
 namespace App\Modules\Employees\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Billing\Services\EntitlementService;
 use App\Modules\Employees\Http\Requests\EmployeeStatusRequest;
 use App\Modules\Employees\Http\Requests\EmployeeStoreRequest;
 use App\Modules\Employees\Http\Requests\EmployeeUpdateRequest;
@@ -29,6 +30,7 @@ class EmployeeController extends Controller
     public function __construct(
         private readonly EmployeeService $employees,
         private readonly EmployeeScopeResolver $scope,
+        private readonly EntitlementService $entitlements,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -80,11 +82,17 @@ class EmployeeController extends Controller
             abort(403, __('employees.out_of_scope_placement'));
         }
 
-        $employee = $this->employees->create($data, $request->user());
+        // Entitlement check + creation share one per-tenant advisory-locked
+        // transaction so a concurrent create cannot exceed the plan cap. Billing
+        // logic lives in EntitlementService, not here (fail-closed).
+        $employee = $this->entitlements->guardedEmployeeCreate(function () use ($data, $request) {
+            $created = $this->employees->create($data, $request->user());
+            if (! empty($data['team_ids'])) {
+                app(EmployeeTransferService::class)->apply($created, ['team_ids' => $data['team_ids']], $request->user());
+            }
 
-        if (! empty($data['team_ids'])) {
-            app(EmployeeTransferService::class)->apply($employee, ['team_ids' => $data['team_ids']], $request->user());
-        }
+            return $created;
+        });
 
         return (new EmployeeResource($employee->fresh(['branch', 'department', 'jobTitle', 'manager', 'teams'])))
             ->response()->setStatusCode(201);

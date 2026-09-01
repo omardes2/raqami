@@ -358,3 +358,40 @@ Cross-entity and self-referential FKs (employees.department_id, employees
 migration to avoid PostgreSQL create-order issues. No partitioning (ADR-009).
 Employee number default format is `EMP-000123` (per-tenant unique; configurable
 format is a future concern).
+
+---
+
+## 8. Sprint 2 — SaaS Billing & Subscriptions (implemented)
+
+Sprint 2 refines the §1 note that placed subscriptions/invoices/payments in the
+"central" context: those are **tenant-linked** (indexed `tenant_id`, RLS
+ENABLE+FORCE), so a tenant's billing records are isolated; the Super Admin portal
+reads them cross-tenant only via the audited platform read-only context.
+
+**Platform-global** (no `tenant_id`, no RLS): `plans`, `plan_features`,
+`coupons`, `bank_accounts`.
+
+**Tenant-linked** (`tenant_id` + RLS): `subscriptions` (one per tenant),
+`subscription_changes`, `subscription_events`, `billing_profiles`, `invoices`,
+`invoice_items`, `payments`, `bank_transfer_submissions`, `coupon_redemptions`,
+`billing_counters`.
+
+**Infrastructure** (global, not tenant-owned): `payment_webhook_events`,
+`idempotency_records`.
+
+Conventions: ULID `char(26)` keys, integer minor-unit money, ISO-4217 currency,
+per-tenant unique `invoice_number` (`INV-YYYY-######` via an atomic counter),
+`payments.idempotency_key` unique. No partitioning (ADR-009).
+
+### Sprint 2 — commercial hardening (schema deltas)
+
+- **Removed** `billing_counters` (per-tenant). **Added** platform-global
+  `invoice_number_sequences` (year unique; no tenant_id/RLS) for globally-unique
+  invoice numbers; `invoices.invoice_number` now has a **global** unique index.
+- **Added** `plans.is_default_trial` (partial unique index enforces at most one
+  active default trial plan) and `subscription_changes.invoice_id` (links a
+  pending upgrade/reactivation to the invoice whose payment applies it).
+- Tenant-linked billing tables are now nine (billing_counters removed):
+  billing_profiles, subscriptions, subscription_changes, subscription_events,
+  invoices, invoice_items, payments, bank_transfer_submissions,
+  coupon_redemptions — all with `tenant_id` + FORCE RLS.

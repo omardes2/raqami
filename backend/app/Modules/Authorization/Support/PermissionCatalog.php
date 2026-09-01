@@ -69,6 +69,31 @@ class PermissionCatalog
         'employee_contracts.create' => ['employees', 'Create employee contracts'],
         'employee_contracts.update' => ['employees', 'Update employee contracts'],
         'employee_contracts.archive' => ['employees', 'Archive employee contracts'],
+
+        // --- Sprint 2: Billing & subscriptions (tenant scope) ---
+        // Platform (Super Admin) billing management is a SEPARATE identity/guard,
+        // never part of tenant RBAC (see Platform module).
+        'billing.view' => ['billing', 'View billing overview'],
+        'billing.manage' => ['billing', 'Manage billing (profile, change plan)'],
+        'billing.subscription.view' => ['billing', 'View the subscription'],
+        'billing.subscription.change' => ['billing', 'Change plan / cancel / resume'],
+        'billing.invoices.view' => ['billing', 'View invoices'],
+        'billing.payments.view' => ['billing', 'View payments'],
+        'billing.bank_transfer.submit' => ['billing', 'Submit bank-transfer proof for review'],
+    ];
+
+    /** Sprint 2 billing permission groups reused in default role mappings. */
+    private const BILLING_FULL = [
+        'billing.view', 'billing.manage',
+        'billing.subscription.view', 'billing.subscription.change',
+        'billing.invoices.view', 'billing.payments.view',
+        'billing.bank_transfer.submit',
+    ];
+
+    private const BILLING_ACCOUNTANT = [
+        'billing.view', 'billing.subscription.view',
+        'billing.invoices.view', 'billing.payments.view',
+        'billing.bank_transfer.submit',
     ];
 
     /** Sprint 1 permission groups reused in default role mappings. */
@@ -110,6 +135,7 @@ class PermissionCatalog
                 'audit.view',
                 ...self::ORG_FULL,
                 ...self::EMPLOYEES_FULL,
+                ...self::BILLING_FULL,
             ],
         ],
         'hr-manager' => [
@@ -145,6 +171,7 @@ class PermissionCatalog
                 'company.view',
                 ...self::ORG_VIEW,
                 'employees.view', 'employee_contracts.view',
+                ...self::BILLING_ACCOUNTANT,
             ],
         ],
         'employee' => [

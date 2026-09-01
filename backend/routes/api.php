@@ -4,6 +4,20 @@ use App\Modules\Audit\Http\Controllers\AuditLogController;
 use App\Modules\Authorization\Http\Controllers\PermissionController;
 use App\Modules\Authorization\Http\Controllers\RoleAssignmentController;
 use App\Modules\Authorization\Http\Controllers\RoleController;
+use App\Modules\Billing\Http\Controllers\BankTransferController;
+use App\Modules\Billing\Http\Controllers\BillingOverviewController;
+use App\Modules\Billing\Http\Controllers\BillingProfileController;
+use App\Modules\Billing\Http\Controllers\InvoiceController;
+use App\Modules\Billing\Http\Controllers\PaymentController;
+use App\Modules\Billing\Http\Controllers\PlanCatalogController;
+use App\Modules\Billing\Http\Controllers\Platform\PlatformBankAccountController;
+use App\Modules\Billing\Http\Controllers\Platform\PlatformBankTransferController;
+use App\Modules\Billing\Http\Controllers\Platform\PlatformCouponController;
+use App\Modules\Billing\Http\Controllers\Platform\PlatformInvoiceController;
+use App\Modules\Billing\Http\Controllers\Platform\PlatformPaymentController;
+use App\Modules\Billing\Http\Controllers\Platform\PlatformPlanController;
+use App\Modules\Billing\Http\Controllers\Platform\PlatformSubscriptionController;
+use App\Modules\Billing\Http\Controllers\SubscriptionController;
 use App\Modules\Employees\Http\Controllers\EmergencyContactController;
 use App\Modules\Employees\Http\Controllers\EmployeeContractController;
 use App\Modules\Employees\Http\Controllers\EmployeeController;
@@ -152,6 +166,39 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->group(function
 
 /*
 |--------------------------------------------------------------------------
+| Sprint 2 — Billing & Subscriptions (tenant-scoped, permission-gated)
+|--------------------------------------------------------------------------
+| The subscription belongs to the TENANT; billing is company-wide (not org
+| scoped), so gates use `permission:` (company scope), not `permission.any:`.
+*/
+Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('billing')->group(function () {
+    Route::get('overview', [BillingOverviewController::class, 'show'])->middleware('permission:billing.view');
+    Route::get('plans', [PlanCatalogController::class, 'index'])->middleware('permission:billing.subscription.view');
+
+    Route::get('subscription', [SubscriptionController::class, 'show'])->middleware('permission:billing.subscription.view');
+    Route::post('subscription', [SubscriptionController::class, 'subscribe'])->middleware('permission:billing.subscription.change');
+    Route::post('subscription/change-plan', [SubscriptionController::class, 'changePlan'])->middleware('permission:billing.subscription.change');
+    Route::post('subscription/cancel', [SubscriptionController::class, 'cancel'])->middleware('permission:billing.subscription.change');
+    Route::post('subscription/resume', [SubscriptionController::class, 'resume'])->middleware('permission:billing.subscription.change');
+    Route::post('subscription/invoice', [SubscriptionController::class, 'invoice'])->middleware('permission:billing.subscription.change');
+
+    Route::get('invoices', [InvoiceController::class, 'index'])->middleware('permission:billing.invoices.view');
+    Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->middleware('permission:billing.invoices.view');
+    Route::get('invoices/{invoice}/html', [InvoiceController::class, 'html'])->middleware('permission:billing.invoices.view');
+
+    Route::get('payments', [PaymentController::class, 'index'])->middleware('permission:billing.payments.view');
+
+    Route::get('profile', [BillingProfileController::class, 'show'])->middleware('permission:billing.view');
+    Route::put('profile', [BillingProfileController::class, 'update'])->middleware('permission:billing.manage');
+
+    Route::get('bank-accounts', [BankTransferController::class, 'bankAccounts'])->middleware('permission:billing.bank_transfer.submit');
+    Route::get('bank-transfers', [BankTransferController::class, 'index'])->middleware('permission:billing.payments.view');
+    Route::post('bank-transfers', [BankTransferController::class, 'store'])->middleware('permission:billing.bank_transfer.submit');
+    Route::get('bank-transfers/{bankTransfer}/proof', [BankTransferController::class, 'downloadProof'])->middleware('permission:billing.payments.view');
+});
+
+/*
+|--------------------------------------------------------------------------
 | Platform / Super Admin portal (SEPARATE guard; not tenant RBAC)
 |--------------------------------------------------------------------------
 */
@@ -164,5 +211,37 @@ Route::prefix('platform')->group(function () {
         Route::get('tenants', [PlatformTenantController::class, 'index']);
         Route::get('tenants/{tenant}', [PlatformTenantController::class, 'show']);
         Route::get('audit-logs', [PlatformAuditController::class, 'index']);
+
+        // --- Sprint 2: platform billing management ---
+        Route::get('plans', [PlatformPlanController::class, 'index']);
+        Route::post('plans', [PlatformPlanController::class, 'store']);
+        Route::get('plans/{plan}', [PlatformPlanController::class, 'show']);
+        Route::match(['put', 'patch'], 'plans/{plan}', [PlatformPlanController::class, 'update']);
+        Route::post('plans/{plan}/archive', [PlatformPlanController::class, 'archive']);
+        Route::post('plans/{plan}/features', [PlatformPlanController::class, 'storeFeature']);
+        Route::delete('plans/{plan}/features/{feature}', [PlatformPlanController::class, 'destroyFeature']);
+
+        Route::get('coupons', [PlatformCouponController::class, 'index']);
+        Route::post('coupons', [PlatformCouponController::class, 'store']);
+        Route::match(['put', 'patch'], 'coupons/{coupon}', [PlatformCouponController::class, 'update']);
+        Route::post('coupons/{coupon}/archive', [PlatformCouponController::class, 'archive']);
+
+        Route::get('bank-accounts', [PlatformBankAccountController::class, 'index']);
+        Route::post('bank-accounts', [PlatformBankAccountController::class, 'store']);
+        Route::match(['put', 'patch'], 'bank-accounts/{bankAccount}', [PlatformBankAccountController::class, 'update']);
+        Route::post('bank-accounts/{bankAccount}/archive', [PlatformBankAccountController::class, 'archive']);
+
+        Route::get('subscriptions', [PlatformSubscriptionController::class, 'index']);
+        Route::get('subscriptions/{subscription}', [PlatformSubscriptionController::class, 'show']);
+
+        Route::get('invoices', [PlatformInvoiceController::class, 'index']);
+
+        Route::get('payments', [PlatformPaymentController::class, 'index']);
+        Route::post('payments/manual', [PlatformPaymentController::class, 'manual']);
+
+        Route::get('bank-transfers', [PlatformBankTransferController::class, 'index']);
+        Route::post('bank-transfers/{submission}/approve', [PlatformBankTransferController::class, 'approve']);
+        Route::post('bank-transfers/{submission}/reject', [PlatformBankTransferController::class, 'reject']);
+        Route::get('bank-transfers/{submission}/proof', [PlatformBankTransferController::class, 'downloadProof']);
     });
 });
