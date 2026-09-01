@@ -82,6 +82,14 @@ class AttendanceCorrectionService
         return DB::transaction(function () use ($correction, $reviewer) {
             $record = AttendanceRecord::query()->lockForUpdate()->findOrFail($correction->attendance_record_id);
 
+            // Optimistic concurrency: the record must be unchanged since the
+            // correction was requested. If a later punch/aggregation moved it,
+            // the reviewer is acting on stale numbers — refuse and force a reload.
+            $baseVersion = $correction->old_values['version'] ?? null;
+            if ($baseVersion !== null && (int) $record->version !== (int) $baseVersion) {
+                $this->reject(__('attendance.correction_stale'));
+            }
+
             $checkIn = $correction->requested_check_in_at
                 ? CarbonImmutable::parse($correction->requested_check_in_at)
                 : ($record->check_in_at ? CarbonImmutable::parse($record->check_in_at) : null);
@@ -103,6 +111,7 @@ class AttendanceCorrectionService
                 'status' => $computation->status,
                 'source' => AttendanceSource::Correction,
                 'corrected_at' => CarbonImmutable::now()->utc(),
+                'version' => (int) $record->version + 1,
             ])->save();
 
             AttendanceEvent::query()->create([
@@ -187,6 +196,7 @@ class AttendanceCorrectionService
             'early_leave_minutes' => $record->early_leave_minutes,
             'overtime_minutes' => $record->overtime_minutes,
             'status' => $record->status instanceof \BackedEnum ? $record->status->value : $record->status,
+            'version' => (int) $record->version,
         ];
     }
 }
