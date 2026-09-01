@@ -188,3 +188,33 @@ platform permissions are recorded in audit logs (`SECURITY.md`).
 Manager scoping is **decided (ADR-015)**: the authorization architecture supports
 **Company / Branch / Department-Team** scopes, and managers are bounded to their
 assigned scope. No open permission questions block Sprint 0.
+
+---
+
+## 9. Sprint 1 permissions (implemented)
+
+Added to the catalog and to default role mappings (see
+`app/Modules/Authorization/Support/PermissionCatalog.php`):
+
+- **Organization:** `branches.{view,create,update,archive}`,
+  `departments.{view,create,update,archive}`, `teams.{view,create,update,archive}`,
+  `job_titles.{view,create,update,archive}`.
+- **Employees:** `employees.{view,create,update,archive,transfer,link_user,view_sensitive}`.
+- **Employee documents:** `employee_documents.{view,upload,delete}`.
+- **Employee contracts:** `employee_contracts.{view,create,update,archive}`.
+
+Default mappings: **Owner** = all (still tenant-scoped, no isolation bypass).
+**Admin** = org full + employees full (incl. `view_sensitive`). **HR Manager** =
+employees full + org view + department/team/job-title management.
+**Department Manager** / **Team Leader** = scoped `employees.view`/`update`
+(no `view_sensitive`). **Accountant** = employees + contracts view. **Employee**
+= none (self-service only).
+
+**Operational scope enforcement (ADR-015 made real):** role assignments carry
+`scope_type` + `scope_id` against real Branch/Department/Team rows.
+`EmployeeScopeResolver` converts a user's grants into query constraints and
+row-level checks (department scope expands to its subtree). Route gates use
+`permission.any:<key>` for scoped resources (admits any-scope holders) and
+`permission:<key>` (company-scope) for org-structure management. Cross-scope
+access returns a scope-safe **404**. `employees.view_sensitive` gates sensitive
+fields in `EmployeeResource`; list endpoints never return sensitive fields.

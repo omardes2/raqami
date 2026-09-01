@@ -149,3 +149,29 @@ future scaling strategy only — ADR-009).
 - Additional payment gateway drivers, incl. regional (ADR-010).
 - Documentation kept in sync with implementation.
 - Backups/restore drills before production.
+
+---
+
+## Sprint 1 — Organization & Employees (IMPLEMENTED on feature branch)
+
+Delivered on `feature/sprint-1-organization-employees` (not merged to `main`):
+
+- **Organization:** branches, hierarchical departments (cycle-prevented), teams
+  + memberships, job titles — tenant-scoped CRUD with archive-not-delete and
+  dependency guards.
+- **Employees:** HR record **separate from User** (optional link), auto
+  `EMP-000123` numbering (per-tenant unique), employment status/type, direct
+  manager (self-management + cycle prevented), organizational transfers
+  (transactional, history + audit), emergency contacts, private documents,
+  contracts (no compensation), append-oriented HR history.
+- **Authorization:** ADR-015 scopes made operational against real Branch/
+  Department/Team entities; `EmployeeScopeResolver` (with department-subtree
+  expansion) enforces scope at query + row level; scope-safe 404 for IDOR;
+  sensitive fields gated by `employees.view_sensitive`.
+- **RLS** extended to all 10 new tenant-owned tables. **Frontend:** Organization
+  section + Employees list/create/detail(tabs) + org CRUD, AR/EN + RTL/LTR,
+  responsive.
+- **Out of scope (not implemented):** attendance, shifts, leave, payroll,
+  tasks, billing, AI, timesheets, biometric/kiosk, country labor rules.
+
+Sprint 1 is complete on its branch; Sprint 2 has **not** started.

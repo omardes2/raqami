@@ -129,3 +129,30 @@ tests, especially:
 - Target regions and compliance certifications.
 - MFA method(s) and enforcement policy.
 - Data residency for tenants and AI processing.
+
+---
+
+## 14. Sprint 1 additions (Organization & Employees)
+
+- **RLS extended** to all new tenant-owned tables (branches, job_titles,
+  departments, employees, teams, team_memberships, employee_emergency_contacts,
+  employee_documents, employee_contracts, employee_history_events) with the same
+  `tenant_isolation` + `platform_readonly` policies (ENABLE + FORCE).
+- **IDOR prevention:** route-model binding runs *after* tenant context is
+  established (middleware priority), and `EmployeeScopeResolver` enforces
+  organizational scope at row and query level. Out-of-scope / cross-tenant
+  access returns a scope-safe 404. Covered by tests.
+- **Sensitive employee data** (personal email/phone, DOB, nationality, address,
+  notes, emergency contacts) is gated by `employees.view_sensitive` and never
+  serialized in list endpoints.
+- **Employee documents** live on a private, S3-compatible disk; only
+  `storage_key`s are stored (hidden from serialization), downloads are
+  authorized + streamed (no public URLs; S3 uses short-lived signed URLs),
+  size/type validated, and upload/download/delete are audited.
+- **Employee/User separation:** linking is validated (user must be a tenant
+  member; no cross-tenant users; one active employee per user) and audited.
+- **Mass assignment:** all writes use validated FormRequest data or whitelists;
+  `tenant_id` is stamped by the tenant context, never client-supplied.
+- **Two logs, two purposes:** the immutable `audit_logs` records security
+  events; `employee_history_events` is the HR business timeline. Neither stores
+  secrets or document contents.
