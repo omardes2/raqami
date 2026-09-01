@@ -39,4 +39,30 @@ return [
     'not_linked' => 'Your account is not linked to an employee record.',
     'branch_invalid' => 'The selected branch does not exist in this tenant.',
     'date_range_too_large' => 'The date range is too large; narrow it to one year or less.',
+
+    // Sprint 4 — sessions
+    'session_overlap' => 'This check-in overlaps an existing attendance session.',
+
+    // Sprint 4 — holidays
+    'holiday_end_before_start' => 'The holiday end date cannot be before its start date.',
+    'holiday_scope_invalid' => 'The holiday calendar assignment scope is invalid.',
+
+    // Sprint 4 — exceptions
+    'exception_end_before_start' => 'The exception end date cannot be before its start date.',
+    'exception_reviewed' => 'This attendance exception has already been reviewed.',
+    'exception_self' => 'You cannot approve your own attendance exception.',
+    'exception_alternate_location_invalid' => 'The selected alternate location does not exist in this tenant.',
+    'exception_alternate_schedule_invalid' => 'The selected alternate schedule does not exist in this tenant.',
+
+    // Sprint 4 — overtime approval
+    'overtime_reviewed' => 'This overtime request has already been reviewed.',
+    'overtime_self' => 'You cannot review your own overtime request.',
+    'overtime_stale' => 'The attendance record changed since this overtime request; refresh and retry.',
+    'overtime_minutes_invalid' => 'The approved overtime minutes are invalid.',
+
+    // Sprint 4 — corrections concurrency
+    'correction_stale' => 'The attendance record changed since this correction; refresh and retry.',
+
+    // Sprint 4 — anomalies
+    'anomaly_reviewed' => 'This attendance anomaly has already been resolved.',
 ];

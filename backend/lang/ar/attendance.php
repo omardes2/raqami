@@ -39,4 +39,30 @@ return [
     'not_linked' => 'حسابك غير مرتبط بسجل موظف.',
     'branch_invalid' => 'الفرع المحدّد غير موجود في هذه الشركة.',
     'date_range_too_large' => 'نطاق التاريخ كبير جداً؛ يرجى تضييقه إلى سنة واحدة أو أقل.',
+
+    // Sprint 4 — sessions
+    'session_overlap' => 'تسجيل الدخول هذا يتداخل مع جلسة حضور قائمة.',
+
+    // Sprint 4 — holidays
+    'holiday_end_before_start' => 'لا يمكن أن يكون تاريخ نهاية العطلة قبل تاريخ بدايتها.',
+    'holiday_scope_invalid' => 'نطاق إسناد تقويم العطلات غير صالح.',
+
+    // Sprint 4 — exceptions
+    'exception_end_before_start' => 'لا يمكن أن يكون تاريخ نهاية الاستثناء قبل تاريخ بدايته.',
+    'exception_reviewed' => 'تمت مراجعة استثناء الحضور هذا بالفعل.',
+    'exception_self' => 'لا يمكنك اعتماد استثناء الحضور الخاص بك.',
+    'exception_alternate_location_invalid' => 'الموقع البديل المحدّد غير موجود في هذه الشركة.',
+    'exception_alternate_schedule_invalid' => 'الجدول البديل المحدّد غير موجود في هذه الشركة.',
+
+    // Sprint 4 — overtime approval
+    'overtime_reviewed' => 'تمت مراجعة طلب العمل الإضافي هذا بالفعل.',
+    'overtime_self' => 'لا يمكنك مراجعة طلب العمل الإضافي الخاص بك.',
+    'overtime_stale' => 'تغيّر سجل الحضور منذ إنشاء طلب العمل الإضافي؛ يرجى التحديث وإعادة المحاولة.',
+    'overtime_minutes_invalid' => 'دقائق العمل الإضافي المعتمدة غير صالحة.',
+
+    // Sprint 4 — corrections concurrency
+    'correction_stale' => 'تغيّر سجل الحضور منذ إنشاء طلب التصحيح؛ يرجى التحديث وإعادة المحاولة.',
+
+    // Sprint 4 — anomalies
+    'anomaly_reviewed' => 'تمت معالجة تباين الحضور هذا بالفعل.',
 ];

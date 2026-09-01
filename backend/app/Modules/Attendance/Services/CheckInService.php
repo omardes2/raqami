@@ -3,8 +3,11 @@
 namespace App\Modules\Attendance\Services;
 
 use App\Modules\Attendance\Enums\AttendanceEventType;
+use App\Modules\Attendance\Enums\AttendanceSource;
+use App\Modules\Attendance\Enums\AttendanceStatus;
 use App\Modules\Attendance\Models\AttendanceEvent;
 use App\Modules\Attendance\Models\AttendanceRecord;
+use App\Modules\Attendance\Models\AttendanceSession;
 use App\Modules\Attendance\Support\AttendanceEligibility;
 use App\Modules\Attendance\Support\AttendanceLock;
 use App\Modules\Attendance\Support\PunchInput;
@@ -18,11 +21,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Records a check-in. The SERVER decides everything: the instant (its own clock),
- * the applicable schedule, whether the punch is inside a geofence, and the
- * resulting status. The client only submits raw facts (coordinates). The whole
- * operation is one transaction guarded by an advisory lock + row locks, so
- * concurrent retries can never create two open records.
+ * Records a check-in as a new SESSION. The SERVER decides the instant, schedule,
+ * geofence, and status; the client sends only facts. Split shifts are supported:
+ * a work_date may hold several closed sessions, but AT MOST ONE open session per
+ * employee (advisory lock + partial unique index). The daily attendance_record is
+ * re-aggregated from its sessions. Idempotent on client_request_id.
  */
 class CheckInService
 {
@@ -31,6 +34,8 @@ class CheckInService
         private readonly ScheduleResolver $resolver,
         private readonly GeofenceService $geofence,
         private readonly AttendanceCalculator $calculator,
+        private readonly AttendanceRecordAggregator $aggregator,
+        private readonly ExceptionResolver $exceptions,
         private readonly AuditLogger $audit,
         private readonly TenantContext $context,
     ) {}
@@ -50,32 +55,39 @@ class CheckInService
                 return $replay;
             }
 
-            $this->assertNoOpenRecord($employee);
+            $this->assertNoOpenSession($employee);
 
             $settings = $this->settings->current();
             $resolved = $this->resolver->resolveWorkDay($employee, $now, $settings->default_timezone);
+            $exception = $this->exceptions->resolve($employee, $resolved->workDate);
 
-            $this->assertSchedulingAllowed($resolved, $settings);
-            $this->assertGpsAcceptable($input, $settings);
+            $this->assertSchedulingAllowed($resolved, $settings, $exception);
+            $this->assertGpsAcceptable($input, $settings, $resolved, $exception);
             $this->assertWithinCheckInWindow($resolved, $settings, $now);
 
-            $this->assertNoRecordForDate($employee, $resolved->workDate->toDateString());
+            $record = $this->recordForDay($employee, $resolved, $settings, $exception);
+            $this->assertDailySessionsAllowed($record, $settings);
+
+            // The active segment for this punch drives the session snapshot + math.
+            $segment = $resolved->segmentFor($now);
+            $active = $segment !== null ? $resolved->forSegment($segment) : $resolved;
+
+            $this->assertNoOverlap($record, $now);
 
             $geo = $this->geofence->evaluate($input->latitude, $input->longitude, $input->accuracyMeters);
-            $computation = $this->calculator->compute($resolved, $now, null);
+            $computation = $this->calculator->compute($active, $now, null);
+            $sequence = (int) $record->sessions()->max('sequence') + 1;
 
-            $record = AttendanceRecord::query()->create([
+            $session = AttendanceSession::query()->create([
+                'attendance_record_id' => $record->getKey(),
                 'employee_id' => $employee->getKey(),
-                'work_schedule_id' => $resolved->schedule?->getKey(),
-                'work_date' => $resolved->workDate->toDateString(),
-                'timezone' => $resolved->timezone,
-                'scheduled_start_at' => $resolved->scheduledStartAt,
-                'scheduled_end_at' => $resolved->scheduledEndAt,
+                'sequence' => $sequence,
                 'check_in_at' => $now,
-                'grace_minutes' => $resolved->graceMinutes,
+                'scheduled_start_at' => $active->scheduledStartAt,
+                'scheduled_end_at' => $active->scheduledEndAt,
+                'grace_minutes' => $active->graceMinutes,
                 'break_minutes' => $computation->breakMinutes,
                 'late_minutes' => $computation->lateMinutes,
-                'status' => $computation->status,
                 'source' => $input->source,
                 'check_in_latitude' => $input->latitude,
                 'check_in_longitude' => $input->longitude,
@@ -100,14 +112,16 @@ class CheckInService
                 'client_request_id' => $input->clientRequestId,
             ]);
 
+            $record = $this->aggregator->aggregate($record);
+
             $this->audit->log('attendance.checked_in', [
                 'actor' => $actor,
                 'subject' => $record,
                 'metadata' => [
                     'employee_id' => (string) $employee->getKey(),
                     'work_date' => $record->work_date->toDateString(),
-                    'status' => $computation->status->value,
-                    'inside_geofence' => $record->check_in_inside_geofence,
+                    'session_id' => (string) $session->getKey(),
+                    'status' => $record->status->value,
                 ],
             ]);
 
@@ -115,7 +129,49 @@ class CheckInService
         });
     }
 
-    /** Idempotent replay: same client_request_id already recorded → its record. */
+    /** Find or create the daily aggregate record for the resolved work day. */
+    private function recordForDay(Employee $employee, ResolvedWorkDay $resolved, $settings, $exception): AttendanceRecord
+    {
+        $mode = $exception?->attendance_mode?->value
+            ?? ($resolved->schedule ? $settings->default_attendance_mode : $settings->default_attendance_mode);
+
+        $record = AttendanceRecord::query()
+            ->where('employee_id', $employee->getKey())
+            ->whereDate('work_date', $resolved->workDate->toDateString())
+            ->lockForUpdate()
+            ->first();
+
+        if ($record !== null) {
+            return $record;
+        }
+
+        return AttendanceRecord::query()->create([
+            'employee_id' => $employee->getKey(),
+            'work_schedule_id' => $resolved->schedule?->getKey(),
+            'work_date' => $resolved->workDate->toDateString(),
+            'timezone' => $resolved->timezone,
+            'scheduled_start_at' => $resolved->scheduledStartAt,
+            'scheduled_end_at' => $this->dayEnd($resolved),
+            'grace_minutes' => $resolved->graceMinutes,
+            'status' => AttendanceStatus::Present,
+            'source' => $resolved->schedule ? AttendanceSource::Web : AttendanceSource::Web,
+            'attendance_mode' => $mode,
+        ]);
+    }
+
+    /** The end of the day's LAST segment (for the record-level reference window). */
+    private function dayEnd(ResolvedWorkDay $resolved): ?CarbonImmutable
+    {
+        $last = null;
+        foreach ($resolved->segments as $segment) {
+            if ($last === null || $segment->endAt->greaterThan($last)) {
+                $last = $segment->endAt;
+            }
+        }
+
+        return $last;
+    }
+
     private function replay(Employee $employee, PunchInput $input): ?AttendanceRecord
     {
         if ($input->clientRequestId === null) {
@@ -131,47 +187,66 @@ class CheckInService
         return $event?->record;
     }
 
-    private function assertNoOpenRecord(Employee $employee): void
+    private function assertNoOpenSession(Employee $employee): void
     {
-        $open = AttendanceRecord::query()
+        $open = AttendanceSession::query()
             ->where('employee_id', $employee->getKey())
-            ->whereNotNull('check_in_at')
             ->whereNull('check_out_at')
             ->lockForUpdate()
-            ->first();
+            ->exists();
 
-        if ($open !== null) {
+        if ($open) {
             $this->reject(__('attendance.already_open'));
         }
     }
 
-    private function assertNoRecordForDate(Employee $employee, string $workDate): void
+    private function assertDailySessionsAllowed(AttendanceRecord $record, $settings): void
     {
-        $exists = AttendanceRecord::query()
-            ->where('employee_id', $employee->getKey())
-            ->whereDate('work_date', $workDate)
-            ->lockForUpdate()
-            ->exists();
-
-        if ($exists) {
+        $existing = $record->sessions()->count();
+        if ($existing > 0 && ! $settings->allow_multiple_sessions) {
             $this->reject(__('attendance.already_recorded_today'));
         }
     }
 
-    private function assertSchedulingAllowed(ResolvedWorkDay $resolved, $settings): void
+    /** A new session's check-in must not fall inside an existing session window. */
+    private function assertNoOverlap(AttendanceRecord $record, CarbonImmutable $now): void
     {
+        $overlap = $record->sessions()
+            ->where('check_in_at', '<=', $now)
+            ->where(function ($q) use ($now) {
+                $q->whereNull('check_out_at')->orWhere('check_out_at', '>=', $now);
+            })
+            ->exists();
+
+        if ($overlap) {
+            $this->reject(__('attendance.session_overlap'));
+        }
+    }
+
+    private function assertSchedulingAllowed(ResolvedWorkDay $resolved, $settings, $exception): void
+    {
+        // An authorized off-day/remote exception permits attendance regardless.
+        if ($exception !== null) {
+            return;
+        }
+
         if (! $resolved->hasSchedule() && ! $settings->allow_unscheduled_work) {
             $this->reject(__('attendance.no_schedule'));
         }
 
-        if ($resolved->hasSchedule() && ! $resolved->isScheduledWorkingDay() && ! $settings->allow_unscheduled_work) {
+        if ($resolved->hasSchedule() && ! $resolved->isScheduledWorkingDay()
+            && $settings->off_day_work_policy === 'reject' && ! $settings->allow_unscheduled_work) {
             $this->reject(__('attendance.not_working_day'));
         }
     }
 
-    private function assertGpsAcceptable(PunchInput $input, $settings): void
+    private function assertGpsAcceptable(PunchInput $input, $settings, ResolvedWorkDay $resolved, $exception): void
     {
-        if (($settings->require_gps || $settings->geofence_required) && ! $input->hasCoordinates()) {
+        // Remote/field mode (via exception) does not require the office geofence.
+        $mode = $exception?->attendance_mode?->value ?? $settings->default_attendance_mode;
+        $geofenceRequired = $settings->geofence_required && $mode === 'onsite';
+
+        if (($settings->require_gps || $geofenceRequired) && ! $input->hasCoordinates()) {
             $this->reject(__('attendance.location_required'));
         }
 
@@ -181,7 +256,7 @@ class CheckInService
             $this->reject(__('attendance.gps_inaccurate'));
         }
 
-        if ($settings->geofence_required) {
+        if ($geofenceRequired) {
             $geo = $this->geofence->evaluate($input->latitude, $input->longitude, $input->accuracyMeters);
             if (! $geo->accuracyAcceptable) {
                 $this->reject(__('attendance.gps_inaccurate'));
@@ -198,7 +273,10 @@ class CheckInService
             return;
         }
 
-        $start = $resolved->scheduledStartAt;
+        // Windows are checked against the nearest segment's start.
+        $segment = $resolved->segmentFor($now);
+        $start = $segment?->startAt ?? $resolved->scheduledStartAt;
+        $grace = $segment?->graceMinutes ?? $resolved->graceMinutes;
 
         if ($now->lessThan($start)) {
             if (! $settings->allow_early_check_in) {
@@ -210,7 +288,7 @@ class CheckInService
             }
         }
 
-        $graceEnd = $start->addMinutes($resolved->graceMinutes);
+        $graceEnd = $start->addMinutes($grace);
         if ($now->greaterThan($graceEnd) && ! $settings->allow_late_check_in) {
             $this->reject(__('attendance.late_not_allowed'));
         }

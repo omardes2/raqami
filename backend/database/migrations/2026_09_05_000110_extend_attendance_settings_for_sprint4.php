@@ -22,7 +22,9 @@ return new class extends Migration
             $table->unsignedInteger('absence_materialize_after_minutes')->default(120)->after('materialization_enabled');
 
             // --- Split shifts ---
-            $table->boolean('allow_multiple_sessions')->default(true)->after('absence_materialize_after_minutes');
+            // Off by default so Sprint 3 single-session-per-day semantics are
+            // preserved; tenants opt in to split shifts / multiple sessions.
+            $table->boolean('allow_multiple_sessions')->default(false)->after('absence_materialize_after_minutes');
 
             // --- Missing checkout / auto-close ---
             $table->boolean('auto_close_missing_checkout')->default(false)->after('allow_multiple_sessions');
