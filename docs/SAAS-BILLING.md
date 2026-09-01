@@ -130,3 +130,44 @@ isolation of billing data.
 - **Open (does not block the abstraction):** card gateway provider(s) and
   supported regions/currencies; tax/VAT handling on invoices per region;
   reseller/partner billing model (if any). (See `DECISIONS.md`.)
+
+---
+
+## 12. Sprint 2 — Implemented (SaaS Billing & Subscriptions)
+
+Delivered on `feature/sprint-2-saas-billing` (not merged). Manual + bank-transfer
+flows are complete; **no real card provider is integrated** (ADR-010 abstraction
+preserved).
+
+- **Plans & entitlements (platform-global):** `plans` (status/visibility,
+  monthly/annual prices in minor units, trial days, employee limit) +
+  `plan_features` (feature_key/enabled/limit_value). `EntitlementService`
+  answers feature/limit/usage questions; **employee limit** is enforced on
+  employee creation (countable = not terminated/archived; no plan = unlimited).
+- **Subscriptions:** one primary subscription per tenant; lifecycle via
+  `SubscriptionManager` with a `SubscriptionStatus` transition map (trialing →
+  active → past_due → grace_period → suspended → canceled/expired), free trial,
+  cancel-at-period-end + resume, immediate **upgrade** / scheduled **downgrade**
+  (never deletes data), and an append-only `subscription_events` timeline.
+- **Invoices & payments:** server-side totals (subtotal − discount + tax),
+  `INV-YYYY-######` numbering, line items, **partial payments**, overpayment
+  rejection, transactional application, and subscription activation/renewal on
+  full payment. Printable HTML invoice (PDF foundation).
+- **Bank transfer:** tenant submits proof (private disk) → platform admin
+  approves/rejects; approval creates the payment + applies it, row-locked
+  against double approval. **Manual/cash:** platform-admin-only recording.
+- **Coupons:** percentage / fixed-amount, validity dates, global +
+  per-tenant redemption limits, plan restriction.
+- **Multi-currency & tax foundation:** ISO currency per invoice/payment (no FX);
+  generic tax rate/label (no country tax logic). **Billing profile** +
+  platform **bank accounts** configuration.
+- **Idempotency & webhooks:** `IdempotencyService` + `idempotency_records`;
+  `WebhookIngestionService` + `payment_webhook_events` seam (no provider, no
+  public endpoint).
+- **Permissions:** `billing.{view,manage}`, `billing.subscription.{view,change}`,
+  `billing.invoices.view`, `billing.payments.view`, `billing.bank_transfer.submit`
+  (owner=all, admin=full, accountant=read+submit; HR/managers/employee none).
+  Platform billing is a separate guard, not tenant RBAC.
+- **Out of scope (unchanged):** Stripe/Cybersource/PayPal/any card provider, AI,
+  attendance/leave/payroll/tasks, country tax engines, FX, account credits,
+  automatic reconciliation.

@@ -175,3 +175,23 @@ Delivered on `feature/sprint-1-organization-employees` (not merged to `main`):
   tasks, billing, AI, timesheets, biometric/kiosk, country labor rules.
 
 Sprint 1 is complete on its branch; Sprint 2 has **not** started.
+
+---
+
+## Sprint 2 — SaaS Billing & Subscriptions (IMPLEMENTED on feature branch)
+
+Delivered on `feature/sprint-2-saas-billing` (not merged to `main`):
+
+- **Plans & entitlements** (platform-global), **subscriptions** with full
+  lifecycle + trial + upgrade/downgrade, **invoices** (+ line items, partial
+  payments, printable HTML), **payments**, **bank-transfer** submit/review,
+  **manual/cash** payments, **coupons**, **billing profile**, platform **bank
+  accounts**, and **employee-limit enforcement**.
+- **Tenant billing portal** + **Super Admin billing management**, AR/EN +
+  RTL/LTR. **RLS** on all tenant-linked billing tables; transactional +
+  idempotent money operations; billing RBAC; audit integration.
+- **Out of scope (not implemented):** any real card provider (Stripe/
+  Cybersource/PayPal), AI, attendance/leave/payroll/tasks, country tax engines,
+  FX conversion, account credits, automatic bank reconciliation.
+
+Sprint 2 is complete on its branch; Sprint 3 has **not** started.

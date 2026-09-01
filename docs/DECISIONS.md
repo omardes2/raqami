@@ -340,3 +340,48 @@ consistent with the approved ADRs; no ADR is changed.
   route-model binding executes under the correct tenant/RLS context.
 - **Employee number:** default `EMP-000123` generator; company-configurable
   formats deferred. ULID remains the internal PK (ADR-008).
+
+## Sprint 2 Implementation Notes
+
+Implementation-level decisions for Sprint 2 (SaaS Billing & Subscriptions),
+consistent with the approved ADRs; no approved ADR is changed.
+
+- **Billing domain split (platform-global vs tenant-linked):** `plans`,
+  `plan_features`, `coupons`, and `bank_accounts` are **platform-global**
+  configuration (no `tenant_id`, no RLS) — never duplicated per tenant.
+  `subscriptions`, `subscription_changes`, `subscription_events`,
+  `billing_profiles`, `invoices`, `invoice_items`, `payments`,
+  `bank_transfer_submissions`, `coupon_redemptions`, and `billing_counters` are
+  **tenant-linked** (`tenant_id` + FORCE RLS, same `tenant_isolation` +
+  `platform_readonly` policies as Sprint 0/1). This **refines** the conceptual
+  note in `DATABASE.md` that placed subscriptions/invoices/payments in the
+  "central" context: they belong to the TENANT and are RLS-isolated, while the
+  Super Admin portal reads them cross-tenant only through the audited
+  platform read-only context. Reinforces ADR-002; does not change it.
+- **Subscription belongs to the tenant, not a user:** one primary subscription
+  per tenant (`unique(tenant_id)`); users act on it only via `billing.*`
+  permissions.
+- **Status as value objects:** subscription/invoice/payment statuses are PHP
+  enums; `SubscriptionStatus` owns the allowed-transition map and lifecycle is
+  driven by `SubscriptionManager` (invalid transitions rejected). No arbitrary
+  status strings.
+- **Money:** integer minor units everywhere; one currency per invoice/payment;
+  no FX conversion in Sprint 2. Totals are always computed server-side.
+- **Downgrades never delete data:** recorded as a scheduled `subscription_change`
+  applied at period end, with an over-cap warning when current usage exceeds the
+  target plan; upgrades apply immediately.
+- **Payment application is transactional + idempotent:** `PaymentService`
+  locks the invoice, enforces currency match, rejects overpayment (no account
+  credits in Sprint 2), supports partial payments, and activates/renews the
+  subscription on full payment. Bank-transfer approval and manual/cash payment
+  run inside the target tenant's context (RLS-safe) even though the actor is a
+  platform admin, with a row-lock + status guard preventing double application.
+- **Employee-limit entitlement (ADR-015 adjacent):** enforced at the employee
+  creation entry point via `EntitlementService`; countable employees exclude
+  `terminated`/`archived`; a tenant with no active plan is unlimited (fail-open).
+- **Payment provider abstraction unchanged (ADR-010):** no real card provider
+  integrated; `WebhookIngestionService` + `idempotency_records` establish the
+  idempotent webhook seam without a public endpoint or provider SDK.
+- **Invoice numbering:** per-tenant `INV-YYYY-######` via an atomic
+  `INSERT ... ON CONFLICT ... RETURNING` counter (`billing_counters`);
+  never exposes the DB id; concurrency-safe.
