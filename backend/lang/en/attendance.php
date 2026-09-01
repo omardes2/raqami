@@ -61,6 +61,7 @@ return [
     'overtime_self' => 'You cannot review your own overtime request.',
     'overtime_stale' => 'The attendance record changed since this overtime request; refresh and retry.',
     'overtime_minutes_invalid' => 'The approved overtime minutes are invalid.',
+    'overtime_override_forbidden' => 'You are not authorized to approve overtime above the calculated amount.',
 
     // Sprint 4 — corrections concurrency
     'correction_stale' => 'The attendance record changed since this correction; refresh and retry.',

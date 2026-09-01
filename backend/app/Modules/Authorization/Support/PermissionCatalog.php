@@ -102,6 +102,7 @@ class PermissionCatalog
         'attendance.exceptions.manage' => ['attendance', 'Create / revoke attendance exceptions'],
         'attendance.overtime.view' => ['attendance', 'View overtime approvals'],
         'attendance.overtime.review' => ['attendance', 'Approve / reject overtime'],
+        'attendance.overtime.override' => ['attendance', 'Approve overtime ABOVE the server-calculated amount'],
         'attendance.anomalies.view' => ['attendance', 'View attendance anomalies'],
         'attendance.anomalies.manage' => ['attendance', 'Acknowledge / resolve / dismiss attendance anomalies'],
         'attendance.materialization.run' => ['attendance', 'Run daily attendance materialization'],
@@ -193,6 +194,10 @@ class PermissionCatalog
                 ...self::EMPLOYEES_FULL,
                 ...self::BILLING_FULL,
                 ...self::ATTENDANCE_FULL,
+                // Overtime override is a distinct privilege above ATTENDANCE_FULL;
+                // Owner holds it via '*'. HR Manager reviews but cannot override
+                // unless explicitly granted a custom role that includes it.
+                'attendance.overtime.override',
             ],
         ],
         'hr-manager' => [

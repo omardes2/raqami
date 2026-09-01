@@ -44,15 +44,23 @@ class OvertimeApprovalController extends Controller
 
     public function approve(OvertimeReviewRequest $request, OvertimeApproval $approval): JsonResponse
     {
-        $this->authorizeApproval($request, $approval);
+        $employee = $this->authorizeApproval($request, $approval);
 
         $data = $request->validated();
+        $wantsOverride = (bool) ($data['allow_override'] ?? false);
+
+        // Approving ABOVE the server-calculated amount requires the distinct,
+        // scope-checked override permission — never granted by plain review.
+        if ($wantsOverride && ! $this->scope->canAccess($request->user(), $employee, 'attendance.overtime.override')) {
+            abort(403, __('attendance.overtime_override_forbidden'));
+        }
+
         $approval = $this->overtime->approve(
             $approval,
             $request->user(),
             $data['approved_minutes'] ?? null,
             $data['notes'] ?? null,
-            (bool) ($data['allow_override'] ?? false),
+            $wantsOverride,
             $data['expected_record_version'] ?? null,
         );
 
@@ -68,12 +76,14 @@ class OvertimeApprovalController extends Controller
         return (new OvertimeApprovalResource($approval))->response();
     }
 
-    private function authorizeApproval(Request $request, OvertimeApproval $approval): void
+    private function authorizeApproval(Request $request, OvertimeApproval $approval): Employee
     {
         $employee = $approval->employee ?? Employee::query()->find($approval->employee_id);
         abort_if(
             $employee === null || ! $this->scope->canAccess($request->user(), $employee, 'attendance.overtime.review'),
             404,
         );
+
+        return $employee;
     }
 }
