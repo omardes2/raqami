@@ -253,6 +253,8 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('attend
 
     // --- Reports (organizational scope) ---
     Route::get('reports/summary', [AttendanceReportController::class, 'summary'])->middleware('permission.any:attendance.reports.view');
+    Route::get('reports/advanced', [AttendanceReportController::class, 'advanced'])->middleware('permission.any:attendance.reports.view');
+    Route::get('reports/by-employee', [AttendanceReportController::class, 'byEmployee'])->middleware('permission.any:attendance.reports.view');
 });
 
 /*
