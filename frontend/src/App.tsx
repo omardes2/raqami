@@ -11,6 +11,13 @@ import Users from './pages/Users'
 import Roles from './pages/Roles'
 import Audit from './pages/Audit'
 import Profile from './pages/Profile'
+import Employees from './pages/org/Employees'
+import EmployeeForm from './pages/org/EmployeeForm'
+import EmployeeDetail from './pages/org/EmployeeDetail'
+import Branches from './pages/org/Branches'
+import Departments from './pages/org/Departments'
+import Teams from './pages/org/Teams'
+import JobTitles from './pages/org/JobTitles'
 import PlatformLogin from './pages/platform/PlatformLogin'
 import PlatformLayout from './pages/platform/PlatformLayout'
 import PlatformDashboard from './pages/platform/PlatformDashboard'
@@ -33,6 +40,13 @@ export default function App() {
       <Route element={<ProtectedRoute requireTenant />}>
         <Route element={<AppLayout />}>
           <Route index element={<Dashboard />} />
+          <Route path="/employees" element={<Employees />} />
+          <Route path="/employees/new" element={<EmployeeForm />} />
+          <Route path="/employees/:id" element={<EmployeeDetail />} />
+          <Route path="/branches" element={<Branches />} />
+          <Route path="/departments" element={<Departments />} />
+          <Route path="/teams" element={<Teams />} />
+          <Route path="/job-titles" element={<JobTitles />} />
           <Route path="/company" element={<CompanyPage />} />
           <Route path="/users" element={<Users />} />
           <Route path="/roles" element={<Roles />} />

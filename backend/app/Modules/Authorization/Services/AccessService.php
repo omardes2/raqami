@@ -90,6 +90,26 @@ class AccessService
         return $this->scopeGrantsFor($user, $permission)->isNotEmpty();
     }
 
+    /**
+     * Union of all permission keys the user holds across ALL scopes. Intended
+     * for UI hints (nav visibility) only — never for authorization.
+     */
+    public function allPermissions(User $user): Collection
+    {
+        if (! $this->context->hasTenant()) {
+            return collect();
+        }
+
+        return RoleAssignment::query()
+            ->where('user_id', $user->getKey())
+            ->with('role.permissions')
+            ->get()
+            ->flatMap(fn (RoleAssignment $a) => $a->role?->permissions ?? collect())
+            ->pluck('key')
+            ->unique()
+            ->values();
+    }
+
     /** True if the user holds the permission company-wide (unscoped access). */
     public function hasCompanyWide(User $user, string $permission): bool
     {

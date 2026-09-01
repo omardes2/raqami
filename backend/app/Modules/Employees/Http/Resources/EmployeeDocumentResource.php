@@ -30,10 +30,12 @@ class EmployeeDocumentResource extends JsonResource
             'expires_at' => $this->expires_at?->toDateString(),
             'notes' => $this->notes,
             'created_at' => $this->created_at,
+            // Relative same-origin path (works via the SPA proxy); the endpoint
+            // itself authorizes and streams — never a public storage URL.
             'download_url' => route('employees.documents.download', [
                 'employee' => $this->employee_id,
                 'document' => $this->id,
-            ]),
+            ], absolute: false),
         ];
     }
 }
