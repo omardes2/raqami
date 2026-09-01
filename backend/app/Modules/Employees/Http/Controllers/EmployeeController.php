@@ -3,6 +3,7 @@
 namespace App\Modules\Employees\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Billing\Services\EntitlementService;
 use App\Modules\Employees\Http\Requests\EmployeeStatusRequest;
 use App\Modules\Employees\Http\Requests\EmployeeStoreRequest;
 use App\Modules\Employees\Http\Requests\EmployeeUpdateRequest;
@@ -29,6 +30,7 @@ class EmployeeController extends Controller
     public function __construct(
         private readonly EmployeeService $employees,
         private readonly EmployeeScopeResolver $scope,
+        private readonly EntitlementService $entitlements,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -73,6 +75,10 @@ class EmployeeController extends Controller
 
     public function store(EmployeeStoreRequest $request): JsonResponse
     {
+        // Plan entitlement: reject creation once the plan's employee cap is
+        // reached (billing logic lives in EntitlementService, not here).
+        $this->entitlements->assertCanAddEmployee();
+
         $data = $request->validated();
 
         // Scoped creators may only place employees within their branch/department.
