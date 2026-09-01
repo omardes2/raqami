@@ -24,6 +24,11 @@
     "schedules": "Work Schedules",
     "locations": "Locations",
     "corrections": "Corrections",
+    "holidays": "Holidays",
+    "exceptions": "Exceptions",
+    "overtime": "Overtime",
+    "anomalies": "Anomalies",
+    "reports": "Reports",
     "attendance_settings": "Attendance Settings"
   },
   "org": {
@@ -397,6 +402,7 @@
       "incomplete": "Incomplete",
       "on_leave": "On leave",
       "holiday": "Holiday",
+      "weekend": "Weekend / off",
       "pending_review": "Pending review"
     },
     "fields": {
@@ -446,7 +452,17 @@
       "corrections_enabled": "Enable corrections",
       "employee_corrections": "Allow employees to request corrections",
       "unscheduled_work": "Allow work without a schedule",
-      "saved": "Saved."
+      "saved": "Saved.",
+      "advanced": "Advanced (Sprint 4)",
+      "materialization": "Auto-materialize daily attendance (absent / weekend / holiday)",
+      "multiple_sessions": "Allow multiple sessions per day (split shifts)",
+      "overtime_requires_approval": "Overtime requires approval",
+      "overtime_auto_approve": "Auto-approve overtime",
+      "off_day_policy": "Off-day work policy",
+      "off_day_reject": "Reject",
+      "off_day_allow": "Allow",
+      "off_day_require_approval": "Require approval (exception)",
+      "default_mode": "Default attendance mode"
     },
     "schedules": {
       "title": "Work Schedules",
@@ -490,6 +506,108 @@
       "pending": "Pending",
       "approved": "Approved",
       "rejected": "Rejected"
+    },
+    "mode": {
+      "onsite": "On-site",
+      "remote": "Remote",
+      "field": "Field"
+    },
+    "holidays": {
+      "title": "Holiday Calendars",
+      "empty": "No holiday calendars yet.",
+      "calendar_name": "Calendar name",
+      "calendar_code": "Code",
+      "create_calendar": "Create calendar",
+      "add_holiday": "Add holiday",
+      "assign_company": "Assign to company",
+      "holiday_name": "Holiday name",
+      "holiday_date": "Date (YYYY-MM-DD)",
+      "end_date": "End date",
+      "type": "Type",
+      "no_holidays": "No holidays in this calendar.",
+      "assigned_to": "Assigned to",
+      "effective_from": "Effective from (YYYY-MM-DD)"
+    },
+    "exceptions": {
+      "title": "Attendance Exceptions",
+      "empty": "No exceptions.",
+      "create": "Add exception",
+      "employee_id": "Employee ID",
+      "type": "Type",
+      "effective_from": "From",
+      "effective_until": "Until",
+      "mode": "Mode",
+      "reason": "Reason",
+      "revoke": "Revoke"
+    },
+    "exception_type": {
+      "remote": "Remote",
+      "field": "Field",
+      "off_day_work": "Off-day work",
+      "alternate_location": "Alternate location",
+      "schedule_override": "Schedule override"
+    },
+    "exception_status": {
+      "active": "Active",
+      "revoked": "Revoked"
+    },
+    "overtime": {
+      "title": "Overtime Approvals",
+      "empty": "No overtime requests.",
+      "calculated": "Calculated",
+      "approved": "Approved",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approved_prompt": "Approved overtime minutes",
+      "reject_notes": "Notes (optional)"
+    },
+    "overtime_status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "anomalies": {
+      "title": "Attendance Anomalies",
+      "intro": "Rule-based findings for review. These are descriptive signals, not accusations, and never trigger automatic action.",
+      "empty": "No anomalies.",
+      "type": "Type",
+      "severity": "Severity",
+      "detected_at": "Detected",
+      "acknowledge": "Acknowledge",
+      "resolve": "Resolve",
+      "dismiss": "Dismiss",
+      "note": "Resolution note (optional)"
+    },
+    "anomaly_type": {
+      "missing_checkout": "Missing checkout",
+      "long_session": "Long session",
+      "suspicious_location_change": "Unusual location change",
+      "outside_geofence": "Outside geofence",
+      "overlapping_sessions": "Overlapping sessions",
+      "lateness_streak": "Lateness streak",
+      "excessive_corrections": "Frequent corrections"
+    },
+    "anomaly_severity": {
+      "info": "Info",
+      "warning": "Warning",
+      "high": "High"
+    },
+    "anomaly_status": {
+      "open": "Open",
+      "acknowledged": "Acknowledged",
+      "resolved": "Resolved",
+      "dismissed": "Dismissed"
+    },
+    "reports": {
+      "title": "Attendance Reports",
+      "attendance_rate": "Attendance rate",
+      "punctuality_rate": "Punctuality rate",
+      "scheduled_days": "Scheduled days",
+      "status_breakdown": "Status breakdown",
+      "overtime": "Overtime",
+      "overtime_calculated": "Calculated",
+      "overtime_approved": "Approved overtime",
+      "by_employee": "By employee"
     }
   }
 }

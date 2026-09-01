@@ -61,6 +61,30 @@ export default function AttendanceSettingsPage() {
       {toggle('allow_employee_correction_request', t('attendance.settings.employee_corrections'))}
       {toggle('allow_unscheduled_work', t('attendance.settings.unscheduled_work'))}
 
+      <h2>{t('attendance.settings.advanced')}</h2>
+      {toggle('materialization_enabled', t('attendance.settings.materialization'))}
+      {toggle('allow_multiple_sessions', t('attendance.settings.multiple_sessions'))}
+      {toggle('overtime_requires_approval', t('attendance.settings.overtime_requires_approval'))}
+      {toggle('overtime_auto_approve', t('attendance.settings.overtime_auto_approve'))}
+      <label>
+        {t('attendance.settings.off_day_policy')}
+        <select value={form.off_day_work_policy ?? 'reject'}
+          onChange={(e) => set('off_day_work_policy', e.target.value as never)}>
+          <option value="reject">{t('attendance.settings.off_day_reject')}</option>
+          <option value="allow">{t('attendance.settings.off_day_allow')}</option>
+          <option value="require_approval">{t('attendance.settings.off_day_require_approval')}</option>
+        </select>
+      </label>
+      <label>
+        {t('attendance.settings.default_mode')}
+        <select value={form.default_attendance_mode ?? 'onsite'}
+          onChange={(e) => set('default_attendance_mode', e.target.value as never)}>
+          <option value="onsite">{t('attendance.mode.onsite')}</option>
+          <option value="remote">{t('attendance.mode.remote')}</option>
+          <option value="field">{t('attendance.mode.field')}</option>
+        </select>
+      </label>
+
       <div className="form-actions">
         <button type="submit" className="btn-primary">{t('common.save')}</button>
         {saved && <span className="muted">{t('attendance.settings.saved')}</span>}
