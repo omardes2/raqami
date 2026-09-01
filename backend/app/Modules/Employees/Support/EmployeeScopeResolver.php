@@ -70,6 +70,18 @@ class EmployeeScopeResolver
         return $this->applyScope(Employee::query()->whereKey($employee->getKey()), $user, $permission)->exists();
     }
 
+    /**
+     * Whether the user may view SENSITIVE fields of a specific employee — i.e.
+     * holds employees.view_sensitive within an organizational scope that covers
+     * this employee. This is scope-aware per employee (NB-1): view_sensitive in
+     * Branch A does NOT expose an employee in Branch B, even when the viewer can
+     * otherwise see Branch B through a separate employees.view grant.
+     */
+    public function canViewSensitive(User $user, Employee $employee): bool
+    {
+        return $this->canAccess($user, $employee, 'employees.view_sensitive');
+    }
+
     /** Whether the user holds $permission company-wide (unscoped). */
     public function isCompanyWide(User $user, string $permission): bool
     {

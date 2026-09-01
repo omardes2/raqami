@@ -2,15 +2,17 @@
 
 namespace App\Modules\Employees\Http\Resources;
 
-use App\Modules\Authorization\Services\AccessService;
 use App\Modules\Employees\Models\Employee;
+use App\Modules\Employees\Support\EmployeeScopeResolver;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * Full employee representation. SENSITIVE fields are only included when the
- * requesting user holds employees.view_sensitive — sensitive data is never
- * exposed through generic serialization (CLAUDE.md rule 5).
+ * requesting user holds employees.view_sensitive within an organizational scope
+ * that covers THIS employee — sensitive data is never exposed through generic
+ * serialization (CLAUDE.md rule 5), and a narrow (branch/department/team) grant
+ * never leaks another scope's employees (NB-1).
  *
  * @mixin Employee
  */
@@ -21,7 +23,7 @@ class EmployeeResource extends JsonResource
     public function toArray(Request $request): array
     {
         $canSensitive = $request->user() !== null
-            && app(AccessService::class)->hasAtAnyScope($request->user(), 'employees.view_sensitive');
+            && app(EmployeeScopeResolver::class)->canViewSensitive($request->user(), $this->resource);
 
         $data = [
             'id' => $this->id,
