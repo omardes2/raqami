@@ -18,6 +18,12 @@ import Branches from './pages/org/Branches'
 import Departments from './pages/org/Departments'
 import Teams from './pages/org/Teams'
 import JobTitles from './pages/org/JobTitles'
+import MyAttendance from './pages/attendance/MyAttendance'
+import AttendanceRecords from './pages/attendance/AttendanceRecords'
+import AttendanceSchedules from './pages/attendance/AttendanceSchedules'
+import AttendanceLocations from './pages/attendance/AttendanceLocations'
+import AttendanceSettingsPage from './pages/attendance/AttendanceSettings'
+import AttendanceCorrections from './pages/attendance/AttendanceCorrections'
 import BillingLayout from './pages/billing/BillingLayout'
 import BillingOverview from './pages/billing/BillingOverview'
 import BillingSubscription from './pages/billing/BillingSubscription'
@@ -58,6 +64,12 @@ export default function App() {
           <Route path="/departments" element={<Departments />} />
           <Route path="/teams" element={<Teams />} />
           <Route path="/job-titles" element={<JobTitles />} />
+          <Route path="/attendance" element={<MyAttendance />} />
+          <Route path="/attendance/records" element={<AttendanceRecords />} />
+          <Route path="/attendance/schedules" element={<AttendanceSchedules />} />
+          <Route path="/attendance/locations" element={<AttendanceLocations />} />
+          <Route path="/attendance/corrections" element={<AttendanceCorrections />} />
+          <Route path="/attendance/settings" element={<AttendanceSettingsPage />} />
           <Route path="/billing" element={<BillingLayout />}>
             <Route index element={<BillingOverview />} />
             <Route path="subscription" element={<BillingSubscription />} />

@@ -18,7 +18,13 @@
     "profile": "Profile",
     "logout": "Log out",
     "platform": "Super Admin",
-    "billing": "Billing"
+    "billing": "Billing",
+    "my_attendance": "My Attendance",
+    "attendance": "Attendance",
+    "schedules": "Work Schedules",
+    "locations": "Locations",
+    "corrections": "Corrections",
+    "attendance_settings": "Attendance Settings"
   },
   "org": {
     "name": "Name",
@@ -370,6 +376,120 @@
       "city": "City",
       "postal_code": "Postal code",
       "country": "Country"
+    }
+  },
+  "attendance": {
+    "my": {
+      "title": "My Attendance",
+      "status": "Current Status",
+      "checked_in_at": "Checked in at",
+      "not_checked_in": "You are not checked in.",
+      "check_in": "Check in",
+      "check_out": "Check out",
+      "history": "Recent history",
+      "no_records": "No attendance yet.",
+      "gps_hint": "Your location is read from this device to verify your work site. The server decides the result."
+    },
+    "status": {
+      "present": "Present",
+      "late": "Late",
+      "absent": "Absent",
+      "incomplete": "Incomplete",
+      "on_leave": "On leave",
+      "holiday": "Holiday",
+      "pending_review": "Pending review"
+    },
+    "fields": {
+      "work_date": "Date",
+      "status": "Status",
+      "check_in": "Check in",
+      "check_out": "Check out",
+      "worked": "Worked",
+      "late": "Late",
+      "overtime": "Overtime",
+      "employee": "Employee",
+      "source": "Source",
+      "actions": "Actions"
+    },
+    "source": {
+      "web": "Web",
+      "mobile": "Mobile",
+      "manual": "Manual",
+      "correction": "Correction",
+      "system": "System"
+    },
+    "records": {
+      "title": "Attendance Records",
+      "empty": "No records for this period."
+    },
+    "filters": {
+      "from": "From",
+      "to": "To"
+    },
+    "summary": {
+      "records": "Records",
+      "present": "Present",
+      "late": "Late",
+      "worked": "Worked",
+      "overtime": "Overtime"
+    },
+    "settings": {
+      "title": "Attendance Settings",
+      "default_timezone": "Default timezone",
+      "default_grace": "Default grace (minutes)",
+      "geofence_required": "Require check-in inside a geofence",
+      "require_gps": "Require GPS location",
+      "allow_early": "Allow early check-in",
+      "early_window": "Early check-in window (minutes)",
+      "allow_late": "Allow late check-in",
+      "overtime_tracking": "Track overtime",
+      "corrections_enabled": "Enable corrections",
+      "employee_corrections": "Allow employees to request corrections",
+      "unscheduled_work": "Allow work without a schedule",
+      "saved": "Saved."
+    },
+    "schedules": {
+      "title": "Work Schedules",
+      "name": "Name",
+      "code": "Code",
+      "timezone": "Timezone",
+      "assignments": "Assignments",
+      "empty": "No schedules yet.",
+      "create": "Create schedule",
+      "days": "Weekly hours"
+    },
+    "weekday": {
+      "0": "Sunday",
+      "1": "Monday",
+      "2": "Tuesday",
+      "3": "Wednesday",
+      "4": "Thursday",
+      "5": "Friday",
+      "6": "Saturday"
+    },
+    "locations": {
+      "title": "Attendance Locations",
+      "name": "Name",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "radius": "Radius (m)",
+      "empty": "No locations yet.",
+      "create": "Add location"
+    },
+    "corrections": {
+      "title": "Attendance Corrections",
+      "requested_in": "Requested check-in",
+      "requested_out": "Requested check-out",
+      "reason": "Reason",
+      "empty": "No corrections.",
+      "approve": "Approve",
+      "reject": "Reject",
+      "reject_reason": "Reason for rejection"
+    },
+    "correction_status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected"
     }
   }
 }
