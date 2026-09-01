@@ -395,3 +395,41 @@ per-tenant unique `invoice_number` (`INV-YYYY-######` via an atomic counter),
   billing_profiles, subscriptions, subscription_changes, subscription_events,
   invoices, invoice_items, payments, bank_transfer_submissions,
   coupon_redemptions — all with `tenant_id` + FORCE RLS.
+
+---
+
+## 9. Sprint 3 — Attendance Core (implemented)
+
+Sprint 3 implemented eight tenant-owned tables (all with indexed `tenant_id`,
+ULID `char(26)` keys, and RLS `ENABLE`+`FORCE` with the `tenant_isolation` +
+`platform_readonly` policies). Timestamps are **UTC**; `work_date`/`timezone`
+carry the schedule-timezone context.
+
+- **attendance_settings** — one row per tenant (`unique(tenant_id)`): default
+  timezone/grace, geofence/GPS requirements, min accuracy, early/late windows,
+  overtime tracking, correction toggles, allow-unscheduled-work.
+- **work_schedules** — reusable schedule header (name, code unique/tenant,
+  timezone, grace/break/overtime defaults, status).
+- **work_schedule_days** — per-weekday hours (0=Sun..6=Sat); off days;
+  `end_time <= start_time` denotes an overnight window.
+- **work_schedule_assignments** — schedule ↔ organizational scope
+  (company|branch|department|team|employee) with effective dates + priority;
+  resolved by `ScheduleResolver` (precedence most-specific-first).
+- **attendance_locations** — approved geofences (center lat/long as decimals,
+  radius, optional required accuracy, optional branch link).
+- **attendance_records** — computed **daily state** (one per employee per
+  `work_date`, `unique(tenant_id, employee_id, work_date)`): schedule-boundary
+  snapshot, check-in/out (UTC), worked/late/early-leave/overtime/break/grace
+  minutes, status, source, geo summary, is_manual, corrected_at. A **partial
+  unique index** enforces at most one open (not-checked-out) record per employee.
+- **attendance_events** — append-only **raw punch log**: event type, source,
+  occurred_at, exactly what the client sent (lat/long/accuracy) and what the
+  server decided (matched location, distance, inside_geofence), metadata,
+  actor, and `client_request_id` (partial unique index → idempotent retries).
+- **attendance_corrections** — controlled correction workflow (requested
+  in/out, reason, status pending/approved/rejected, reviewer, before/after
+  snapshots); no self-approval (service-enforced).
+
+No partitioning yet (ADR-009); `attendance_records`/`attendance_events` remain
+the high-volume candidates. Concurrency is protected by a per-employee advisory
+xact lock + row locks around check-in/out.

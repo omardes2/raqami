@@ -209,3 +209,16 @@ legend { padding-inline: 0.5rem; color: var(--muted); font-size: 0.85rem; font-w
 .pill-past_due, .pill-overdue, .pill-rejected, .pill-failed, .pill-suspended { background: #fdeaea; color: #c0392b; }
 .pill-grace_period, .pill-partially_paid, .pill-pending_review, .pill-under_review, .pill-pending, .pill-draft { background: #fef3e0; color: #b26a00; }
 .pill-canceled, .pill-expired, .pill-void, .pill-archived { background: #eef1f4; color: var(--muted); }
+
+/* --- Sprint 3: Attendance --- */
+.form-narrow { max-inline-size: 480px; margin-block-start: 1.5rem; }
+.form-narrow > label { display: block; margin-block: 0.75rem; font-size: 0.85rem; color: var(--muted); }
+.form-narrow > label input,
+.form-narrow > label select { display: block; inline-size: 100%; margin-block-start: 0.3rem; padding: 0.55rem 0.7rem; border: 1px solid var(--border); border-radius: var(--radius); font: inherit; }
+.checkbox { display: flex; align-items: center; gap: 0.5rem; margin-block: 0.5rem; color: var(--text); }
+.checkbox input { inline-size: auto; margin: 0; }
+.day-row { display: flex; align-items: center; gap: 0.75rem; margin-block: 0.4rem; flex-wrap: wrap; }
+.day-row .checkbox { min-inline-size: 120px; margin: 0; }
+.day-row input[type="time"] { padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: var(--radius); font: inherit; }
+.form-actions { display: flex; align-items: center; gap: 0.75rem; margin-block-start: 1rem; }
+.small { font-size: 0.82rem; }

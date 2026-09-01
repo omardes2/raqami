@@ -80,6 +80,38 @@ class PermissionCatalog
         'billing.invoices.view' => ['billing', 'View invoices'],
         'billing.payments.view' => ['billing', 'View payments'],
         'billing.bank_transfer.submit' => ['billing', 'Submit bank-transfer proof for review'],
+
+        // --- Sprint 3: Attendance (tenant scope) ---
+        // Employee self-service (own check-in/out, own attendance, own correction
+        // request) requires an authenticated, employee-linked user — NOT a
+        // permission. These keys gate viewing/administering OTHER employees.
+        'attendance.view' => ['attendance', 'View attendance records (within scope)'],
+        'attendance.view_location' => ['attendance', 'View precise GPS coordinates on attendance (sensitive)'],
+        'attendance.manage' => ['attendance', 'Record / manually enter attendance for employees'],
+        'attendance.corrections.review' => ['attendance', 'Approve / reject attendance correction requests'],
+        'attendance.schedules.view' => ['attendance', 'View work schedules & assignments'],
+        'attendance.schedules.manage' => ['attendance', 'Create / update work schedules & assignments'],
+        'attendance.locations.manage' => ['attendance', 'Manage attendance geofence locations'],
+        'attendance.settings.manage' => ['attendance', 'Manage company attendance settings'],
+        'attendance.reports.view' => ['attendance', 'View attendance reports'],
+    ];
+
+    /** Sprint 3 attendance permission groups reused in default role mappings. */
+    private const ATTENDANCE_FULL = [
+        'attendance.view', 'attendance.view_location', 'attendance.manage',
+        'attendance.corrections.review',
+        'attendance.schedules.view', 'attendance.schedules.manage',
+        'attendance.locations.manage', 'attendance.settings.manage',
+        'attendance.reports.view',
+    ];
+
+    private const ATTENDANCE_MANAGER = [
+        'attendance.view', 'attendance.manage', 'attendance.corrections.review',
+        'attendance.schedules.view', 'attendance.reports.view',
+    ];
+
+    private const ATTENDANCE_VIEW = [
+        'attendance.view', 'attendance.reports.view',
     ];
 
     /** Sprint 2 billing permission groups reused in default role mappings. */
@@ -136,6 +168,7 @@ class PermissionCatalog
                 ...self::ORG_FULL,
                 ...self::EMPLOYEES_FULL,
                 ...self::BILLING_FULL,
+                ...self::ATTENDANCE_FULL,
             ],
         ],
         'hr-manager' => [
@@ -147,6 +180,7 @@ class PermissionCatalog
                 'teams.create', 'teams.update',
                 'job_titles.create', 'job_titles.update', 'job_titles.archive',
                 ...self::EMPLOYEES_FULL,
+                ...self::ATTENDANCE_FULL,
             ],
         ],
         'department-manager' => [
@@ -157,12 +191,13 @@ class PermissionCatalog
                 ...self::ORG_VIEW,
                 'employees.view', 'employees.update',
                 'employee_documents.view', 'employee_contracts.view',
+                ...self::ATTENDANCE_MANAGER,
             ],
         ],
         'team-leader' => [
             'name' => 'Team Leader',
             // Scope-limited to their team by role assignment.
-            'permissions' => ['user.view', 'teams.view', 'employees.view'],
+            'permissions' => ['user.view', 'teams.view', 'employees.view', ...self::ATTENDANCE_VIEW],
         ],
         'accountant' => [
             'name' => 'Accountant',

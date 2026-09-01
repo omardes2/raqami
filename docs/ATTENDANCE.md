@@ -1,7 +1,20 @@
 # Attendance Engine — Raqmi Dawam
 
-**Status:** Design (planning phase). Covers check-in/out, configurable working
-days & hours, shifts, grace periods, overtime, GPS attendance, and geofencing.
+**Status:** **Core implemented in Sprint 3** (on `feature/sprint-3-attendance-core`).
+Covers check-in/out, configurable working days & hours, overnight windows, grace
+periods, overtime foundation, GPS attendance, and backend geofencing. Advanced
+rotating shifts and labor-law rounding remain design-only (Sprint 4+).
+
+> **Sprint 3 V1 notes (see `DECISIONS.md` → Sprint 3 Implementation Notes):**
+> UTC storage + schedule-timezone computation; the SERVER decides every result
+> (instant, schedule, geofence, lateness, worked time, status) — the client only
+> sends GPS facts. `work_date` is the schedule-timezone local date of the punch;
+> an overnight window extends the end into the next day (it does not reach back).
+> Schedule boundaries are snapshot at check-in; a single `ScheduleResolver`
+> (precedence employee > team > department > branch > company) and a single
+> `AttendanceCalculator` are the authorities. Records (daily rollup) vs events
+> (append-only raw punches). Concurrency via advisory + row locks; idempotent
+> retries via `client_request_id`. FORCE RLS on all attendance tables.
 
 ---
 

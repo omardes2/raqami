@@ -18,7 +18,13 @@
     "profile": "الملف الشخصي",
     "logout": "تسجيل الخروج",
     "platform": "مدير المنصة",
-    "billing": "الفوترة"
+    "billing": "الفوترة",
+    "my_attendance": "حضوري",
+    "attendance": "الحضور",
+    "schedules": "جداول العمل",
+    "locations": "المواقع",
+    "corrections": "طلبات التصحيح",
+    "attendance_settings": "إعدادات الحضور"
   },
   "org": {
     "name": "الاسم",
@@ -370,6 +376,120 @@
       "city": "المدينة",
       "postal_code": "الرمز البريدي",
       "country": "الدولة"
+    }
+  },
+  "attendance": {
+    "my": {
+      "title": "حضوري",
+      "status": "الحالة الحالية",
+      "checked_in_at": "تم تسجيل الدخول في",
+      "not_checked_in": "لم تسجّل الدخول بعد.",
+      "check_in": "تسجيل الدخول",
+      "check_out": "تسجيل الخروج",
+      "history": "السجل الأخير",
+      "no_records": "لا يوجد حضور بعد.",
+      "gps_hint": "يُقرأ موقعك من هذا الجهاز للتحقق من موقع العمل. الخادم هو من يحدّد النتيجة."
+    },
+    "status": {
+      "present": "حاضر",
+      "late": "متأخر",
+      "absent": "غائب",
+      "incomplete": "غير مكتمل",
+      "on_leave": "في إجازة",
+      "holiday": "عطلة",
+      "pending_review": "قيد المراجعة"
+    },
+    "fields": {
+      "work_date": "التاريخ",
+      "status": "الحالة",
+      "check_in": "الدخول",
+      "check_out": "الخروج",
+      "worked": "ساعات العمل",
+      "late": "التأخير",
+      "overtime": "العمل الإضافي",
+      "employee": "الموظف",
+      "source": "المصدر",
+      "actions": "إجراءات"
+    },
+    "source": {
+      "web": "الويب",
+      "mobile": "الجوال",
+      "manual": "يدوي",
+      "correction": "تصحيح",
+      "system": "النظام"
+    },
+    "records": {
+      "title": "سجلات الحضور",
+      "empty": "لا توجد سجلات لهذه الفترة."
+    },
+    "filters": {
+      "from": "من",
+      "to": "إلى"
+    },
+    "summary": {
+      "records": "السجلات",
+      "present": "حاضر",
+      "late": "متأخر",
+      "worked": "ساعات العمل",
+      "overtime": "العمل الإضافي"
+    },
+    "settings": {
+      "title": "إعدادات الحضور",
+      "default_timezone": "المنطقة الزمنية الافتراضية",
+      "default_grace": "فترة السماح الافتراضية (دقائق)",
+      "geofence_required": "اشتراط تسجيل الدخول داخل النطاق الجغرافي",
+      "require_gps": "اشتراط تحديد الموقع الجغرافي",
+      "allow_early": "السماح بالدخول المبكر",
+      "early_window": "نافذة الدخول المبكر (دقائق)",
+      "allow_late": "السماح بالدخول المتأخر",
+      "overtime_tracking": "تتبع العمل الإضافي",
+      "corrections_enabled": "تفعيل التصحيحات",
+      "employee_corrections": "السماح للموظفين بطلب التصحيح",
+      "unscheduled_work": "السماح بالعمل دون جدول",
+      "saved": "تم الحفظ."
+    },
+    "schedules": {
+      "title": "جداول العمل",
+      "name": "الاسم",
+      "code": "الرمز",
+      "timezone": "المنطقة الزمنية",
+      "assignments": "الإسنادات",
+      "empty": "لا توجد جداول بعد.",
+      "create": "إنشاء جدول",
+      "days": "ساعات الأسبوع"
+    },
+    "weekday": {
+      "0": "الأحد",
+      "1": "الإثنين",
+      "2": "الثلاثاء",
+      "3": "الأربعاء",
+      "4": "الخميس",
+      "5": "الجمعة",
+      "6": "السبت"
+    },
+    "locations": {
+      "title": "مواقع الحضور",
+      "name": "الاسم",
+      "latitude": "خط العرض",
+      "longitude": "خط الطول",
+      "radius": "نصف القطر (م)",
+      "empty": "لا توجد مواقع بعد.",
+      "create": "إضافة موقع"
+    },
+    "corrections": {
+      "title": "طلبات تصحيح الحضور",
+      "requested_in": "الدخول المطلوب",
+      "requested_out": "الخروج المطلوب",
+      "reason": "السبب",
+      "empty": "لا توجد طلبات.",
+      "approve": "اعتماد",
+      "reject": "رفض",
+      "reject_reason": "سبب الرفض"
+    },
+    "correction_status": {
+      "pending": "قيد الانتظار",
+      "approved": "معتمد",
+      "rejected": "مرفوض"
     }
   }
 }

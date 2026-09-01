@@ -238,3 +238,30 @@ Manager / Team Leader / Employee** = no billing by default. Billing gates use
 `permission:<key>` (company scope) since billing is company-wide, not org-scoped.
 **Platform (Super Admin) billing** is a separate identity/guard and is never part
 of tenant RBAC.
+
+## 11. Sprint 3 permissions (implemented)
+
+Added attendance permissions (module `attendance`):
+
+- `attendance.view`, `attendance.view_location` (sensitive precise GPS)
+- `attendance.manage` (record/manual entry), `attendance.corrections.review`
+- `attendance.schedules.view`, `attendance.schedules.manage`
+- `attendance.locations.manage`, `attendance.settings.manage`
+- `attendance.reports.view`
+
+**Employee self-service** (own check-in/out, own attendance, own correction
+request) is **not** a permission — it requires an authenticated, employee-linked
+user. These keys gate viewing/administering **other** employees.
+
+Default mappings: **Owner / Admin / HR Manager** = full attendance set.
+**Department Manager** = view, manage, corrections.review, schedules.view,
+reports.view (scoped). **Team Leader** = view + reports.view. **Accountant /
+Employee** = none by default.
+
+**Gating model:** company-wide config (settings, schedules, locations) uses
+`permission:<key>` (company scope). Operations over specific employees (records,
+manual entry, corrections, reports) use `permission.any:<key>` and are further
+constrained to the caller's organizational scope by `EmployeeScopeResolver`.
+Precise GPS coordinates are exposed only via `attendance.view_location`
+**within a scope covering that employee** (scope-aware, NB-1) — or to the
+employee viewing their own record.

@@ -200,3 +200,31 @@ tests, especially:
   invoices, invoice_items, payments, bank_transfer_submissions, coupon_redemptions).
 - **Invoice numbers** are globally unique (unambiguous for reconciliation/audit).
 - **Client-safe 422s** for invalid commercial transitions (no internal 500s).
+
+## 17. Sprint 3 additions (Attendance Core)
+
+- **Server decides, client only supplies facts.** The client sends coordinates
+  and punch intent; the SERVER sets the instant (its own clock), resolves the
+  schedule, computes the Haversine geofence decision, and derives lateness,
+  worked time, and status. No client-supplied "I am inside" / "I arrived at
+  08:00" / "I worked 8 hours" is ever trusted.
+- **Sensitive GPS.** Precise coordinates are permission-gated
+  (`attendance.view_location`, scope-aware per employee — NB-1) or visible only
+  to the employee on their own record; other viewers see only the derived
+  inside/outside flag. GPS is treated as personal data (§5).
+- **FORCE RLS on all attendance tables.** Raw-SQL tests assert cross-tenant
+  isolation for `attendance_records`/`attendance_events`; platform read-only
+  context can SELECT but never write attendance.
+- **Concurrency & idempotency.** Check-in/out run in one transaction under a
+  per-employee advisory xact lock + row locks; a partial unique index enforces
+  one open record per employee; `client_request_id` (partial unique index)
+  makes retries idempotent — no double punches under races or replays.
+- **Eligibility & self-service scope.** Only active/onboarding/probation
+  employees may punch; self-service requires an authenticated, employee-linked
+  user (never acts on another employee's record). Admin operations are org-scope
+  constrained via `EmployeeScopeResolver` (scope-safe 404, no existence leak).
+- **Segregation of duties.** Attendance corrections require a reviewer different
+  from the requester (no self-approval); manual entry and every approve/reject is
+  audited with actor, tenant, target, and timestamp.
+- **Client-safe 422s** for ineligible/duplicate/out-of-geofence/window-violation
+  punches (no internal 500s).

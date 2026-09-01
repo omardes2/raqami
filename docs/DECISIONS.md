@@ -424,3 +424,71 @@ ADRs; none is changed):
 - **Client-safe errors.** Invalid commercial transitions (terminal change/cancel,
   no pending cancellation, cross-currency) surface as localized HTTP 422, never a
   raw 500.
+
+## Sprint 3 Implementation Notes
+
+Implementation-level decisions for Sprint 3 (Attendance Core), consistent with
+the approved ADRs (esp. ADR-017); no approved ADR is changed. Governing
+principle: **the client is never trusted to decide the result.** The client
+sends raw facts (GPS coordinates, punch intent); the SERVER decides the instant,
+the schedule, the geofence membership, lateness, worked time, and status.
+
+- **Server-authoritative time.** All timestamps are stored in **UTC**; the server
+  uses its own clock for every punch instant. `work_date` and per-record
+  `timezone` carry the schedule-timezone context so daily boundaries are computed
+  in the schedule's zone, not the client's.
+- **Time model V1 (work_date + overnight).** `work_date` is the
+  schedule-timezone local date of the punch. An overnight window
+  (`end_time <= start_time`) extends `scheduled_end_at` into the **following**
+  day; it does not reach back to the previous calendar day. Deterministic and
+  simple by design; richer rotating-shift resolution is deferred to Sprint 4.
+- **Records vs events.** `attendance_records` is the computed **daily rollup**
+  (one per employee per `work_date`); `attendance_events` is the **append-only
+  raw punch log** recording exactly what the client sent and what the server
+  decided (matched location, distance, inside/outside, accuracy). Records are
+  derived from events, never the other way round.
+- **Snapshot on check-in.** Schedule boundaries + grace/break/overtime are
+  **snapshot** onto the record at check-in (`scheduled_start_at`,
+  `scheduled_end_at`, `grace_minutes`, …). Check-out and approved corrections
+  recompute from that snapshot, so later schedule edits never rewrite closed
+  history.
+- **Single deterministic `ScheduleResolver`.** One authority resolves which
+  schedule applies: precedence **employee > team > department (deepest ancestor
+  first) > branch > company**, with a fully deterministic tie-break (priority,
+  then effective_from, then created_at, then id). Every attendance calculation
+  flows through it, so precedence is applied exactly once, everywhere.
+- **Single `AttendanceCalculator`.** All minute math (late / early-leave /
+  overtime / worked, and status) is a pure function of (snapshot, check-in,
+  check-out) — no DB, no clock, no client input — so payroll-relevant numbers are
+  consistent and unit-testable.
+- **Backend geofencing (Haversine).** `GeofenceService` computes great-circle
+  distance server-side and decides inside/outside against the nearest active
+  location's radius, with optional per-location accuracy gating. Coordinates are
+  decimals (no float drift). The client's claimed position is only an input.
+- **Concurrency + idempotency.** Check-in/out run in one transaction guarded by a
+  per-employee PostgreSQL **advisory xact lock** plus row locks; a partial unique
+  index enforces **at most one open record per employee**. Retries are idempotent
+  via a client-supplied `client_request_id` (partial unique index on
+  `attendance_events` + replay), so a re-sent punch returns the same record.
+- **Eligibility.** Only `active` / `onboarding` / `probation` employees may
+  record attendance — a hard server rule (`AttendanceEligibility`), independent
+  of any UI. Self-service is gated by an authenticated, **employee-linked** user,
+  not an RBAC permission.
+- **Controlled corrections (segregation of duties).** A change to a recorded day
+  is **requested**, then reviewed by a **different** person — no self-approval.
+  Approval recomputes from snapshot and keeps a full before/after trail; manual
+  entry (`is_manual`, `source=manual`) is an authorized, audited action.
+- **Sensitive GPS.** Precise coordinates are exposed only to the employee viewing
+  their **own** record or to a user holding `attendance.view_location` **within a
+  scope covering that employee** (scope-aware, NB-1). Everyone else sees the
+  derived inside/outside flag only.
+- **FORCE RLS on all attendance tables.** All eight tenant-owned attendance
+  tables carry `tenant_id` + FORCE ROW LEVEL SECURITY with the same
+  `tenant_isolation` + `platform_readonly` policies as Sprint 0/1/2; proven by
+  raw-SQL cross-tenant tests.
+- **Explicit operations, not generic CRUD.** The API exposes named operations
+  (check-in, check-out, manual entry, assign schedule, review correction, …);
+  there is no blanket attendance CRUD that could bypass the server-decides rule.
+- **Out of Sprint 3 scope.** Payroll/overtime pay, leave business flows (a future
+  hook only), tasks, AI, biometric/face/kiosk hardware, rotating-shift planners,
+  and labor-law rounding remain deferred (see ADR-017 / SPRINTS).
