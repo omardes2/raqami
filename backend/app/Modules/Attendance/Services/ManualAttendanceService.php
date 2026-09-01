@@ -33,6 +33,7 @@ class ManualAttendanceService
         private readonly ScheduleResolver $resolver,
         private readonly AttendanceCalculator $calculator,
         private readonly AttendanceRecordAggregator $aggregator,
+        private readonly OvertimeApprovalService $overtime,
         private readonly AttendanceSettingsService $settings,
         private readonly AuditLogger $audit,
         private readonly TenantContext $context,
@@ -104,6 +105,7 @@ class ManualAttendanceService
             }
 
             $record = $this->aggregator->aggregate($record);
+            $this->overtime->syncForRecord($record, $actor);
 
             $this->audit->log('attendance.manual_recorded', [
                 'actor' => $actor,

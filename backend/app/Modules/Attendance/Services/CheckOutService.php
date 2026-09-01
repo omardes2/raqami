@@ -31,6 +31,7 @@ class CheckOutService
         private readonly GeofenceService $geofence,
         private readonly AttendanceCalculator $calculator,
         private readonly AttendanceRecordAggregator $aggregator,
+        private readonly OvertimeApprovalService $overtime,
         private readonly AuditLogger $audit,
         private readonly TenantContext $context,
     ) {}
@@ -103,6 +104,7 @@ class CheckOutService
             ]);
 
             $record = $this->aggregator->aggregate($record);
+            $this->overtime->syncForRecord($record, $actor);
 
             $this->audit->log('attendance.checked_out', [
                 'actor' => $actor,
