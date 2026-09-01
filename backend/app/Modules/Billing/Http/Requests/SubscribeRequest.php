@@ -17,7 +17,7 @@ class SubscribeRequest extends FormRequest
         return [
             'plan_id' => ['required', 'string', Rule::exists('plans', 'id')],
             'interval' => ['required', Rule::in(['monthly', 'annual'])],
-            'currency' => ['sometimes', Rule::in(config('billing.currencies'))],
+            // Currency is NOT client-controlled — it derives from the plan.
             'coupon_code' => ['sometimes', 'nullable', 'string', 'max:64'],
             'trial' => ['sometimes', 'boolean'],
         ];

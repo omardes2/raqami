@@ -25,6 +25,7 @@ return [
     'no_subscription' => 'This company does not have a subscription yet.',
     'plan_not_available' => 'The selected plan is not available.',
     'nothing_to_pay' => 'There is no outstanding balance to pay.',
+    'currency_change_unsupported' => 'Changing to a plan in a different currency is not supported.',
 
     // Bank transfer
     'bank_account_unavailable' => 'No bank account is configured for this currency.',

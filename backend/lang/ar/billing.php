@@ -25,6 +25,7 @@ return [
     'no_subscription' => 'لا يوجد اشتراك لهذه الشركة بعد.',
     'plan_not_available' => 'الخطة المختارة غير متاحة.',
     'nothing_to_pay' => 'لا يوجد رصيد مستحق للدفع.',
+    'currency_change_unsupported' => 'الانتقال إلى خطة بعملة مختلفة غير مدعوم.',
 
     // Bank transfer
     'bank_account_unavailable' => 'لا يوجد حساب بنكي مهيأ لهذه العملة.',

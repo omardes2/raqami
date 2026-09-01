@@ -10,6 +10,7 @@ use App\Modules\Billing\Models\Subscription;
 use App\Modules\Billing\Models\SubscriptionChange;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
@@ -42,7 +43,10 @@ class SubscriptionManager
         }
 
         $intervalEnum = BillingInterval::from($interval);
-        $currency = $opts['currency'] ?? $plan->currency;
+        // Currency ALWAYS derives from the plan — never from client input. The
+        // invoice amount is the plan's price (in the plan's currency), so the
+        // subscription/invoice currency must match it. No FX in Sprint 2.
+        $currency = $plan->currency;
         $wantsTrial = ($opts['trial'] ?? true) && $plan->trial_days > 0;
         $now = now();
 
@@ -187,6 +191,14 @@ class SubscriptionManager
     {
         if ($subscription->status->isTerminal()) {
             throw new RuntimeException('Cannot change plan on a terminal subscription.');
+        }
+
+        // A plan change must not silently change currency — there is no FX in
+        // Sprint 2, and the invoice amount is denominated in the plan's currency.
+        if ($toPlan->currency !== $subscription->currency) {
+            throw ValidationException::withMessages([
+                'plan_id' => [__('billing.currency_change_unsupported')],
+            ]);
         }
 
         $intervalEnum = $interval ? BillingInterval::from($interval) : $subscription->billing_interval;

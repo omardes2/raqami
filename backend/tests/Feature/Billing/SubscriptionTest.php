@@ -113,6 +113,33 @@ class SubscriptionTest extends TestCase
         $this->assertSame(2, $count);
     }
 
+    public function test_subscription_currency_follows_the_plan_not_the_client(): void
+    {
+        [$owner, $tenant] = $this->createCompanyWithOwner();
+        $plan = $this->makePlan(['trial_days' => 0, 'currency' => 'EUR', 'monthly_price_minor' => 5000]);
+
+        // Even if a client crafts a mismatched currency, the invoice/subscription
+        // currency must be the plan's currency (no client control, no FX).
+        $this->actingAs($owner)->withHeaders($this->tenantHeaders($tenant))
+            ->postJson('/api/billing/subscription', ['plan_id' => $plan->id, 'interval' => 'monthly', 'currency' => 'USD'])
+            ->assertCreated()
+            ->assertJsonPath('subscription.currency', 'EUR')
+            ->assertJsonPath('invoice.currency', 'EUR')
+            ->assertJsonPath('invoice.total_minor', 5000);
+    }
+
+    public function test_cross_currency_plan_change_is_rejected(): void
+    {
+        [$owner, $tenant] = $this->createCompanyWithOwner();
+        $usd = $this->makePlan(['name' => 'USD Plan', 'currency' => 'USD', 'monthly_price_minor' => 1000]);
+        $eur = $this->makePlan(['name' => 'EUR Plan', 'currency' => 'EUR', 'monthly_price_minor' => 5000]);
+        $this->subscribeTenant($tenant, $usd);
+
+        $this->actingAs($owner)->withHeaders($this->tenantHeaders($tenant))
+            ->postJson('/api/billing/subscription/change-plan', ['plan_id' => $eur->id])
+            ->assertStatus(422);
+    }
+
     public function test_invalid_transition_is_rejected(): void
     {
         [, $tenant] = $this->createCompanyWithOwner();
