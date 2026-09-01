@@ -1,5 +1,8 @@
 {
-  "app": { "name": "رقمي دوام", "tagline": "إدارة القوى العاملة كما ينبغي." },
+  "app": {
+    "name": "رقمي دوام",
+    "tagline": "إدارة القوى العاملة كما ينبغي."
+  },
   "nav": {
     "dashboard": "لوحة التحكم",
     "company": "الشركة",
@@ -14,7 +17,8 @@
     "audit": "سجل التدقيق",
     "profile": "الملف الشخصي",
     "logout": "تسجيل الخروج",
-    "platform": "مدير المنصة"
+    "platform": "مدير المنصة",
+    "billing": "الفوترة"
   },
   "org": {
     "name": "الاسم",
@@ -203,7 +207,43 @@
     "members": "الأعضاء",
     "status": "الحالة",
     "created": "تاريخ الإنشاء",
-    "audit": "تدقيق المنصة"
+    "audit": "تدقيق المنصة",
+    "billing": {
+      "title": "الفوترة",
+      "plans": "الخطط",
+      "coupons": "القسائم",
+      "bank_accounts": "الحسابات البنكية",
+      "transfers": "التحويلات البنكية",
+      "subscriptions": "الاشتراكات",
+      "invoices": "الفواتير",
+      "payments": "المدفوعات",
+      "plan_name": "الخطة",
+      "employees": "الموظفون",
+      "status": "الحالة",
+      "new_plan": "خطة جديدة",
+      "monthly_minor": "شهري (وحدة صغرى)",
+      "annual_minor": "سنوي (وحدة صغرى)",
+      "trial_days": "أيام التجربة",
+      "employee_limit": "حد الموظفين",
+      "submitted": "أُرسل",
+      "proof": "الإثبات",
+      "approve": "اعتماد",
+      "reject": "رفض",
+      "reject_reason": "سبب الرفض",
+      "label": "التسمية",
+      "new_bank_account": "حساب بنكي جديد",
+      "code": "الرمز",
+      "type": "النوع",
+      "value": "القيمة",
+      "redeemed": "المستخدم",
+      "new_coupon": "قسيمة جديدة",
+      "name": "الاسم",
+      "amount_minor": "المبلغ (وحدة صغرى)",
+      "max_redemptions": "أقصى استخدام",
+      "per_tenant_limit": "الحد لكل شركة",
+      "confirm_manual": "تسجيل دفعة نقدية بكامل المبلغ المستحق؟",
+      "record_cash": "تسجيل نقدي"
+    }
   },
   "common": {
     "loading": "جارٍ التحميل…",
@@ -212,6 +252,124 @@
     "language": "اللغة",
     "welcome": "مرحباً",
     "forbidden": "ليس لديك صلاحية للوصول إلى هذه المنطقة.",
-    "error": "حدث خطأ ما. يرجى المحاولة مرة أخرى."
+    "error": "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+    "create": "إنشاء",
+    "archive": "أرشفة",
+    "none": "لا يوجد"
+  },
+  "billing": {
+    "title": "الفوترة",
+    "nav": {
+      "overview": "نظرة عامة",
+      "subscription": "الاشتراك",
+      "invoices": "الفواتير",
+      "payments": "المدفوعات",
+      "details": "بيانات الفوترة"
+    },
+    "status": {
+      "trialing": "تجريبي",
+      "active": "نشط",
+      "past_due": "متأخر",
+      "grace_period": "فترة سماح",
+      "suspended": "موقوف",
+      "canceled": "ملغى",
+      "expired": "منتهٍ"
+    },
+    "interval": {
+      "monthly": "شهري",
+      "annual": "سنوي"
+    },
+    "overview": {
+      "plan": "الخطة الحالية",
+      "interval": "الفوترة",
+      "trial_remaining": "متبقٍ {{days}} يوم تجريبي",
+      "next_renewal": "التجديد القادم",
+      "no_subscription": "لا يوجد اشتراك نشط",
+      "employees": "الموظفون",
+      "unlimited": "غير محدود",
+      "remaining": "متبقٍ {{n}}",
+      "balance": "الرصيد المستحق",
+      "balance_due": "الدفع مطلوب"
+    },
+    "subscription": {
+      "current": "الاشتراك الحالي",
+      "cancel_scheduled": "الإلغاء مجدول في نهاية الفترة.",
+      "resume": "استئناف الاشتراك",
+      "cancel": "إلغاء الاشتراك"
+    },
+    "plan": {
+      "unlimited_employees": "موظفون بلا حد",
+      "employee_limit": "حتى {{n}} موظفًا",
+      "trial": "تجربة مجانية {{days}} يومًا",
+      "current": "الخطة الحالية",
+      "switch": "التبديل لهذه الخطة",
+      "choose": "اختيار الخطة"
+    },
+    "invoice": {
+      "number": "فاتورة",
+      "issued": "صدرت",
+      "due": "الاستحقاق",
+      "total": "الإجمالي",
+      "paid": "المدفوع",
+      "status": "الحالة",
+      "view": "عرض",
+      "pay": "دفع",
+      "none": "لا توجد فواتير بعد."
+    },
+    "invoice_status": {
+      "draft": "مسودة",
+      "issued": "صادرة",
+      "partially_paid": "مدفوعة جزئيًا",
+      "paid": "مدفوعة",
+      "overdue": "متأخرة",
+      "void": "ملغاة"
+    },
+    "bank": {
+      "title": "تحويل بنكي",
+      "amount_due": "المبلغ المستحق",
+      "instructions": "بيانات البنك",
+      "no_accounts": "لا يوجد حساب بنكي مهيأ لهذه العملة.",
+      "reference": "مرجع التحويل",
+      "proof": "إثبات الدفع",
+      "submit": "إرسال للمراجعة",
+      "proof_required": "ملف الإثبات مطلوب.",
+      "bank": "البنك",
+      "holder": "صاحب الحساب"
+    },
+    "payment": {
+      "date": "التاريخ",
+      "method": "الطريقة",
+      "amount": "المبلغ",
+      "reference": "المرجع",
+      "status": "الحالة",
+      "none": "لا توجد مدفوعات بعد."
+    },
+    "method": {
+      "card": "بطاقة",
+      "bank_transfer": "تحويل بنكي",
+      "cash": "نقدًا",
+      "manual": "يدوي"
+    },
+    "payment_status": {
+      "pending": "قيد الانتظار",
+      "under_review": "قيد المراجعة",
+      "succeeded": "ناجح",
+      "failed": "فشل",
+      "rejected": "مرفوض",
+      "refunded": "مسترد"
+    },
+    "details": {
+      "saved": "تم حفظ بيانات الفوترة.",
+      "legal_name": "الاسم القانوني",
+      "billing_email": "بريد الفوترة",
+      "billing_phone": "هاتف الفوترة",
+      "tax_id": "الرقم الضريبي",
+      "preferred_currency": "العملة المفضلة",
+      "address_line_1": "العنوان ١",
+      "address_line_2": "العنوان ٢",
+      "city": "المدينة",
+      "postal_code": "الرمز البريدي",
+      "country": "الدولة"
+    }
   }
 }

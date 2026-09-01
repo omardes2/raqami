@@ -34,6 +34,11 @@ export default function PlatformLayout() {
         <div className="brand">{t('platform.title')}</div>
         <nav>
           <NavLink to="/platform" end className={({ isActive }) => (isActive ? 'active' : '')}>{t('platform.tenants')}</NavLink>
+          <NavLink to="/platform/plans" className={({ isActive }) => (isActive ? 'active' : '')}>{t('platform.billing.plans')}</NavLink>
+          <NavLink to="/platform/coupons" className={({ isActive }) => (isActive ? 'active' : '')}>{t('platform.billing.coupons')}</NavLink>
+          <NavLink to="/platform/bank-accounts" className={({ isActive }) => (isActive ? 'active' : '')}>{t('platform.billing.bank_accounts')}</NavLink>
+          <NavLink to="/platform/transfers" className={({ isActive }) => (isActive ? 'active' : '')}>{t('platform.billing.transfers')}</NavLink>
+          <NavLink to="/platform/billing" className={({ isActive }) => (isActive ? 'active' : '')}>{t('platform.billing.title')}</NavLink>
           <NavLink to="/platform/audit" className={({ isActive }) => (isActive ? 'active' : '')}>{t('platform.audit')}</NavLink>
         </nav>
       </aside>

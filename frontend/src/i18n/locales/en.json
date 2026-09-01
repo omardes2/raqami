@@ -1,5 +1,8 @@
 {
-  "app": { "name": "Raqmi Dawam", "tagline": "Workforce management, done right." },
+  "app": {
+    "name": "Raqmi Dawam",
+    "tagline": "Workforce management, done right."
+  },
   "nav": {
     "dashboard": "Dashboard",
     "company": "Company",
@@ -14,7 +17,8 @@
     "audit": "Audit Log",
     "profile": "Profile",
     "logout": "Log out",
-    "platform": "Super Admin"
+    "platform": "Super Admin",
+    "billing": "Billing"
   },
   "org": {
     "name": "Name",
@@ -203,7 +207,43 @@
     "members": "Members",
     "status": "Status",
     "created": "Created",
-    "audit": "Platform audit"
+    "audit": "Platform audit",
+    "billing": {
+      "title": "Billing",
+      "plans": "Plans",
+      "coupons": "Coupons",
+      "bank_accounts": "Bank Accounts",
+      "transfers": "Bank Transfers",
+      "subscriptions": "Subscriptions",
+      "invoices": "Invoices",
+      "payments": "Payments",
+      "plan_name": "Plan",
+      "employees": "Employees",
+      "status": "Status",
+      "new_plan": "New plan",
+      "monthly_minor": "Monthly (minor)",
+      "annual_minor": "Annual (minor)",
+      "trial_days": "Trial days",
+      "employee_limit": "Employee limit",
+      "submitted": "Submitted",
+      "proof": "Proof",
+      "approve": "Approve",
+      "reject": "Reject",
+      "reject_reason": "Rejection reason",
+      "label": "Label",
+      "new_bank_account": "New bank account",
+      "code": "Code",
+      "type": "Type",
+      "value": "Value",
+      "redeemed": "Redeemed",
+      "new_coupon": "New coupon",
+      "name": "Name",
+      "amount_minor": "Amount (minor)",
+      "max_redemptions": "Max redemptions",
+      "per_tenant_limit": "Per-tenant limit",
+      "confirm_manual": "Record a cash payment for the full amount due?",
+      "record_cash": "Record cash"
+    }
   },
   "common": {
     "loading": "Loading…",
@@ -212,6 +252,124 @@
     "language": "Language",
     "welcome": "Welcome",
     "forbidden": "You do not have access to this area.",
-    "error": "Something went wrong. Please try again."
+    "error": "Something went wrong. Please try again.",
+    "create": "Create",
+    "archive": "Archive",
+    "none": "None"
+  },
+  "billing": {
+    "title": "Billing",
+    "nav": {
+      "overview": "Overview",
+      "subscription": "Subscription",
+      "invoices": "Invoices",
+      "payments": "Payments",
+      "details": "Billing Details"
+    },
+    "status": {
+      "trialing": "Trial",
+      "active": "Active",
+      "past_due": "Past due",
+      "grace_period": "Grace period",
+      "suspended": "Suspended",
+      "canceled": "Canceled",
+      "expired": "Expired"
+    },
+    "interval": {
+      "monthly": "Monthly",
+      "annual": "Annual"
+    },
+    "overview": {
+      "plan": "Current plan",
+      "interval": "Billing",
+      "trial_remaining": "{{days}} trial days remaining",
+      "next_renewal": "Next renewal",
+      "no_subscription": "No active subscription",
+      "employees": "Employees",
+      "unlimited": "Unlimited",
+      "remaining": "{{n}} remaining",
+      "balance": "Outstanding balance",
+      "balance_due": "Payment required"
+    },
+    "subscription": {
+      "current": "Current subscription",
+      "cancel_scheduled": "Cancellation scheduled at period end.",
+      "resume": "Resume subscription",
+      "cancel": "Cancel subscription"
+    },
+    "plan": {
+      "unlimited_employees": "Unlimited employees",
+      "employee_limit": "Up to {{n}} employees",
+      "trial": "{{days}}-day free trial",
+      "current": "Current plan",
+      "switch": "Switch to this plan",
+      "choose": "Choose plan"
+    },
+    "invoice": {
+      "number": "Invoice",
+      "issued": "Issued",
+      "due": "Due",
+      "total": "Total",
+      "paid": "Paid",
+      "status": "Status",
+      "view": "View",
+      "pay": "Pay",
+      "none": "No invoices yet."
+    },
+    "invoice_status": {
+      "draft": "Draft",
+      "issued": "Issued",
+      "partially_paid": "Partially paid",
+      "paid": "Paid",
+      "overdue": "Overdue",
+      "void": "Void"
+    },
+    "bank": {
+      "title": "Bank transfer",
+      "amount_due": "Amount due",
+      "instructions": "Bank details",
+      "no_accounts": "No bank account configured for this currency.",
+      "reference": "Transfer reference",
+      "proof": "Payment proof",
+      "submit": "Submit for review",
+      "proof_required": "A proof file is required.",
+      "bank": "Bank",
+      "holder": "Account holder"
+    },
+    "payment": {
+      "date": "Date",
+      "method": "Method",
+      "amount": "Amount",
+      "reference": "Reference",
+      "status": "Status",
+      "none": "No payments yet."
+    },
+    "method": {
+      "card": "Card",
+      "bank_transfer": "Bank transfer",
+      "cash": "Cash",
+      "manual": "Manual"
+    },
+    "payment_status": {
+      "pending": "Pending",
+      "under_review": "Under review",
+      "succeeded": "Succeeded",
+      "failed": "Failed",
+      "rejected": "Rejected",
+      "refunded": "Refunded"
+    },
+    "details": {
+      "saved": "Billing details saved.",
+      "legal_name": "Legal name",
+      "billing_email": "Billing email",
+      "billing_phone": "Billing phone",
+      "tax_id": "Tax / VAT ID",
+      "preferred_currency": "Preferred currency",
+      "address_line_1": "Address line 1",
+      "address_line_2": "Address line 2",
+      "city": "City",
+      "postal_code": "Postal code",
+      "country": "Country"
+    }
   }
 }
