@@ -35,9 +35,10 @@ class AttendanceSettingsService
             ['tenant_id' => $this->context->tenantId()],
         );
 
-        // A freshly-created row does not carry the DB column defaults in memory;
-        // reload it so callers see the real values (timezone, windows, flags).
-        return $settings->wasRecentlyCreated ? $settings->refresh() : $settings;
+        // A freshly-created row does not carry the DB column defaults in memory
+        // (and its wasRecentlyCreated flag would make a GET resource 201); return
+        // a clean, fully-hydrated instance so callers see the real values.
+        return $settings->wasRecentlyCreated ? $settings->fresh() : $settings;
     }
 
     /**
@@ -51,10 +52,6 @@ class AttendanceSettingsService
                 ->lockForUpdate()
                 ->firstOrCreate(['tenant_id' => $this->context->tenantId()]);
 
-            if ($settings->wasRecentlyCreated) {
-                $settings->refresh();
-            }
-
             $changes = array_intersect_key($input, array_flip(self::UPDATABLE));
             $settings->fill($changes)->save();
 
@@ -64,7 +61,9 @@ class AttendanceSettingsService
                 'metadata' => ['changed' => array_keys($changes)],
             ]);
 
-            return $settings->refresh();
+            // fresh() clears wasRecentlyCreated (so the resource returns 200) and
+            // re-hydrates any untouched DB-default columns.
+            return $settings->fresh();
         });
     }
 }

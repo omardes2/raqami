@@ -1,5 +1,12 @@
 <?php
 
+use App\Modules\Attendance\Http\Controllers\AttendanceController;
+use App\Modules\Attendance\Http\Controllers\AttendanceCorrectionController;
+use App\Modules\Attendance\Http\Controllers\AttendanceLocationController;
+use App\Modules\Attendance\Http\Controllers\AttendanceRecordController;
+use App\Modules\Attendance\Http\Controllers\AttendanceReportController;
+use App\Modules\Attendance\Http\Controllers\AttendanceSettingsController;
+use App\Modules\Attendance\Http\Controllers\WorkScheduleController;
 use App\Modules\Audit\Http\Controllers\AuditLogController;
 use App\Modules\Authorization\Http\Controllers\PermissionController;
 use App\Modules\Authorization\Http\Controllers\RoleAssignmentController;
@@ -195,6 +202,57 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('billin
     Route::get('bank-transfers', [BankTransferController::class, 'index'])->middleware('permission:billing.payments.view');
     Route::post('bank-transfers', [BankTransferController::class, 'store'])->middleware('permission:billing.bank_transfer.submit');
     Route::get('bank-transfers/{bankTransfer}/proof', [BankTransferController::class, 'downloadProof'])->middleware('permission:billing.payments.view');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Sprint 3 — Attendance (tenant-scoped)
+|--------------------------------------------------------------------------
+| Self-service (check-in/out, own attendance, own correction request) is gated
+| by authentication + employee link — NOT a permission. Company-wide config
+| (settings, schedules, locations) uses `permission:` (company scope). Actions
+| over other employees (records, manual entry, corrections, reports) use
+| `permission.any:` and are further constrained by organizational scope in the
+| controllers/services. The SERVER decides every result; clients send only facts.
+*/
+Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('attendance')->group(function () {
+    // --- Employee self-service ---
+    Route::post('check-in', [AttendanceController::class, 'checkIn']);
+    Route::post('check-out', [AttendanceController::class, 'checkOut']);
+    Route::get('me', [AttendanceController::class, 'myAttendance']);
+    Route::get('me/today', [AttendanceController::class, 'myToday']);
+    Route::post('me/records/{record}/corrections', [AttendanceController::class, 'requestCorrection']);
+
+    // --- Attendance settings (company scope) ---
+    Route::get('settings', [AttendanceSettingsController::class, 'show'])->middleware('permission:attendance.settings.manage');
+    Route::put('settings', [AttendanceSettingsController::class, 'update'])->middleware('permission:attendance.settings.manage');
+
+    // --- Work schedules & assignments (company scope) ---
+    Route::get('schedules', [WorkScheduleController::class, 'index'])->middleware('permission:attendance.schedules.view');
+    Route::post('schedules', [WorkScheduleController::class, 'store'])->middleware('permission:attendance.schedules.manage');
+    Route::get('schedules/{schedule}', [WorkScheduleController::class, 'show'])->middleware('permission:attendance.schedules.view');
+    Route::match(['put', 'patch'], 'schedules/{schedule}', [WorkScheduleController::class, 'update'])->middleware('permission:attendance.schedules.manage');
+    Route::post('schedules/{schedule}/assignments', [WorkScheduleController::class, 'assign'])->middleware('permission:attendance.schedules.manage');
+    Route::delete('schedules/{schedule}/assignments/{assignment}', [WorkScheduleController::class, 'unassign'])->middleware('permission:attendance.schedules.manage');
+
+    // --- Geofence locations (company scope) ---
+    Route::get('locations', [AttendanceLocationController::class, 'index'])->middleware('permission:attendance.locations.manage');
+    Route::post('locations', [AttendanceLocationController::class, 'store'])->middleware('permission:attendance.locations.manage');
+    Route::match(['put', 'patch'], 'locations/{location}', [AttendanceLocationController::class, 'update'])->middleware('permission:attendance.locations.manage');
+    Route::post('locations/{location}/archive', [AttendanceLocationController::class, 'archive'])->middleware('permission:attendance.locations.manage');
+
+    // --- Records & manual entry (organizational scope) ---
+    Route::get('records', [AttendanceRecordController::class, 'index'])->middleware('permission.any:attendance.view');
+    Route::post('records/manual', [AttendanceRecordController::class, 'storeManual'])->middleware('permission.any:attendance.manage');
+    Route::get('records/{record}', [AttendanceRecordController::class, 'show'])->middleware('permission.any:attendance.view');
+
+    // --- Corrections review (organizational scope) ---
+    Route::get('corrections', [AttendanceCorrectionController::class, 'index'])->middleware('permission.any:attendance.corrections.review');
+    Route::post('corrections/{correction}/approve', [AttendanceCorrectionController::class, 'approve'])->middleware('permission.any:attendance.corrections.review');
+    Route::post('corrections/{correction}/reject', [AttendanceCorrectionController::class, 'reject'])->middleware('permission.any:attendance.corrections.review');
+
+    // --- Reports (organizational scope) ---
+    Route::get('reports/summary', [AttendanceReportController::class, 'summary'])->middleware('permission.any:attendance.reports.view');
 });
 
 /*
