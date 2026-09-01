@@ -29,6 +29,8 @@ return [
     'correction_empty' => 'يجب أن يغيّر التصحيح وقت الدخول و/أو وقت الخروج.',
     'correction_reviewed' => 'تمت مراجعة هذا التصحيح بالفعل.',
     'correction_self' => 'لا يمكنك مراجعة طلب التصحيح الخاص بك.',
+    'correction_session_required' => 'يحتوي هذا اليوم على عدة جلسات؛ يرجى تحديد الجلسة المراد تصحيحها.',
+    'correction_session_invalid' => 'الجلسة المحددة لا تنتمي إلى سجل الحضور هذا.',
 
     // Schedule assignments
     'assignment_company_no_scope' => 'إسناد على مستوى الشركة يجب ألا يحدّد نطاقاً محدداً.',

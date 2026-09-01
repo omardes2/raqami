@@ -29,6 +29,8 @@ return [
     'correction_empty' => 'A correction must change the check-in and/or check-out time.',
     'correction_reviewed' => 'This correction has already been reviewed.',
     'correction_self' => 'You cannot review your own correction request.',
+    'correction_session_required' => 'This day has multiple sessions; specify which session to correct.',
+    'correction_session_invalid' => 'The selected session does not belong to this attendance record.',
 
     // Schedule assignments
     'assignment_company_no_scope' => 'A company-scope assignment must not specify a scope_id.',

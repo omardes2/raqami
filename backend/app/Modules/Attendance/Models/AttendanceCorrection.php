@@ -20,7 +20,7 @@ class AttendanceCorrection extends Model
     use HasUlids;
 
     protected $fillable = [
-        'tenant_id', 'attendance_record_id', 'employee_id', 'requested_by_user_id',
+        'tenant_id', 'attendance_record_id', 'attendance_session_id', 'employee_id', 'requested_by_user_id',
         'requested_check_in_at', 'requested_check_out_at', 'reason', 'status',
         'reviewed_by_user_id', 'reviewed_at', 'rejection_reason',
         'old_values', 'new_values',
@@ -41,6 +41,11 @@ class AttendanceCorrection extends Model
     public function record(): BelongsTo
     {
         return $this->belongsTo(AttendanceRecord::class, 'attendance_record_id');
+    }
+
+    public function session(): BelongsTo
+    {
+        return $this->belongsTo(AttendanceSession::class, 'attendance_session_id');
     }
 
     public function employee(): BelongsTo
