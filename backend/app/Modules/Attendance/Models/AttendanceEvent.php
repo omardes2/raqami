@@ -24,7 +24,7 @@ class AttendanceEvent extends Model
         'tenant_id', 'employee_id', 'attendance_record_id', 'event_type', 'source',
         'occurred_at', 'latitude', 'longitude', 'accuracy_meters',
         'matched_location_id', 'distance_meters', 'inside_geofence',
-        'metadata', 'created_by_user_id',
+        'metadata', 'created_by_user_id', 'client_request_id',
     ];
 
     protected function casts(): array

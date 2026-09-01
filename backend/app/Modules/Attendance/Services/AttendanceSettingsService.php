@@ -31,9 +31,13 @@ class AttendanceSettingsService
     /** The tenant's attendance settings, creating defaults on first access. */
     public function current(): AttendanceSetting
     {
-        return AttendanceSetting::query()->firstOrCreate(
+        $settings = AttendanceSetting::query()->firstOrCreate(
             ['tenant_id' => $this->context->tenantId()],
         );
+
+        // A freshly-created row does not carry the DB column defaults in memory;
+        // reload it so callers see the real values (timezone, windows, flags).
+        return $settings->wasRecentlyCreated ? $settings->refresh() : $settings;
     }
 
     /**
@@ -46,6 +50,10 @@ class AttendanceSettingsService
                 ->where('tenant_id', $this->context->tenantId())
                 ->lockForUpdate()
                 ->firstOrCreate(['tenant_id' => $this->context->tenantId()]);
+
+            if ($settings->wasRecentlyCreated) {
+                $settings->refresh();
+            }
 
             $changes = array_intersect_key($input, array_flip(self::UPDATABLE));
             $settings->fill($changes)->save();

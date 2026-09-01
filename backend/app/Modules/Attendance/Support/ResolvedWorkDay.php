@@ -2,6 +2,7 @@
 
 namespace App\Modules\Attendance\Support;
 
+use App\Modules\Attendance\Models\AttendanceRecord;
 use App\Modules\Attendance\Models\WorkSchedule;
 use App\Modules\Attendance\Models\WorkScheduleDay;
 use Carbon\CarbonImmutable;
@@ -26,6 +27,29 @@ final class ResolvedWorkDay
         public readonly int $breakMinutes,
         public readonly int $overtimeAfterMinutes,
     ) {}
+
+    /**
+     * Rebuild the resolved-day context from a record's FROZEN snapshot, so a
+     * recomputation (check-out, correction) uses the boundaries captured at
+     * check-in — later schedule edits never rewrite closed history.
+     */
+    public static function fromRecordSnapshot(AttendanceRecord $record): self
+    {
+        $hasWindow = $record->scheduled_start_at !== null && $record->scheduled_end_at !== null;
+
+        return new self(
+            schedule: $record->schedule,
+            day: null,
+            workDate: CarbonImmutable::parse($record->work_date),
+            timezone: $record->timezone,
+            isWorkingDay: $hasWindow,
+            scheduledStartAt: $hasWindow ? CarbonImmutable::parse($record->scheduled_start_at) : null,
+            scheduledEndAt: $hasWindow ? CarbonImmutable::parse($record->scheduled_end_at) : null,
+            graceMinutes: $record->grace_minutes,
+            breakMinutes: $record->break_minutes,
+            overtimeAfterMinutes: $record->schedule?->overtime_after_minutes ?? 0,
+        );
+    }
 
     /** True when no schedule assignment covers this employee on this date. */
     public function hasSchedule(): bool

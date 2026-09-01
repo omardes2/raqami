@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -32,6 +33,7 @@ return new class extends Migration
             $table->boolean('inside_geofence')->nullable();          // server decision
             $table->jsonb('metadata')->nullable();                   // device/ip/user-agent context
             $table->ulid('created_by_user_id')->nullable();          // actor (self, manager, admin)
+            $table->string('client_request_id', 64)->nullable();     // idempotency key for retries
             $table->timestamps();
 
             $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
@@ -42,6 +44,14 @@ return new class extends Migration
             $table->index(['tenant_id', 'attendance_record_id']);
             $table->index(['tenant_id', 'event_type']);
         });
+
+        // Idempotency: a replayed punch (same client_request_id) can never create
+        // a duplicate event for the same employee.
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement(
+                'CREATE UNIQUE INDEX attendance_events_idempotency ON attendance_events (tenant_id, employee_id, client_request_id) WHERE client_request_id IS NOT NULL'
+            );
+        }
     }
 
     public function down(): void
