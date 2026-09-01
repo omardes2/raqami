@@ -25,6 +25,9 @@ return new class extends Migration
             $table->timestamp('ends_at')->nullable();
             $table->integer('max_redemptions')->nullable();
             $table->integer('per_tenant_limit')->nullable();
+            // Global redemption tally kept on the (platform-global) coupon so
+            // max_redemptions is enforceable without cross-tenant reads.
+            $table->unsignedInteger('redeemed_count')->default(0);
             $table->ulid('applicable_plan_id')->nullable();
             $table->string('status', 20)->default('active'); // active|archived
             $table->timestamps();
