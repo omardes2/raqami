@@ -30,10 +30,10 @@ class ProcessDailyAttendance extends Command
         $result = $processor->process($date);
 
         $this->info(sprintf(
-            'Attendance materialized for %s: tenants=%d absent=%d weekend=%d holiday=%d incomplete=%d skipped=%d errors=%d',
+            'Attendance materialized for %s: tenants=%d absent=%d weekend=%d holiday=%d incomplete=%d skipped=%d anomalies=%d errors=%d',
             $date->toDateString(),
             $result['tenants'], $result['absent'], $result['weekend'],
-            $result['holiday'], $result['incomplete'], $result['skipped'], $result['errors'],
+            $result['holiday'], $result['incomplete'], $result['skipped'], $result['anomalies'], $result['errors'],
         ));
 
         return $result['errors'] > 0 ? self::FAILURE : self::SUCCESS;

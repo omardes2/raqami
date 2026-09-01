@@ -20,15 +20,16 @@ class AttendanceDailyProcessor
     public function __construct(
         private readonly TenantContext $context,
         private readonly AttendanceDayMaterializer $materializer,
+        private readonly AttendanceAnomalyService $anomalies,
     ) {}
 
     /**
-     * @return array{tenants:int, absent:int, weekend:int, holiday:int, incomplete:int, skipped:int, errors:int}
+     * @return array{tenants:int, absent:int, weekend:int, holiday:int, incomplete:int, skipped:int, anomalies:int, errors:int}
      */
     public function process(CarbonImmutable $localDate, ?CarbonImmutable $now = null): array
     {
         $now = ($now ?? CarbonImmutable::now())->utc();
-        $totals = ['tenants' => 0, 'absent' => 0, 'weekend' => 0, 'holiday' => 0, 'incomplete' => 0, 'skipped' => 0, 'errors' => 0];
+        $totals = ['tenants' => 0, 'absent' => 0, 'weekend' => 0, 'holiday' => 0, 'incomplete' => 0, 'skipped' => 0, 'anomalies' => 0, 'errors' => 0];
 
         $tenantIds = $this->context->runAsPlatform(
             fn () => Tenant::query()->orderBy('id')->pluck('id')->all()
@@ -38,9 +39,15 @@ class AttendanceDailyProcessor
             $totals['tenants']++;
 
             try {
-                $counts = $this->context->runAs($tenantId, fn () => $this->materializer->materialize($localDate, $now));
+                $counts = $this->context->runAs($tenantId, function () use ($localDate, $now) {
+                    // Materialize derived state first, then detect anomalies over it.
+                    $materialized = $this->materializer->materialize($localDate, $now);
+                    $materialized['anomalies'] = $this->anomalies->detect($localDate, $now);
 
-                foreach (['absent', 'weekend', 'holiday', 'incomplete', 'skipped'] as $key) {
+                    return $materialized;
+                });
+
+                foreach (['absent', 'weekend', 'holiday', 'incomplete', 'skipped', 'anomalies'] as $key) {
                     $totals[$key] += $counts[$key];
                 }
             } catch (Throwable $e) {
