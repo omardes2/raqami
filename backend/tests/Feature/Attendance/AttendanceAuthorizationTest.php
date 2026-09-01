@@ -113,6 +113,43 @@ class AttendanceAuthorizationTest extends TestCase
         $this->assertNotContains($outsider->id, $ids);
     }
 
+    public function test_department_manager_sees_own_department_subtree_only(): void
+    {
+        [, $tenant] = $this->createCompanyWithOwner();
+        $branch = $this->makeBranch($tenant, ['name' => 'HQ']);
+        // Parent department, a child department (subtree), and an unrelated one.
+        $parentDept = $this->makeDepartment($tenant, ['name' => 'Eng', 'branch_id' => $branch->id]);
+        $childDept = $this->makeDepartment($tenant, ['name' => 'Backend', 'branch_id' => $branch->id, 'parent_department_id' => $parentDept->id]);
+        $otherDept = $this->makeDepartment($tenant, ['name' => 'Sales', 'branch_id' => $branch->id]);
+
+        [$inParent, $inChild, $outside, $outsideRecord] = $this->withinTenant($tenant, function () use ($branch, $parentDept, $childDept, $otherDept) {
+            $this->companySchedule();
+            $p = app(EmployeeService::class)->create(['first_name' => 'P', 'last_name' => 'P', 'employment_status' => 'active', 'branch_id' => $branch->id, 'department_id' => $parentDept->id]);
+            $c = app(EmployeeService::class)->create(['first_name' => 'C', 'last_name' => 'C', 'employment_status' => 'active', 'branch_id' => $branch->id, 'department_id' => $childDept->id]);
+            $o = app(EmployeeService::class)->create(['first_name' => 'O', 'last_name' => 'O', 'employment_status' => 'active', 'branch_id' => $branch->id, 'department_id' => $otherDept->id]);
+            $this->checkIn($p->fresh());
+            $this->checkIn($c->fresh());
+            $or = $this->checkIn($o->fresh());
+
+            return [$p, $c, $o, $or];
+        });
+
+        // Manager scoped to the PARENT department only.
+        $manager = $this->memberWithRole($tenant, 'department-manager', 'department', $parentDept->id);
+
+        $ids = collect($this->actingAs($manager)->withHeaders($this->tenantHeaders($tenant))
+            ->getJson('/api/attendance/records')->assertOk()->json('data'))->pluck('employee_id')->all();
+
+        // Sees the department AND its descendant subtree, never the unrelated one.
+        $this->assertContains($inParent->id, $ids);
+        $this->assertContains($inChild->id, $ids);
+        $this->assertNotContains($outside->id, $ids);
+
+        // Direct access to an out-of-scope record is a scope-safe 404 (no leak).
+        $this->actingAs($manager)->withHeaders($this->tenantHeaders($tenant))
+            ->getJson("/api/attendance/records/{$outsideRecord->id}")->assertNotFound();
+    }
+
     public function test_plain_employee_cannot_list_records(): void
     {
         [, $tenant] = $this->createCompanyWithOwner();
