@@ -40,8 +40,9 @@ class UserResource extends JsonResource
                 'status' => $tenant->status,
             ] : null,
             // Permissions/roles are backend-authoritative; the UI uses these
-            // only to hide controls, never to authorize.
-            'permissions' => $tenant ? $access->permissionsFor($this->resource)->all() : [],
+            // only to hide controls, never to authorize. Union across all scopes
+            // so scoped managers still see the relevant navigation.
+            'permissions' => $tenant ? $access->allPermissions($this->resource)->all() : [],
             'roles' => $tenant ? $access->roleSlugsFor($this->resource)->all() : [],
         ];
     }

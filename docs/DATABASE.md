@@ -327,3 +327,34 @@ string vs 16-byte binary) — confirmed at kickoff; exact RLS policy SQL; first
 country payroll rule set(s) for `country_rule_sets`.
 
 > Reminder: **Do not create migrations yet.** This is a conceptual model only.
+
+---
+
+## 7. Sprint 1 — Organization & Employees (implemented)
+
+Sprint 1 implemented the following tenant-owned tables (all with indexed
+`tenant_id`, ULID `char(26)` keys, per-tenant unique codes, and RLS
+`ENABLE`+`FORCE` with the `tenant_isolation` + `platform_readonly` policies):
+
+- **branches** — name, code (unique/tenant), country_code, city, address_line,
+  per-branch timezone, phone, email, is_headquarters, status.
+- **job_titles** — title, code, level, status. **No salary/compensation.**
+- **departments** — hierarchical (`parent_department_id`, cycle-prevented in the
+  service), `branch_id` (nullable = company-wide), `manager_employee_id`.
+- **employees** — the HR record, **separate from `users`** (nullable `user_id`).
+  Identity, org placement (branch/department/job_title/direct_manager, self-FK),
+  employment (status/type/hire/probation/termination), contact, profile, notes;
+  `status` + soft deletes for archive.
+- **teams** + **team_memberships** — teams distinct from departments; employees
+  belong to 0..N teams.
+- **employee_emergency_contacts**, **employee_documents** (metadata only; files
+  in private storage via `storage_key`), **employee_contracts** (no
+  compensation), **employee_history_events** (append-oriented HR timeline,
+  distinct from `audit_logs`).
+
+Cross-entity and self-referential FKs (employees.department_id, employees
+.direct_manager_employee_id, departments.parent_department_id, departments
+.manager_employee_id, teams.team_lead_employee_id) are added in a deferred FK
+migration to avoid PostgreSQL create-order issues. No partitioning (ADR-009).
+Employee number default format is `EMP-000123` (per-tenant unique; configurable
+format is a future concern).

@@ -1,6 +1,7 @@
 <?php
 
 use App\Modules\Authorization\Middleware\EnsurePermission;
+use App\Modules\Authorization\Middleware\EnsurePermissionAnyScope;
 use App\Modules\Localization\Middleware\SetLocale;
 use App\Modules\Platform\Middleware\EnsurePlatformAdmin;
 use App\Modules\Tenancy\Middleware\EnsureTenantContext;
@@ -10,6 +11,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -25,10 +27,19 @@ return Application::configure(basePath: dirname(__DIR__))
         // Locale resolution for every API request (ADR-012).
         $middleware->api(append: [SetLocale::class]);
 
+        // Tenant context MUST be established before route-model binding so that
+        // implicit binding queries run under the correct tenant (RLS). Place
+        // ResolveTenant just before SubstituteBindings in the priority list.
+        $middleware->prependToPriorityList(
+            before: SubstituteBindings::class,
+            prepend: ResolveTenant::class,
+        );
+
         $middleware->alias([
             'tenant' => ResolveTenant::class,
             'tenant.required' => EnsureTenantContext::class,
             'permission' => EnsurePermission::class,
+            'permission.any' => EnsurePermissionAnyScope::class,
             'platform' => EnsurePlatformAdmin::class,
         ]);
     })

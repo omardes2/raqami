@@ -28,6 +28,66 @@ class PermissionCatalog
 
         // Audit foundation
         'audit.view' => ['audit', 'View the company audit log'],
+
+        // --- Sprint 1: Organization ---
+        'branches.view' => ['organization', 'View branches'],
+        'branches.create' => ['organization', 'Create branches'],
+        'branches.update' => ['organization', 'Update branches'],
+        'branches.archive' => ['organization', 'Archive branches'],
+
+        'departments.view' => ['organization', 'View departments'],
+        'departments.create' => ['organization', 'Create departments'],
+        'departments.update' => ['organization', 'Update departments'],
+        'departments.archive' => ['organization', 'Archive departments'],
+
+        'teams.view' => ['organization', 'View teams'],
+        'teams.create' => ['organization', 'Create teams'],
+        'teams.update' => ['organization', 'Update teams'],
+        'teams.archive' => ['organization', 'Archive teams'],
+
+        'job_titles.view' => ['organization', 'View job titles'],
+        'job_titles.create' => ['organization', 'Create job titles'],
+        'job_titles.update' => ['organization', 'Update job titles'],
+        'job_titles.archive' => ['organization', 'Archive job titles'],
+
+        // --- Sprint 1: Employees ---
+        'employees.view' => ['employees', 'View employees (within scope)'],
+        'employees.create' => ['employees', 'Create employees'],
+        'employees.update' => ['employees', 'Update employees'],
+        'employees.archive' => ['employees', 'Archive / terminate employees'],
+        'employees.transfer' => ['employees', 'Transfer / change employee organization'],
+        'employees.link_user' => ['employees', 'Link / unlink an employee to a user account'],
+        'employees.view_sensitive' => ['employees', 'View sensitive employee data'],
+
+        // --- Sprint 1: Employee documents ---
+        'employee_documents.view' => ['employees', 'View employee documents'],
+        'employee_documents.upload' => ['employees', 'Upload employee documents'],
+        'employee_documents.delete' => ['employees', 'Delete employee documents'],
+
+        // --- Sprint 1: Employee contracts ---
+        'employee_contracts.view' => ['employees', 'View employee contracts'],
+        'employee_contracts.create' => ['employees', 'Create employee contracts'],
+        'employee_contracts.update' => ['employees', 'Update employee contracts'],
+        'employee_contracts.archive' => ['employees', 'Archive employee contracts'],
+    ];
+
+    /** Sprint 1 permission groups reused in default role mappings. */
+    private const ORG_FULL = [
+        'branches.view', 'branches.create', 'branches.update', 'branches.archive',
+        'departments.view', 'departments.create', 'departments.update', 'departments.archive',
+        'teams.view', 'teams.create', 'teams.update', 'teams.archive',
+        'job_titles.view', 'job_titles.create', 'job_titles.update', 'job_titles.archive',
+    ];
+
+    private const ORG_VIEW = [
+        'branches.view', 'departments.view', 'teams.view', 'job_titles.view',
+    ];
+
+    private const EMPLOYEES_FULL = [
+        'employees.view', 'employees.create', 'employees.update', 'employees.archive',
+        'employees.transfer', 'employees.link_user', 'employees.view_sensitive',
+        'employee_documents.view', 'employee_documents.upload', 'employee_documents.delete',
+        'employee_contracts.view', 'employee_contracts.create', 'employee_contracts.update', 'employee_contracts.archive',
     ];
 
     /**
@@ -48,26 +108,44 @@ class PermissionCatalog
                 'user.view', 'user.invite', 'user.manage',
                 'role.view', 'role.manage', 'permission.assign',
                 'audit.view',
+                ...self::ORG_FULL,
+                ...self::EMPLOYEES_FULL,
             ],
         ],
         'hr-manager' => [
             'name' => 'HR Manager',
             'permissions' => [
                 'company.view', 'user.view', 'user.invite', 'user.manage',
+                ...self::ORG_VIEW,
+                'departments.create', 'departments.update',
+                'teams.create', 'teams.update',
+                'job_titles.create', 'job_titles.update', 'job_titles.archive',
+                ...self::EMPLOYEES_FULL,
             ],
         ],
         'department-manager' => [
             'name' => 'Department Manager',
-            'permissions' => ['company.view', 'user.view'],
+            // Scope-limited (branch/department) by role assignment; no sensitive.
+            'permissions' => [
+                'company.view', 'user.view',
+                ...self::ORG_VIEW,
+                'employees.view', 'employees.update',
+                'employee_documents.view', 'employee_contracts.view',
+            ],
         ],
         'team-leader' => [
             'name' => 'Team Leader',
-            'permissions' => ['user.view'],
+            // Scope-limited to their team by role assignment.
+            'permissions' => ['user.view', 'teams.view', 'employees.view'],
         ],
         'accountant' => [
             'name' => 'Accountant',
             // Payroll permissions are a future sprint; none are seeded now.
-            'permissions' => ['company.view'],
+            'permissions' => [
+                'company.view',
+                ...self::ORG_VIEW,
+                'employees.view', 'employee_contracts.view',
+            ],
         ],
         'employee' => [
             'name' => 'Employee',

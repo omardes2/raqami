@@ -313,3 +313,30 @@ sprint that needs them:
    sprint. (`SPRINTS.md`)
 7. **ULID storage representation** (26-char string vs 16-byte binary) — a
    Sprint 0 implementation detail to confirm at kickoff. (`DATABASE.md`)
+
+## Sprint 1 Implementation Notes
+
+Implementation-level decisions for Sprint 1 (Organization & Employees),
+consistent with the approved ADRs; no ADR is changed.
+
+- **User ≠ Employee:** `users` (auth identity) and `employees` (HR record) are
+  distinct tables. `employees.user_id` is nullable; linking is an explicit,
+  validated, audited action. Reinforces ADR-002 identity/membership design.
+- **Scoped authorization operationalized (ADR-015):** role assignments target
+  real Branch/Department/Team ids; `EmployeeScopeResolver` translates grants to
+  query/row constraints, expanding a department scope to its subtree. Route
+  gates: `permission.any:<key>` for scoped resources, `permission:<key>` for
+  org-structure management.
+- **Archive over delete:** organizational/employee records are archived
+  (status + soft delete on employees); destructive delete is avoided and guarded
+  by dependency checks (CLAUDE.md rule 2).
+- **Two distinct logs:** `audit_logs` (security, immutable) vs
+  `employee_history_events` (HR timeline). Deliberately not merged.
+- **Contracts carry no compensation (ADR-014):** contract foundation only; a
+  future permission-protected compensation domain is out of Sprint 1 scope.
+- **Documents:** private S3-compatible disk, metadata-only rows, authorized
+  streamed downloads / short-lived signed URLs — never public URLs.
+- **Middleware ordering:** `ResolveTenant` runs before `SubstituteBindings` so
+  route-model binding executes under the correct tenant/RLS context.
+- **Employee number:** default `EMP-000123` generator; company-configurable
+  formats deferred. ULID remains the internal PK (ADR-008).
