@@ -21,7 +21,7 @@ trait ResolvesActingEmployee
     {
         $employee = $this->actingEmployee($user);
 
-        abort_if($employee === null, 403, 'Your account is not linked to an employee record.');
+        abort_if($employee === null, 403, __('attendance.not_linked'));
 
         return $employee;
     }

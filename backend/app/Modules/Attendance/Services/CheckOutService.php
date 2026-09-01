@@ -51,11 +51,11 @@ class CheckOutService
                 ->first();
 
             if ($record === null) {
-                $this->reject('There is no open attendance to check out.');
+                $this->reject(__('attendance.no_open'));
             }
 
             if ($now->lessThan(CarbonImmutable::parse($record->check_in_at))) {
-                $this->reject('Check-out cannot be before check-in.');
+                $this->reject(__('attendance.checkout_before_checkin'));
             }
 
             $settings = $this->settings->current();
@@ -134,13 +134,13 @@ class CheckOutService
     private function assertGpsAcceptable(PunchInput $input, $settings): void
     {
         if (($settings->require_gps || $settings->geofence_required) && ! $input->hasCoordinates()) {
-            $this->reject('Location is required to check out.');
+            $this->reject(__('attendance.location_required_out'));
         }
 
         if ($settings->min_gps_accuracy_meters !== null
             && $input->accuracyMeters !== null
             && $input->accuracyMeters > $settings->min_gps_accuracy_meters) {
-            $this->reject('The GPS reading is not accurate enough to check out.');
+            $this->reject(__('attendance.gps_inaccurate_out'));
         }
     }
 

@@ -42,7 +42,7 @@ class AttendanceFilterRequest extends FormRequest
             if ($from && $to && ! $v->errors()->hasAny(['from', 'to'])) {
                 $days = CarbonImmutable::parse($from)->diffInDays(CarbonImmutable::parse($to));
                 if ($days > self::MAX_RANGE_DAYS) {
-                    $v->errors()->add('to', 'The date range is too large; narrow it to one year or less.');
+                    $v->errors()->add('to', __('attendance.date_range_too_large'));
                 }
             }
         });

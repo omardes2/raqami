@@ -40,12 +40,24 @@ class AttendancePunchHardeningTest extends TestCase
         });
     }
 
-    private function actor(Tenant $tenant): User
+    private function actor(Tenant $tenant, array $userAttributes = []): User
     {
-        $user = $this->memberWithRole($tenant, 'employee');
+        $user = $this->memberWithRole($tenant, 'employee', 'company', null, $userAttributes);
         $this->linkedEmployee($tenant, $user);
 
         return $user;
+    }
+
+    public function test_business_error_is_localized_in_arabic(): void
+    {
+        [, $tenant] = $this->createCompanyWithOwner();
+        $user = $this->actor($tenant, ['locale' => 'ar']);
+
+        // Check out with no open record → localized Arabic business error.
+        $this->actingAs($user)->withHeaders($this->tenantHeaders($tenant))
+            ->postJson('/api/attendance/check-out', [])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.attendance.0', __('attendance.no_open', [], 'ar'));
     }
 
     public function test_invalid_coordinates_are_rejected(): void

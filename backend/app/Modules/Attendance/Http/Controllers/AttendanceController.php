@@ -107,7 +107,7 @@ class AttendanceController extends Controller
 
         abort_if($record->employee_id !== $employee->getKey(), 404);
         abort_unless($this->settings->current()->allow_employee_correction_request, 403,
-            'Employee correction requests are disabled.');
+            __('attendance.employee_corrections_disabled'));
 
         $correction = $this->corrections->request($record, $request->validated(), $request->user());
 

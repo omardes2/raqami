@@ -39,7 +39,7 @@ class ManualAttendanceService
     public function record(Employee $employee, array $data, Model $actor): AttendanceRecord
     {
         if (! AttendanceEligibility::isEligible($employee)) {
-            $this->reject('This employee is not eligible for attendance.');
+            $this->reject(__('attendance.not_eligible'));
         }
 
         $checkIn = CarbonImmutable::parse($data['check_in_at'])->utc();
@@ -48,7 +48,7 @@ class ManualAttendanceService
             : null;
 
         if ($checkOut !== null && $checkOut->lessThanOrEqualTo($checkIn)) {
-            $this->reject('Check-out must be after check-in.');
+            $this->reject(__('attendance.checkout_after_checkin'));
         }
 
         return DB::transaction(function () use ($employee, $checkIn, $checkOut, $data, $actor) {
@@ -65,7 +65,7 @@ class ManualAttendanceService
                 ->exists();
 
             if ($exists) {
-                $this->reject('This employee already has attendance recorded for this day.');
+                $this->reject(__('attendance.already_recorded_today'));
             }
 
             $computation = $this->calculator->compute($resolved, $checkIn, $checkOut);

@@ -36,21 +36,21 @@ class AttendanceCorrectionService
     public function request(AttendanceRecord $record, array $data, Model $requestedBy): AttendanceCorrection
     {
         if (! $this->settings->current()->attendance_correction_enabled) {
-            $this->reject('Attendance corrections are disabled for this company.');
+            $this->reject(__('attendance.corrections_disabled'));
         }
 
         $checkIn = $this->parse($data['requested_check_in_at'] ?? null);
         $checkOut = $this->parse($data['requested_check_out_at'] ?? null);
 
         if ($checkIn === null && $checkOut === null) {
-            $this->reject('A correction must change the check-in and/or check-out time.');
+            $this->reject(__('attendance.correction_empty'));
         }
 
         $effectiveIn = $checkIn ?? ($record->check_in_at ? CarbonImmutable::parse($record->check_in_at) : null);
         $effectiveOut = $checkOut ?? ($record->check_out_at ? CarbonImmutable::parse($record->check_out_at) : null);
 
         if ($effectiveIn !== null && $effectiveOut !== null && $effectiveOut->lessThanOrEqualTo($effectiveIn)) {
-            $this->reject('Check-out must be after check-in.');
+            $this->reject(__('attendance.checkout_after_checkin'));
         }
 
         return DB::transaction(function () use ($record, $data, $requestedBy, $checkIn, $checkOut) {
@@ -163,11 +163,11 @@ class AttendanceCorrectionService
     private function assertReviewable(AttendanceCorrection $correction, Model $reviewer): void
     {
         if ($correction->status->isTerminal()) {
-            $this->reject('This correction has already been reviewed.');
+            $this->reject(__('attendance.correction_reviewed'));
         }
 
         if ((string) $reviewer->getKey() === (string) $correction->requested_by_user_id) {
-            $this->reject('You cannot review your own correction request.');
+            $this->reject(__('attendance.correction_self'));
         }
     }
 

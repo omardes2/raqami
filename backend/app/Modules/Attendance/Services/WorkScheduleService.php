@@ -150,7 +150,7 @@ class WorkScheduleService
         if (! $type->requiresScopeId()) {
             if ($scopeId !== null) {
                 throw ValidationException::withMessages([
-                    'scope_id' => ['A company-scope assignment must not specify a scope_id.'],
+                    'scope_id' => [__('attendance.assignment_company_no_scope')],
                 ]);
             }
 
@@ -159,7 +159,7 @@ class WorkScheduleService
 
         if ($scopeId === null) {
             throw ValidationException::withMessages([
-                'scope_id' => ['A scope_id is required for this scope type.'],
+                'scope_id' => [__('attendance.assignment_scope_required')],
             ]);
         }
 
@@ -173,7 +173,7 @@ class WorkScheduleService
 
         if (! $exists) {
             throw ValidationException::withMessages([
-                'scope_id' => ['The scope target does not exist in this tenant.'],
+                'scope_id' => [__('attendance.assignment_scope_missing')],
             ]);
         }
     }

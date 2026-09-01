@@ -40,7 +40,7 @@ class CheckInService
         $now = ($now ?? CarbonImmutable::now())->utc();
 
         if (! AttendanceEligibility::isEligible($employee)) {
-            $this->reject('This employee is not eligible to record attendance.');
+            $this->reject(__('attendance.not_eligible'));
         }
 
         return DB::transaction(function () use ($employee, $input, $actor, $now) {
@@ -141,7 +141,7 @@ class CheckInService
             ->first();
 
         if ($open !== null) {
-            $this->reject('This employee already has an open attendance; check out first.');
+            $this->reject(__('attendance.already_open'));
         }
     }
 
@@ -154,40 +154,40 @@ class CheckInService
             ->exists();
 
         if ($exists) {
-            $this->reject('This employee already has attendance recorded for this day.');
+            $this->reject(__('attendance.already_recorded_today'));
         }
     }
 
     private function assertSchedulingAllowed(ResolvedWorkDay $resolved, $settings): void
     {
         if (! $resolved->hasSchedule() && ! $settings->allow_unscheduled_work) {
-            $this->reject('No work schedule is assigned for this day.');
+            $this->reject(__('attendance.no_schedule'));
         }
 
         if ($resolved->hasSchedule() && ! $resolved->isScheduledWorkingDay() && ! $settings->allow_unscheduled_work) {
-            $this->reject('Today is not a scheduled working day.');
+            $this->reject(__('attendance.not_working_day'));
         }
     }
 
     private function assertGpsAcceptable(PunchInput $input, $settings): void
     {
         if (($settings->require_gps || $settings->geofence_required) && ! $input->hasCoordinates()) {
-            $this->reject('Location is required to check in.');
+            $this->reject(__('attendance.location_required'));
         }
 
         if ($settings->min_gps_accuracy_meters !== null
             && $input->accuracyMeters !== null
             && $input->accuracyMeters > $settings->min_gps_accuracy_meters) {
-            $this->reject('The GPS reading is not accurate enough to check in.');
+            $this->reject(__('attendance.gps_inaccurate'));
         }
 
         if ($settings->geofence_required) {
             $geo = $this->geofence->evaluate($input->latitude, $input->longitude, $input->accuracyMeters);
             if (! $geo->accuracyAcceptable) {
-                $this->reject('The GPS reading is not accurate enough to check in.');
+                $this->reject(__('attendance.gps_inaccurate'));
             }
             if (! $geo->inside) {
-                $this->reject('You are outside the allowed check-in area.');
+                $this->reject(__('attendance.outside_geofence'));
             }
         }
     }
@@ -202,17 +202,17 @@ class CheckInService
 
         if ($now->lessThan($start)) {
             if (! $settings->allow_early_check_in) {
-                $this->reject('Early check-in is not allowed.');
+                $this->reject(__('attendance.early_not_allowed'));
             }
             $earliest = $start->subMinutes($settings->early_check_in_window_minutes);
             if ($now->lessThan($earliest)) {
-                $this->reject('It is too early to check in.');
+                $this->reject(__('attendance.too_early'));
             }
         }
 
         $graceEnd = $start->addMinutes($resolved->graceMinutes);
         if ($now->greaterThan($graceEnd) && ! $settings->allow_late_check_in) {
-            $this->reject('Late check-in is not allowed.');
+            $this->reject(__('attendance.late_not_allowed'));
         }
     }
 

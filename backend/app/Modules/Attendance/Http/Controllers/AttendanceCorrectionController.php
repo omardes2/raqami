@@ -72,6 +72,6 @@ class AttendanceCorrectionController extends Controller
             404,
         );
 
-        abort_if($correction->status !== CorrectionStatus::Pending, 422, 'This correction has already been reviewed.');
+        abort_if($correction->status !== CorrectionStatus::Pending, 422, __('attendance.correction_reviewed'));
     }
 }

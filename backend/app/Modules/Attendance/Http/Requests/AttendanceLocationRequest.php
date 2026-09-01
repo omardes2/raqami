@@ -25,7 +25,7 @@ class AttendanceLocationRequest extends FormRequest
         $validator->after(function (Validator $v) {
             $branchId = $this->input('branch_id');
             if ($branchId !== null && ! Branch::query()->whereKey($branchId)->exists()) {
-                $v->errors()->add('branch_id', 'The selected branch does not exist in this tenant.');
+                $v->errors()->add('branch_id', __('attendance.branch_invalid'));
             }
         });
     }
