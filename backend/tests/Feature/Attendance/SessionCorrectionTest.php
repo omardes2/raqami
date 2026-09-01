@@ -17,6 +17,7 @@ use App\Modules\Employees\Services\EmployeeService;
 use App\Modules\Tenancy\Models\Tenant;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Tests\Concerns\InteractsWithTenancy;
 use Tests\TestCase;
@@ -188,6 +189,24 @@ class SessionCorrectionTest extends TestCase
 
             $this->expectException(ValidationException::class);
             app(AttendanceCorrectionService::class)->approve($correction, $reviewer);
+        });
+    }
+
+    public function test_h_foreign_session_id_cannot_be_attached(): void
+    {
+        [$owner, $tenant] = $this->createCompanyWithOwner();
+        $employee = $this->splitEmployee($tenant);
+        $record = $this->twoSessionDay($tenant, $employee, $owner);
+
+        $this->withinTenant($tenant, function () use ($record, $owner) {
+            // A session id that does not belong to this record (or tenant) is
+            // refused — no correction can attach an arbitrary/foreign session.
+            $this->expectException(ValidationException::class);
+            app(AttendanceCorrectionService::class)->request($record, [
+                'attendance_session_id' => (string) Str::ulid(),
+                'requested_check_out_at' => '2026-03-02 21:00:00',
+                'reason' => 'foreign session',
+            ], $owner);
         });
     }
 
