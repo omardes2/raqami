@@ -9,6 +9,7 @@ use App\Modules\Attendance\Services\CheckInService;
 use App\Modules\Attendance\Services\HolidayCalendarService;
 use App\Modules\Attendance\Services\WorkScheduleService;
 use App\Modules\Attendance\Support\PunchInput;
+use App\Modules\Audit\Models\AuditLog;
 use App\Modules\Employees\Models\Employee;
 use App\Modules\Employees\Services\EmployeeService;
 use App\Modules\Tenancy\Models\Tenant;
@@ -165,6 +166,26 @@ class AttendanceMaterializerTest extends TestCase
             app(AttendanceDayMaterializer::class)->materialize($date, $now);
 
             $this->assertSame(1, AttendanceRecord::count());
+        });
+    }
+
+    public function test_repeated_runs_converge_without_duplicate_audit(): void
+    {
+        [, $tenant] = $this->createCompanyWithOwner();
+        $this->employeeWithSchedule($tenant);
+
+        $this->withinTenant($tenant, function () {
+            $date = CarbonImmutable::parse('2026-03-02', 'UTC');
+            $now = CarbonImmutable::parse('2026-03-02 11:00:00', 'UTC');
+
+            // Simulates a losing concurrent worker / retry converging on one record.
+            app(AttendanceDayMaterializer::class)->materialize($date, $now);
+            app(AttendanceDayMaterializer::class)->materialize($date, $now);
+            app(AttendanceDayMaterializer::class)->materialize($date, $now);
+
+            $this->assertSame(1, AttendanceRecord::count());
+            // The derive is audited exactly once (only on creation), not per run.
+            $this->assertSame(1, AuditLog::query()->where('action', 'attendance.materialized')->count());
         });
     }
 }

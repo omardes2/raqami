@@ -6,7 +6,9 @@ use App\Modules\Attendance\Enums\AttendanceSource;
 use App\Modules\Attendance\Enums\AttendanceStatus;
 use App\Modules\Attendance\Models\AttendanceRecord;
 use App\Modules\Attendance\Support\AttendanceEligibility;
+use App\Modules\Attendance\Support\AttendanceLock;
 use App\Modules\Attendance\Support\ResolvedWorkDay;
+use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Employees\Models\Employee;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +38,7 @@ class AttendanceDayMaterializer
         private readonly ScheduleResolver $resolver,
         private readonly HolidayResolver $holidays,
         private readonly AttendanceSettingsService $settings,
+        private readonly AuditLogger $audit,
     ) {}
 
     /**
@@ -79,6 +82,11 @@ class AttendanceDayMaterializer
         $workDate = $resolved->workDate->toDateString();
 
         return DB::transaction(function () use ($employee, $resolved, $workDate, $now, $settings) {
+            // Serialize with concurrent materializer workers AND live punches for
+            // this employee (same advisory key as check-in), so two runs converge
+            // on one record instead of racing into a unique-constraint error.
+            AttendanceLock::forEmployee((string) $employee->tenant_id, (string) $employee->getKey());
+
             $record = AttendanceRecord::query()
                 ->where('employee_id', $employee->getKey())
                 ->whereDate('work_date', $workDate)
@@ -171,16 +179,27 @@ class AttendanceDayMaterializer
         ];
 
         if ($record !== null) {
+            // Idempotent update of an already-derived record — no duplicate audit.
             $attributes['version'] = (int) $record->version + 1;
             $record->fill($attributes)->save();
 
             return;
         }
 
-        AttendanceRecord::query()->create(array_merge($attributes, [
+        $created = AttendanceRecord::query()->create(array_merge($attributes, [
             'employee_id' => $employee->getKey(),
             'work_date' => $resolved->workDate->toDateString(),
         ]));
+
+        // Audit only the first time a day is derived (system actor).
+        $this->audit->log('attendance.materialized', [
+            'subject' => $created,
+            'metadata' => [
+                'employee_id' => (string) $employee->getKey(),
+                'work_date' => $resolved->workDate->toDateString(),
+                'status' => $status->value,
+            ],
+        ]);
     }
 
     private function dayEnd(ResolvedWorkDay $resolved): ?CarbonImmutable
