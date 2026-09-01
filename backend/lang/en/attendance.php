@@ -12,6 +12,7 @@ return [
     // Scheduling
     'no_schedule' => 'No work schedule is assigned for this day.',
     'not_working_day' => 'Today is not a scheduled working day.',
+    'holiday_not_working_day' => 'Today is a holiday; attendance requires an approved exception.',
     'early_not_allowed' => 'Early check-in is not allowed.',
     'too_early' => 'It is too early to check in.',
     'late_not_allowed' => 'Late check-in is not allowed.',

@@ -36,6 +36,7 @@ class CheckInService
         private readonly AttendanceCalculator $calculator,
         private readonly AttendanceRecordAggregator $aggregator,
         private readonly ExceptionResolver $exceptions,
+        private readonly HolidayResolver $holidays,
         private readonly AuditLogger $audit,
         private readonly TenantContext $context,
     ) {}
@@ -58,10 +59,13 @@ class CheckInService
             $this->assertNoOpenSession($employee);
 
             $settings = $this->settings->current();
+            // Resolution order: eligibility (above) → holiday → schedule → exception
+            // → off-day/holiday policy → mode/geofence.
             $resolved = $this->resolver->resolveWorkDay($employee, $now, $settings->default_timezone);
+            $holiday = $this->holidays->resolve($employee->branch_id, $resolved->workDate);
             $exception = $this->exceptions->resolve($employee, $resolved->workDate);
 
-            $this->assertSchedulingAllowed($resolved, $settings, $exception);
+            $this->assertSchedulingAllowed($resolved, $settings, $exception, $holiday !== null);
             $this->assertGpsAcceptable($input, $settings, $resolved, $exception);
             $this->assertWithinCheckInWindow($resolved, $settings, $now);
 
@@ -223,10 +227,21 @@ class CheckInService
         }
     }
 
-    private function assertSchedulingAllowed(ResolvedWorkDay $resolved, $settings, $exception): void
+    private function assertSchedulingAllowed(ResolvedWorkDay $resolved, $settings, $exception, bool $isHoliday = false): void
     {
-        // An authorized off-day/remote exception permits attendance regardless.
+        // An authorized off-day/remote exception permits attendance regardless —
+        // including working on a holiday.
         if ($exception !== null) {
+            return;
+        }
+
+        // A holiday means the employee is NOT normally expected to work. Holiday
+        // work follows the same explicit off-day policy as any non-working day.
+        if ($isHoliday) {
+            if ($settings->off_day_work_policy !== 'allow' && ! $settings->allow_unscheduled_work) {
+                $this->reject(__('attendance.holiday_not_working_day'));
+            }
+
             return;
         }
 
