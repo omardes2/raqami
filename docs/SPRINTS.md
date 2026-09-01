@@ -232,4 +232,39 @@ Delivered on `feature/sprint-3-attendance-core` (not merged to `main`):
   (future hook only), tasks, AI, biometric/face/kiosk hardware, rotating-shift
   planners, labor-law rounding.
 
-Sprint 3 is complete on its branch; Sprint 4 has **not** started.
+Sprint 3 is complete and merged.
+
+---
+
+## Sprint 4 — Attendance Advanced (IMPLEMENTED on feature branch)
+
+Extends the Sprint 3 engine (never a parallel system); all Sprint 3 invariants
+hold (server-authoritative, Employee ≠ User, UTC, FORCE RLS, org scopes).
+
+- **Sessions & daily aggregate.** `attendance_sessions` (multiple closed per
+  `work_date`, one open per employee) with the daily `attendance_records` row
+  re-aggregated by `AttendanceRecordAggregator`; `version` counter for optimistic
+  concurrency. `allow_multiple_sessions` (default off) preserves Sprint 3
+  behavior.
+- **Advanced schedules.** Split-shift `work_schedule_segments`; rotation via
+  `cycle_length_days` + `anchor_date`; per-segment overnight reach-back.
+- **Holidays.** `holiday_calendars`/`holidays`/assignments with `HolidayResolver`
+  (branch > company); holidays override scheduled absence.
+- **Daily materialization.** `AttendanceDayMaterializer` + `attendance:process-
+  daily` derive weekend/holiday/absent/incomplete (absence only after cutoff,
+  never at midnight; real punch never overwritten; idempotent; per-tenant).
+- **Exceptions.** Authorized remote/field/off-day/alternate via
+  `attendance_exceptions` + `ExceptionResolver`; `off_day_work_policy`
+  (reject/allow/require_approval); employees never self-declare.
+- **Overtime approval.** Raw vs approved minutes kept separate; no self-approval;
+  no over-approval without override; optimistic concurrency; **no money**.
+- **Anomalies.** Neutral rule-based findings (dedupe_key idempotency), human
+  review only, no automatic action.
+- **Correction concurrency**, **advanced reports** (compliance rates, status
+  breakdown, overtime rollup, per-employee; no raw GPS), full **frontend**
+  (AR/EN, RTL/LTR), new **permissions**, and **FORCE RLS** on all eight new
+  tables (raw-SQL tested). Migrations are additive with idempotent backfills.
+- **Out of scope (unchanged):** leave business flows (hook only), payroll/
+  overtime pay, AI, biometric/face/kiosk, labor-law rounding.
+
+Sprint 4 is complete on its branch; Sprint 5 has **not** started.
