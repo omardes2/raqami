@@ -39,7 +39,12 @@ class PlatformBankTransferController extends Controller
     public function approve(string $submission, TenantContext $context): JsonResponse
     {
         $model = $this->find($submission, $context);
-        $payment = $this->transfers->approve($model, Auth::guard('platform')->user());
+
+        try {
+            $payment = $this->transfers->approve($model, Auth::guard('platform')->user());
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => __('billing.transfer_not_pending')], 422);
+        }
 
         return response()->json([
             'submission_id' => $model->id,
@@ -51,7 +56,12 @@ class PlatformBankTransferController extends Controller
     {
         $validated = $request->validate(['reason' => ['sometimes', 'nullable', 'string', 'max:500']]);
         $model = $this->find($submission, $context);
-        $result = $this->transfers->reject($model, Auth::guard('platform')->user(), $validated['reason'] ?? null);
+
+        try {
+            $result = $this->transfers->reject($model, Auth::guard('platform')->user(), $validated['reason'] ?? null);
+        } catch (\RuntimeException $e) {
+            return response()->json(['message' => __('billing.transfer_not_pending')], 422);
+        }
 
         return response()->json(['data' => (new BankTransferResource($result))->resolve()]);
     }
