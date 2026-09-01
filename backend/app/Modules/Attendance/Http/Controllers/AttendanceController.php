@@ -67,7 +67,7 @@ class AttendanceController extends Controller
         $employee = $this->requireActingEmployee($request->user());
 
         $query = AttendanceRecord::query()
-            ->with('employee')
+            ->with(['employee', 'sessions'])
             ->where('employee_id', $employee->getKey())
             ->orderByDesc('work_date');
 

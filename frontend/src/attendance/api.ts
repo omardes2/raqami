@@ -2,6 +2,20 @@ import { api, ensureCsrf } from '../lib/api'
 
 // --- Types (mirror the backend attendance resources) ---
 
+export interface AttendanceSessionSummary {
+  id: string
+  sequence: number
+  check_in_at: string | null
+  check_out_at: string | null
+  worked_minutes: number
+  late_minutes: number
+  early_leave_minutes: number
+  overtime_minutes: number
+  is_manual: boolean
+  check_in_inside_geofence: boolean | null
+  check_out_inside_geofence: boolean | null
+}
+
 export interface AttendanceRecord {
   id: string
   employee_id: string
@@ -24,6 +38,10 @@ export interface AttendanceRecord {
   corrected_at: string | null
   check_in_inside_geofence: boolean | null
   check_out_inside_geofence: boolean | null
+  version?: number
+  attendance_mode?: string | null
+  is_materialized?: boolean
+  sessions?: AttendanceSessionSummary[]
   location?: {
     check_in_latitude: number | null
     check_in_longitude: number | null

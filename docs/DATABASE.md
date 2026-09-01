@@ -457,6 +457,9 @@ proven by raw-SQL cross-tenant tests.
   (`unique(tenant_id, dedupe_key)` → idempotent detection), severity, status,
   and jsonb metadata.
 
+`attendance_corrections` gained a nullable `attendance_session_id` (FK, nullOnDelete)
+so corrections target the authoritative session; legacy rows keep it null.
+
 `attendance_records` gained `version` (optimistic concurrency), `attendance_mode`,
 `is_materialized` / `materialized_at`, and `holiday_id`; the Sprint 3 one-open-
 record index moved to `attendance_sessions`. `work_schedules` gained

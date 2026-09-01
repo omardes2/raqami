@@ -272,6 +272,11 @@ employee viewing their own record.
   holiday calendars are shared config)
 - `attendance.exceptions.view`, `attendance.exceptions.manage` (org scope)
 - `attendance.overtime.view`, `attendance.overtime.review` (org scope)
+- `attendance.overtime.override` (org scope) — approve overtime ABOVE the
+  server-calculated amount; a distinct privilege never implied by review. Owner
+  (via `*`) and Admin hold it by default; HR Manager reviews but does not
+  override unless a custom role grants it; Department Manager / Team Leader /
+  Employee never.
 - `attendance.anomalies.view`, `attendance.anomalies.manage` (org scope)
 - `attendance.materialization.run` (company scope — on-demand daily run)
 

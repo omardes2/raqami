@@ -222,8 +222,31 @@ open → acknowledged → resolved/dismissed by human review only.
 
 ### 11.8 Corrections & reports
 
-- Corrections now capture the record's `version` at request time and refuse a
+- Corrections are **session-aware**: a correction targets an `attendance_session`
+  (auto-resolved on a single-session day; an explicit target is **required** on a
+  multi-session day; a session is **created** on approval for a materialized-absent
+  record). Approval updates the session, re-aggregates the record, and re-syncs
+  overtime — it never writes check-in/out onto the aggregate, so a later
+  re-aggregation cannot revert a correction. Overlap with sibling sessions is
+  refused. Legacy Sprint 3 corrections (no session) remain valid.
+- Corrections capture the record's `version` at request time and refuse a
   **stale** approval (optimistic concurrency).
+
+### 11.9 Precedence & authorization refinements
+
+- **Holiday × check-in.** Check-in consults `HolidayResolver`. A holiday means the
+  employee is not normally expected to work, so self check-in follows
+  `off_day_work_policy` (reject / require_approval → blocked without an approved
+  exception; allow → permitted). Resolution order: eligibility → holiday →
+  schedule → exception → off-day/holiday policy → mode/geofence. Real holiday
+  attendance is never overwritten by materialization.
+- **Overtime override.** Approving overtime ABOVE the server-calculated amount
+  requires the distinct `attendance.overtime.override` permission (scope-checked);
+  a plain reviewer is refused. Owner/Admin hold it by default; HR Manager reviews
+  but does not override unless explicitly granted.
+- **Materialization concurrency.** The materializer takes the per-employee
+  advisory lock (same key as punches), so concurrent workers — or a worker racing
+  a live punch — converge on one record; deriving a day is audited once.
 - Advanced reports add neutral **compliance rates** (attendance & punctuality —
   never a "performance score"), a full status breakdown, the calculated-vs-
   approved overtime rollup, and a per-employee rollup — **no raw GPS** in any

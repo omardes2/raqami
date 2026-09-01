@@ -393,7 +393,13 @@
       "check_out": "Check out",
       "history": "Recent history",
       "no_records": "No attendance yet.",
-      "gps_hint": "Your location is read from this device to verify your work site. The server decides the result."
+      "gps_hint": "Your location is read from this device to verify your work site. The server decides the result.",
+      "request_correction": "Request correction",
+      "correction_session": "Session to correct",
+      "correction_session_pick": "Select a session…",
+      "correction_new_in": "Corrected check-in (optional)",
+      "correction_new_out": "Corrected check-out (optional)",
+      "correction_submit": "Submit request"
     },
     "status": {
       "present": "Present",
