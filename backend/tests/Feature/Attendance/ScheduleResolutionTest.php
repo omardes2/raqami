@@ -91,6 +91,34 @@ class ScheduleResolutionTest extends TestCase
         });
     }
 
+    public function test_same_level_overlap_is_resolved_deterministically(): void
+    {
+        [, $tenant] = $this->createCompanyWithOwner();
+
+        $this->withinTenant($tenant, function () {
+            $employee = app(EmployeeService::class)->create([
+                'first_name' => 'A', 'last_name' => 'B', 'employment_status' => 'active',
+            ]);
+
+            $low = $this->schedule('LOW');
+            $high = $this->schedule('HIGH');
+            $newer = $this->schedule('NEWER');
+
+            // Two company-scope assignments, same level. Higher priority wins.
+            app(WorkScheduleService::class)->assign($low, ['scope_type' => 'company', 'effective_from' => '2026-01-01', 'priority' => 1]);
+            app(WorkScheduleService::class)->assign($high, ['scope_type' => 'company', 'effective_from' => '2026-01-01', 'priority' => 5]);
+
+            $this->assertSame('HIGH', app(ScheduleResolver::class)
+                ->resolveSchedule($employee, CarbonImmutable::parse('2026-03-02'))->code);
+
+            // Same priority → the later effective_from wins (deterministic).
+            app(WorkScheduleService::class)->assign($newer, ['scope_type' => 'company', 'effective_from' => '2026-02-01', 'priority' => 5]);
+
+            $this->assertSame('NEWER', app(ScheduleResolver::class)
+                ->resolveSchedule($employee, CarbonImmutable::parse('2026-03-02'))->code);
+        });
+    }
+
     public function test_overnight_schedule_extends_end_to_next_day(): void
     {
         [, $tenant] = $this->createCompanyWithOwner();

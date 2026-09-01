@@ -46,6 +46,19 @@ class GeofenceServiceTest extends TestCase
         $this->assertLessThanOrEqual(100, $result->distanceMeters);
     }
 
+    public function test_distance_exactly_equal_to_radius_is_inside(): void
+    {
+        $svc = new GeofenceService;
+        $point = [0.0, 0.001]; // ~111m east of the equator origin
+        $distance = (int) round(GeofenceService::haversineMeters(0.0, 0.0, $point[0], $point[1]));
+        $loc = $this->location(0.0, 0.0, $distance); // radius == exact distance
+
+        $result = $svc->evaluate($point[0], $point[1], 5, new Collection([$loc]));
+
+        $this->assertSame($distance, $result->distanceMeters);
+        $this->assertTrue($result->inside, 'distance == radius must count as inside (<=)');
+    }
+
     public function test_point_outside_radius_is_outside(): void
     {
         $svc = new GeofenceService;
