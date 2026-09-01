@@ -21,7 +21,9 @@ class ManualAttendanceRequest extends FormRequest
             'employee_id' => ['required', 'string', 'size:26'],
             'check_in_at' => ['required', 'date'],
             'check_out_at' => ['nullable', 'date', 'after:check_in_at'],
-            'reason' => ['nullable', 'string', 'max:500'],
+            // A manual entry bypasses the employee's own punch, so it must always
+            // record WHY (audited). Required, non-empty, bounded.
+            'reason' => ['required', 'string', 'min:3', 'max:500'],
         ];
     }
 }

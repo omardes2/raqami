@@ -3,6 +3,7 @@
 namespace App\Modules\Attendance\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Attendance\Http\Requests\AttendanceFilterRequest;
 use App\Modules\Attendance\Http\Requests\ManualAttendanceRequest;
 use App\Modules\Attendance\Http\Resources\AttendanceRecordResource;
 use App\Modules\Attendance\Models\AttendanceRecord;
@@ -27,14 +28,10 @@ class AttendanceRecordController extends Controller
         private readonly EmployeeScopeResolver $scope,
     ) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(AttendanceFilterRequest $request): JsonResponse
     {
-        $query = $this->reports->scopedRecords($request->user(), [
-            'from' => $request->query('from'),
-            'to' => $request->query('to'),
-            'employee_id' => $request->query('employee_id'),
-            'status' => $request->query('status'),
-        ])->with('employee')->orderByDesc('work_date');
+        $query = $this->reports->scopedRecords($request->user(), $request->filters())
+            ->with('employee')->orderByDesc('work_date');
 
         $page = $query->paginate(min((int) $request->query('per_page', 20), 100));
 

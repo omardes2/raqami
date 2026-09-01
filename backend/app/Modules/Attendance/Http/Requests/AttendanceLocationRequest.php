@@ -2,6 +2,8 @@
 
 namespace App\Modules\Attendance\Http\Requests;
 
+use App\Modules\Organization\Models\Branch;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -10,6 +12,22 @@ class AttendanceLocationRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    /**
+     * Explicit tenant-integrity check: a location may only reference a branch in
+     * the active tenant. Branch is tenant-scoped (global scope + RLS), so an id
+     * from another tenant is invisible and rejected with a clean 422 — never
+     * stored as a dangling cross-tenant relation.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $v) {
+            $branchId = $this->input('branch_id');
+            if ($branchId !== null && ! Branch::query()->whereKey($branchId)->exists()) {
+                $v->errors()->add('branch_id', 'The selected branch does not exist in this tenant.');
+            }
+        });
     }
 
     public function rules(): array

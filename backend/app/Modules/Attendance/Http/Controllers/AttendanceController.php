@@ -4,6 +4,7 @@ namespace App\Modules\Attendance\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Attendance\Enums\AttendanceSource;
+use App\Modules\Attendance\Http\Requests\AttendanceFilterRequest;
 use App\Modules\Attendance\Http\Requests\CorrectionRequest;
 use App\Modules\Attendance\Http\Requests\PunchRequest;
 use App\Modules\Attendance\Http\Resources\AttendanceCorrectionResource;
@@ -61,7 +62,7 @@ class AttendanceController extends Controller
     }
 
     /** The acting employee's own records (most recent first). */
-    public function myAttendance(Request $request): JsonResponse
+    public function myAttendance(AttendanceFilterRequest $request): JsonResponse
     {
         $employee = $this->requireActingEmployee($request->user());
 
