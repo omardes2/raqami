@@ -23,7 +23,7 @@ class WorkScheduleController extends Controller
     public function index(Request $request): JsonResponse
     {
         $schedules = WorkSchedule::query()
-            ->with(['days', 'assignments'])
+            ->with(['days.segments', 'assignments'])
             ->orderBy('name')
             ->get();
 
@@ -32,7 +32,7 @@ class WorkScheduleController extends Controller
 
     public function show(WorkSchedule $schedule): JsonResponse
     {
-        return (new WorkScheduleResource($schedule->load(['days', 'assignments'])))->response();
+        return (new WorkScheduleResource($schedule->load(['days.segments', 'assignments'])))->response();
     }
 
     public function store(WorkScheduleRequest $request): JsonResponse
@@ -44,7 +44,7 @@ class WorkScheduleController extends Controller
             $request->user(),
         );
 
-        return (new WorkScheduleResource($schedule->load(['days', 'assignments'])))
+        return (new WorkScheduleResource($schedule->load(['days.segments', 'assignments'])))
             ->response()->setStatusCode(201);
     }
 
@@ -58,14 +58,14 @@ class WorkScheduleController extends Controller
             $request->user(),
         );
 
-        return (new WorkScheduleResource($schedule->load(['days', 'assignments'])))->response();
+        return (new WorkScheduleResource($schedule->load(['days.segments', 'assignments'])))->response();
     }
 
     public function assign(ScheduleAssignmentRequest $request, WorkSchedule $schedule): JsonResponse
     {
         $assignment = $this->schedules->assign($schedule, $request->validated(), $request->user());
 
-        return (new WorkScheduleResource($schedule->fresh(['days', 'assignments'])))
+        return (new WorkScheduleResource($schedule->fresh(['days.segments', 'assignments'])))
             ->additional(['assignment_id' => $assignment->id])
             ->response()->setStatusCode(201);
     }

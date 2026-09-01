@@ -23,6 +23,9 @@ class WorkScheduleResource extends JsonResource
             'grace_minutes' => $this->grace_minutes,
             'break_minutes' => $this->break_minutes,
             'overtime_after_minutes' => $this->overtime_after_minutes,
+            'cycle_length_days' => $this->cycle_length_days,
+            'anchor_date' => $this->anchor_date?->toDateString(),
+            'is_cyclic' => $this->isCyclic(),
             'days' => $this->whenLoaded('days', fn () => $this->days
                 ->sortBy('weekday')
                 ->values()
@@ -33,6 +36,16 @@ class WorkScheduleResource extends JsonResource
                     'end_time' => $d->end_time,
                     'break_minutes' => $d->break_minutes,
                     'grace_minutes' => $d->grace_minutes,
+                    'segments' => $d->relationLoaded('segments')
+                        ? $d->segments->sortBy('sequence')->values()->map(fn ($s) => [
+                            'sequence' => $s->sequence,
+                            'start_time' => $s->start_time,
+                            'end_time' => $s->end_time,
+                            'break_minutes' => $s->break_minutes,
+                            'grace_minutes' => $s->grace_minutes,
+                            'overtime_after_minutes' => $s->overtime_after_minutes,
+                        ])
+                        : [],
                 ])),
             'assignments' => $this->whenLoaded('assignments', fn () => $this->assignments->map(fn ($a) => [
                 'id' => $a->id,
