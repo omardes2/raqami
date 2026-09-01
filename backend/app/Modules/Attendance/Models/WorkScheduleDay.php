@@ -6,10 +6,15 @@ use App\Modules\Tenancy\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Per-weekday configuration for a schedule (weekday 0=Sunday .. 6=Saturday).
- * end_time <= start_time denotes an OVERNIGHT window. Tenant-owned.
+ * Per-schedule-day configuration. For WEEKLY schedules `weekday` is 0=Sun..6=Sat;
+ * for CYCLIC schedules (work_schedules.cycle_length_days set) it is the day-index
+ * 0..(cycle_length-1). Expected hours live in work_schedule_segments (split
+ * shifts); the day's start_time/end_time are compatibility fields for the
+ * backfilled default segment. end_time <= start_time denotes overnight.
+ * Tenant-owned.
  */
 class WorkScheduleDay extends Model
 {
@@ -34,6 +39,11 @@ class WorkScheduleDay extends Model
     public function schedule(): BelongsTo
     {
         return $this->belongsTo(WorkSchedule::class, 'work_schedule_id');
+    }
+
+    public function segments(): HasMany
+    {
+        return $this->hasMany(WorkScheduleSegment::class)->orderBy('sequence');
     }
 
     /** True when end_time is at/before start_time, i.e. the shift crosses midnight. */

@@ -30,6 +30,8 @@ class AttendanceRecord extends Model
         'check_in_latitude', 'check_in_longitude', 'check_in_inside_geofence', 'check_in_location_id',
         'check_out_latitude', 'check_out_longitude', 'check_out_inside_geofence', 'check_out_location_id',
         'is_manual', 'corrected_at',
+        // Sprint 4: daily aggregate + materialization + optimistic concurrency
+        'version', 'attendance_mode', 'is_materialized', 'materialized_at', 'holiday_id',
     ];
 
     protected function casts(): array
@@ -56,6 +58,9 @@ class AttendanceRecord extends Model
             'check_out_inside_geofence' => 'boolean',
             'is_manual' => 'boolean',
             'corrected_at' => 'datetime',
+            'version' => 'integer',
+            'is_materialized' => 'boolean',
+            'materialized_at' => 'datetime',
         ];
     }
 
@@ -77,6 +82,16 @@ class AttendanceRecord extends Model
     public function corrections(): HasMany
     {
         return $this->hasMany(AttendanceCorrection::class);
+    }
+
+    public function sessions(): HasMany
+    {
+        return $this->hasMany(AttendanceSession::class)->orderBy('sequence');
+    }
+
+    public function holiday(): BelongsTo
+    {
+        return $this->belongsTo(Holiday::class);
     }
 
     public function isOpen(): bool

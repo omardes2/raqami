@@ -13,7 +13,8 @@ enum AttendanceStatus: string
     case Absent = 'absent';             // scheduled but no check-in
     case Incomplete = 'incomplete';     // checked in but never checked out
     case OnLeave = 'on_leave';          // reserved hook for future Leave module
-    case Holiday = 'holiday';           // non-working day per schedule
+    case Holiday = 'holiday';           // resolved holiday (calendar)
+    case Weekend = 'weekend';           // non-working schedule day (off day)
     case PendingReview = 'pending_review'; // flagged (e.g. outside geofence in warn mode)
 
     /** @return array<int, string> */
