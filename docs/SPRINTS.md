@@ -202,4 +202,34 @@ Fail-closed entitlements + default trial plan; payment-gated upgrades;
 terminal-subscription reactivation; globally-unique invoice numbers; per-tenant
 employee-limit advisory lock; currency-exponent formatting (JOD = 3);
 `billing:process-lifecycle` processor; localized 422s for invalid transitions.
-Backend 144 tests green. Sprint 3 has NOT started.
+Backend 144 tests green.
+
+---
+
+## Sprint 3 — Attendance Core (IMPLEMENTED on feature branch)
+
+Delivered on `feature/sprint-3-attendance-core` (not merged to `main`):
+
+- **Time architecture:** UTC storage, schedule-timezone computation,
+  server-authoritative clock. The client sends only raw facts (GPS); the SERVER
+  decides work date, lateness, worked time, geofence membership, and status.
+- **Work schedules** (per-weekday hours, overnight support) + **assignments**
+  with precedence employee > team > department > branch > company, resolved by a
+  single deterministic `ScheduleResolver`.
+- **Attendance settings** (per-tenant policy), **geofence locations** with
+  backend **Haversine** distance/inside decision + accuracy gating.
+- **Check-in / check-out** transactional services (advisory + row locks,
+  idempotent on `client_request_id`, schedule snapshot at check-in), **records**
+  (computed daily state) vs **events** (append-only raw punch log), and a central
+  `AttendanceCalculator` (late / early-leave / overtime / worked minutes).
+- **Controlled corrections** (request → approve/reject, no self-approval) and
+  **authorized manual attendance**; Sprint-1 organizational-scope RBAC; basic
+  **reports**.
+- **Employee + admin/HR frontends**, AR/EN + RTL/LTR; sensitive GPS gated by
+  `attendance.view_location`. **FORCE RLS** on all eight attendance tables
+  (raw-SQL tested); comprehensive tests incl. Sprint 0/1/2 regression.
+- **Out of scope (not implemented):** payroll/overtime pay, leave business flows
+  (future hook only), tasks, AI, biometric/face/kiosk hardware, rotating-shift
+  planners, labor-law rounding.
+
+Sprint 3 is complete on its branch; Sprint 4 has **not** started.
