@@ -64,6 +64,13 @@ class ScheduleResolver
      * Resolve the full work-day context for an employee at a specific instant.
      * The instant is server-authoritative UTC; $fallbackTimezone (tenant default)
      * is used only until a schedule (with its own timezone) is found.
+     *
+     * OVERNIGHT REACH-BACK: a punch after midnight that still falls inside the
+     * PREVIOUS local day's overnight window (e.g. a 01:00 punch under a
+     * Mon 22:00 -> Tue 06:00 shift) resolves to that previous work_date, not to
+     * the calendar day it landed on. This keeps one overnight shift as one
+     * work_date and makes lateness measure against the 22:00 start. Ordinary
+     * daytime schedules are unaffected. Deterministic — no date guessing.
      */
     public function resolveWorkDay(Employee $employee, CarbonImmutable $instantUtc, string $fallbackTimezone): ResolvedWorkDay
     {
@@ -71,6 +78,15 @@ class ScheduleResolver
         // schedule, then re-derive the authoritative date in the schedule's tz.
         $bootstrapDate = $instantUtc->setTimezone($fallbackTimezone)->startOfDay();
         $schedule = $this->resolveSchedule($employee, $bootstrapDate);
+
+        // Try to attribute this instant to the previous local day's overnight
+        // window before falling through to the current-day resolution.
+        if ($schedule !== null) {
+            $reachBack = $this->resolveOvernightReachBack($employee, $instantUtc, $schedule, $fallbackTimezone);
+            if ($reachBack !== null) {
+                return $reachBack;
+            }
+        }
 
         $timezone = $schedule?->timezone ?: $fallbackTimezone;
         $workDate = $instantUtc->setTimezone($timezone)->startOfDay();
@@ -90,7 +106,50 @@ class ScheduleResolver
             );
         }
 
-        $day = $this->dayFor($schedule, (int) $workDate->dayOfWeek);
+        return $this->buildWorkDay($schedule, $this->dayFor($schedule, (int) $workDate->dayOfWeek), $workDate, $timezone);
+    }
+
+    /**
+     * If the instant falls inside the previous local day's overnight window,
+     * return that day's resolved context; otherwise null (use the current day).
+     */
+    private function resolveOvernightReachBack(
+        Employee $employee,
+        CarbonImmutable $instantUtc,
+        WorkSchedule $currentSchedule,
+        string $fallbackTimezone,
+    ): ?ResolvedWorkDay {
+        $currentTz = $currentSchedule->timezone ?: $fallbackTimezone;
+        $previousLocalDate = $instantUtc->setTimezone($currentTz)->startOfDay()->subDay();
+
+        // The previous day may fall under a different assignment (effective dates).
+        $previousSchedule = $this->resolveSchedule($employee, $previousLocalDate) ?? $currentSchedule;
+        $previousTz = $previousSchedule->timezone ?: $fallbackTimezone;
+        $previousLocalDate = $instantUtc->setTimezone($previousTz)->startOfDay()->subDay();
+
+        $previousDay = $this->dayFor($previousSchedule, (int) $previousLocalDate->dayOfWeek);
+        if ($previousDay === null || ! $previousDay->isOvernight()) {
+            return null;
+        }
+
+        [$prevStart, $prevEnd] = $this->boundaries(
+            $previousLocalDate,
+            $previousTz,
+            (string) $previousDay->start_time,
+            (string) $previousDay->end_time,
+        );
+
+        // Inside the overnight window [start, end): this shift began yesterday.
+        if ($instantUtc->greaterThanOrEqualTo($prevStart) && $instantUtc->lessThan($prevEnd)) {
+            return $this->buildWorkDay($previousSchedule, $previousDay, $previousLocalDate, $previousTz);
+        }
+
+        return null;
+    }
+
+    /** Assemble a ResolvedWorkDay for a concrete (schedule, day, work_date, tz). */
+    private function buildWorkDay(WorkSchedule $schedule, ?WorkScheduleDay $day, CarbonImmutable $workDate, string $timezone): ResolvedWorkDay
+    {
         $isWorking = $day !== null && $day->is_working_day && $day->start_time && $day->end_time;
 
         [$startUtc, $endUtc] = $isWorking
