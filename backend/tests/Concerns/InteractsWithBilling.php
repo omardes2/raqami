@@ -2,12 +2,14 @@
 
 namespace Tests\Concerns;
 
+use App\Modules\Billing\Enums\PaymentMethod;
 use App\Modules\Billing\Models\BankAccount;
 use App\Modules\Billing\Models\Coupon;
 use App\Modules\Billing\Models\Invoice;
 use App\Modules\Billing\Models\Plan;
 use App\Modules\Billing\Models\Subscription;
 use App\Modules\Billing\Services\InvoiceService;
+use App\Modules\Billing\Services\PaymentService;
 use App\Modules\Billing\Services\SubscriptionManager;
 use App\Modules\Tenancy\Models\Tenant;
 use Illuminate\Support\Str;
@@ -73,5 +75,17 @@ trait InteractsWithBilling
             'items' => [['description' => 'Business (monthly)', 'quantity' => 1, 'unit_amount_minor' => 1999]],
             'issue' => true,
         ], $data)));
+    }
+
+    /** Pay an invoice in full via the real PaymentService (in tenant context). */
+    protected function payInvoiceFully(Tenant $tenant, Invoice $invoice): void
+    {
+        $this->withinTenant($tenant, function () use ($invoice) {
+            $fresh = $invoice->fresh();
+            app(PaymentService::class)->applyToInvoice($fresh, [
+                'amount_minor' => $fresh->amount_due_minor,
+                'method' => PaymentMethod::Manual,
+            ]);
+        });
     }
 }

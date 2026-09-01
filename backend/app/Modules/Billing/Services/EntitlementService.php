@@ -6,29 +6,27 @@ use App\Modules\Billing\Models\Plan;
 use App\Modules\Billing\Models\PlanFeature;
 use App\Modules\Billing\Models\Subscription;
 use App\Modules\Employees\Models\Employee;
+use App\Modules\Tenancy\Services\TenantContext;
+use Closure;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
  * The single place that answers entitlement/usage questions (spec §3, §4, §25).
- * Controllers/modules must NOT scatter plan checks — they ask this service:
- *   - can this tenant use feature X?
- *   - what is the limit for feature Y, and current usage?
- *   - can another employee be added?
- *   - is the subscription usable right now?
+ * Controllers/modules must NOT scatter plan checks — they ask this service.
  *
- * All queries run within the active tenant context (RLS + global scope), so no
- * tenant_id is passed around and nothing can read another tenant's usage.
- *
- * Employee-limit rule (V1): a tenant with NO active subscription is treated as
- * UNLIMITED (fail-open) so the platform never blocks a company that has not yet
- * chosen a plan; enforcement applies only when a plan with a finite
- * employee_limit is active. Countable employees = employment_status NOT in
- * (terminated, archived) and not soft-deleted.
+ * FAIL-CLOSED (owner policy): product entitlements require an explicit USABLE
+ * commercial state (trialing / active / grace_period). "No subscription",
+ * expired, suspended, or canceled grant NO product entitlement — there is no
+ * implicit unlimited fallback. Billing/account/recovery routes never call this,
+ * so they stay reachable regardless of subscription state.
  */
 class EntitlementService
 {
     /** Employment statuses that do NOT count toward the plan employee limit. */
     private const NON_COUNTABLE_STATUSES = ['terminated', 'archived'];
+
+    public function __construct(private readonly TenantContext $context) {}
 
     /** The tenant's single primary subscription (or null). */
     public function subscription(): ?Subscription
@@ -56,19 +54,25 @@ class EntitlementService
             ->count();
     }
 
-    /** Plan employee limit, or null for unlimited / no active plan limit. */
+    /**
+     * Plan employee limit for display. null means "unlimited" ONLY within a
+     * usable subscription whose plan sets no limit; callers deciding whether a
+     * create is allowed must use canAddEmployee()/assertCanAddEmployee(), which
+     * are fail-closed.
+     */
     public function employeeLimit(): ?int
     {
-        $plan = $this->plan();
-
-        return $plan?->employee_limit;
+        return $this->plan()?->employee_limit;
     }
 
     public function remainingEmployeeSlots(): ?int
     {
+        if (! $this->subscriptionUsable()) {
+            return 0; // fail-closed: no usable entitlement
+        }
         $limit = $this->employeeLimit();
         if ($limit === null) {
-            return null; // unlimited
+            return null; // unlimited within the usable plan
         }
 
         return max(0, $limit - $this->countableEmployees());
@@ -76,24 +80,60 @@ class EntitlementService
 
     public function canAddEmployee(): bool
     {
+        if (! $this->subscriptionUsable()) {
+            return false;
+        }
         $remaining = $this->remainingEmployeeSlots();
 
         return $remaining === null || $remaining > 0;
     }
 
     /**
-     * Enforce the employee limit at the creation entry point. Throws a localized
-     * 422 when the tenant's plan cap is reached (spec §4).
+     * Enforce entitlement at the employee-creation entry point. Throws a
+     * localized 422: subscription_required when there is no usable subscription,
+     * else employee_limit_reached when the plan cap is hit.
      */
     public function assertCanAddEmployee(): void
     {
-        if (! $this->canAddEmployee()) {
+        if (! $this->subscriptionUsable()) {
+            throw ValidationException::withMessages([
+                'subscription' => [__('billing.subscription_required')],
+            ]);
+        }
+        $remaining = $this->remainingEmployeeSlots();
+        if ($remaining !== null && $remaining <= 0) {
             throw ValidationException::withMessages([
                 'employee_limit' => [__('billing.employee_limit_reached', [
                     'limit' => (string) $this->employeeLimit(),
                 ])],
             ]);
         }
+    }
+
+    /**
+     * Run an employee-creating closure inside ONE transaction guarded by a
+     * per-tenant PostgreSQL advisory lock, so the entitlement check and the
+     * insert share a concurrency boundary (spec §4). Two concurrent creates at
+     * limit-1 cannot both pass: the second waits for the lock, then sees the
+     * updated count and is rejected.
+     *
+     * @template T
+     *
+     * @param  Closure():T  $create
+     * @return T
+     */
+    public function guardedEmployeeCreate(Closure $create): mixed
+    {
+        return DB::transaction(function () use ($create) {
+            if (DB::getDriverName() === 'pgsql') {
+                DB::statement('SELECT pg_advisory_xact_lock(hashtext(?), hashtext(?))', [
+                    'employee_limit', (string) $this->context->tenantId(),
+                ]);
+            }
+            $this->assertCanAddEmployee();
+
+            return $create();
+        });
     }
 
     // --- Generic feature entitlements --------------------------------------
@@ -109,7 +149,7 @@ class EntitlementService
             ?? $plan->features()->where('feature_key', $featureKey)->first();
     }
 
-    /** Deny-by-default: a feature is usable only when the plan enables it. */
+    /** Deny-by-default: usable only when the subscription is usable AND enables it. */
     public function canUseFeature(string $featureKey): bool
     {
         if (! $this->subscriptionUsable()) {
@@ -119,7 +159,6 @@ class EntitlementService
         return (bool) $this->feature($featureKey)?->enabled;
     }
 
-    /** Numeric limit for a feature (null = unlimited or not configured). */
     public function featureLimit(string $featureKey): ?int
     {
         return $this->feature($featureKey)?->limit_value;

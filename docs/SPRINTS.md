@@ -195,3 +195,11 @@ Delivered on `feature/sprint-2-saas-billing` (not merged to `main`):
   FX conversion, account credits, automatic bank reconciliation.
 
 Sprint 2 is complete on its branch; Sprint 3 has **not** started.
+
+### Sprint 2 — commercial hardening pass (applied before PR)
+
+Fail-closed entitlements + default trial plan; payment-gated upgrades;
+terminal-subscription reactivation; globally-unique invoice numbers; per-tenant
+employee-limit advisory lock; currency-exponent formatting (JOD = 3);
+`billing:process-lifecycle` processor; localized 422s for invalid transitions.
+Backend 144 tests green. Sprint 3 has NOT started.

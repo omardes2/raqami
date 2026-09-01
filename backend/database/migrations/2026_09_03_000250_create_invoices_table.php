@@ -40,7 +40,9 @@ return new class extends Migration
 
             $table->foreign('tenant_id')->references('id')->on('tenants')->cascadeOnDelete();
             $table->foreign('subscription_id')->references('id')->on('subscriptions')->nullOnDelete();
-            $table->unique(['tenant_id', 'invoice_number']);
+            // Invoice numbers are GLOBALLY unique across the platform (readable,
+            // non-ID public reference for reconciliation/support/audit).
+            $table->unique('invoice_number');
             $table->index(['tenant_id', 'status']);
             $table->index('due_at');
         });

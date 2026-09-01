@@ -14,7 +14,7 @@ class SubscriptionChange extends Model
     use HasUlids;
 
     protected $fillable = [
-        'tenant_id', 'subscription_id', 'from_plan_id', 'to_plan_id',
+        'tenant_id', 'subscription_id', 'invoice_id', 'from_plan_id', 'to_plan_id',
         'change_type', 'effective_at', 'status', 'requested_by_user_id', 'metadata',
     ];
 

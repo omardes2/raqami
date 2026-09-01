@@ -48,6 +48,18 @@ class InvoiceTest extends TestCase
         $this->assertMatchesRegularExpression('/^INV-\d{4}-\d{6}$/', $a->invoice_number);
     }
 
+    public function test_invoice_numbers_are_globally_unique_across_tenants(): void
+    {
+        [, $tenantA] = $this->createCompanyWithOwner(['name' => 'A']);
+        [, $tenantB] = $this->createCompanyWithOwner(['name' => 'B']);
+
+        $a = $this->makeInvoice($tenantA);
+        $b = $this->makeInvoice($tenantB);
+
+        // Global sequence: different tenants never share a public invoice number.
+        $this->assertNotSame($a->invoice_number, $b->invoice_number);
+    }
+
     public function test_partial_then_full_payment_updates_status(): void
     {
         [, $tenant] = $this->createCompanyWithOwner();

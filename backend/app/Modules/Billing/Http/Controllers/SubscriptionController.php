@@ -41,13 +41,19 @@ class SubscriptionController extends Controller
 
     public function subscribe(SubscribeRequest $request): JsonResponse
     {
-        if (Subscription::query()->exists()) {
+        $existing = Subscription::query()->first();
+        // A live (non-terminal) subscription cannot be re-created.
+        if ($existing !== null && ! $existing->status->isTerminal()) {
             return response()->json(['message' => __('billing.subscription_exists')], 422);
         }
 
         $plan = $this->purchasablePlan($request->validated('plan_id'));
 
-        $result = $this->checkout->subscribe($plan, $request->validated(), $request->user());
+        // Terminal subscription => explicit, payment-gated reactivation (no new
+        // free trial). Otherwise a fresh subscription (trial if the plan offers it).
+        $result = $existing !== null
+            ? $this->checkout->reactivate($existing, $plan, $request->validated('interval'), $request->validated(), $request->user())
+            : $this->checkout->subscribe($plan, $request->validated(), $request->user());
 
         return response()->json([
             'subscription' => (new SubscriptionResource($result['subscription']->loadMissing('plan')))->resolve(),
@@ -60,17 +66,13 @@ class SubscriptionController extends Controller
         $subscription = $this->requireSubscription();
         $toPlan = $this->purchasablePlan($request->validated('plan_id'));
 
-        $change = $this->manager->changePlan($subscription, $toPlan, $request->validated('interval'), $request->user());
-
-        // Immediate upgrade with a price issues an invoice for the new plan.
-        $invoice = null;
-        $subscription->refresh();
-        if ($change->status === 'applied' && $subscription->plan->priceMinorFor($subscription->billing_interval->value) > 0) {
-            $invoice = $this->checkout->issuePlanInvoice($subscription, [], $request->user());
-        }
+        // Upgrades are payment-gated (pending change + invoice); downgrades are
+        // scheduled. Terminal/currency errors surface as localized 422s.
+        $result = $this->checkout->changePlan($subscription, $toPlan, $request->validated('interval'), $request->validated(), $request->user());
+        $change = $result['change'];
 
         return response()->json([
-            'subscription' => (new SubscriptionResource($subscription->loadMissing('plan')))->resolve(),
+            'subscription' => (new SubscriptionResource($result['subscription']->loadMissing('plan')))->resolve(),
             'change' => [
                 'id' => $change->id,
                 'change_type' => $change->change_type,
@@ -78,7 +80,7 @@ class SubscriptionController extends Controller
                 'effective_at' => $change->effective_at,
                 'over_cap_warning' => $change->metadata['over_cap_warning'] ?? null,
             ],
-            'invoice' => $invoice ? (new InvoiceResource($invoice->loadMissing('items')))->resolve() : null,
+            'invoice' => $result['invoice'] ? (new InvoiceResource($result['invoice']->loadMissing('items')))->resolve() : null,
         ]);
     }
 

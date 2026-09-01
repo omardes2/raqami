@@ -25,7 +25,6 @@ return new class extends Migration
         'payments',
         'bank_transfer_submissions',
         'coupon_redemptions',
-        'billing_counters',
     ];
 
     public function up(): void

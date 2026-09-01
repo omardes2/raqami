@@ -136,9 +136,21 @@ export interface Coupon {
   status: string
 }
 
-/** Format integer minor units as a human currency string. */
+// ISO 4217 minor-unit exponents (mirror of backend config('billing.currency_exponents')).
+// Money is authoritative in integer minor units; this only governs display.
+const CURRENCY_EXPONENTS: Record<string, number> = {
+  USD: 2, EUR: 2, GBP: 2, SAR: 2, AED: 2, ILS: 2, JOD: 3,
+}
+
+/** Minor-unit exponent for a currency (defaults to 2). */
+export function currencyExponent(currency: string | null | undefined): number {
+  return CURRENCY_EXPONENTS[(currency ?? '').toUpperCase()] ?? 2
+}
+
+/** Format integer minor units as a human currency string, honoring the exponent. */
 export function money(minor: number, currency: string | null | undefined): string {
-  return `${(minor / 100).toFixed(2)} ${currency ?? ''}`.trim()
+  const exp = currencyExponent(currency)
+  return `${(minor / 10 ** exp).toFixed(exp)} ${currency ?? ''}`.trim()
 }
 
 // --- Tenant billing calls ---

@@ -27,6 +27,7 @@ class PlanResource extends JsonResource
             'employee_limit' => $this->employee_limit,
             'sort_order' => $this->sort_order,
             'is_featured' => $this->is_featured,
+            'is_default_trial' => $this->is_default_trial,
             'features' => PlanFeatureResource::collection($this->whenLoaded('features')),
         ];
     }

@@ -1,7 +1,7 @@
 @php
     /** @var \App\Modules\Billing\Models\Invoice $invoice */
     $dir = app()->getLocale() === 'ar' ? 'rtl' : 'ltr';
-    $money = fn ($minor) => number_format(((int) $minor) / 100, 2).' '.$invoice->currency;
+    $money = fn ($minor) => \App\Modules\Billing\Support\CurrencyMetadata::formatWithCode((int) $minor, $invoice->currency);
 @endphp
 <!doctype html>
 <html lang="{{ app()->getLocale() }}" dir="{{ $dir }}">

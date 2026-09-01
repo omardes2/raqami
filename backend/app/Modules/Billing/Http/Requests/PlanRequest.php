@@ -29,6 +29,7 @@ class PlanRequest extends FormRequest
             'employee_limit' => ['sometimes', 'nullable', 'integer', 'min:0'],
             'sort_order' => ['sometimes', 'integer'],
             'is_featured' => ['sometimes', 'boolean'],
+            'is_default_trial' => ['sometimes', 'boolean'],
         ];
     }
 }

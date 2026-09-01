@@ -171,3 +171,19 @@ preserved).
 - **Out of scope (unchanged):** Stripe/Cybersource/PayPal/any card provider, AI,
   attendance/leave/payroll/tasks, country tax engines, FX, account credits,
   automatic reconciliation.
+
+## 13. Sprint 2 — commercial hardening (final)
+
+- **Entitlements are fail-closed** and bootstrapped by a platform **default trial
+  plan** (`is_default_trial`); no usable subscription ⇒ no product entitlement.
+- **Upgrades are payment-gated** (pending change + invoice → applied on full
+  payment); **downgrades** scheduled at period end (no data loss);
+  **reactivation** of a terminal subscription is an explicit paid purchase (no new
+  trial).
+- **Invoice numbers are globally unique** via a platform sequence
+  (`invoice_number_sequences`); the per-tenant counter was removed.
+- **Employee limit** is enforced under a per-tenant advisory lock (no race).
+- **Currency exponents** (`CurrencyMetadata`) render minor units correctly
+  (JOD = 3 decimals); arithmetic stays in integer minor units.
+- **Lifecycle** transitions (trial/grace expiry, scheduled cancel/downgrade) are
+  processed by the idempotent `billing:process-lifecycle` command (no cron yet).

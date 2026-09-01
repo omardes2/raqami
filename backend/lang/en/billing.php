@@ -3,6 +3,7 @@
 return [
     // Entitlements / employee limit
     'employee_limit_reached' => 'Your plan allows a maximum of :limit employees. Upgrade your plan to add more.',
+    'subscription_required' => 'An active subscription or trial is required to use this feature. Please choose a plan in Billing.',
 
     // Coupons
     'coupon_invalid' => 'This coupon code is invalid.',
@@ -26,6 +27,9 @@ return [
     'plan_not_available' => 'The selected plan is not available.',
     'nothing_to_pay' => 'There is no outstanding balance to pay.',
     'currency_change_unsupported' => 'Changing to a plan in a different currency is not supported.',
+    'subscription_terminal' => 'This subscription has ended. Start a new subscription to continue.',
+    'no_pending_cancellation' => 'There is no scheduled cancellation to resume.',
+    'not_terminal_for_reactivation' => 'This subscription is still active; reactivation is not applicable.',
 
     // Bank transfer
     'bank_account_unavailable' => 'No bank account is configured for this currency.',

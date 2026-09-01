@@ -9,6 +9,7 @@ use App\Modules\Billing\Enums\PaymentStatus;
 use App\Modules\Billing\Enums\SubscriptionStatus;
 use App\Modules\Billing\Models\Invoice;
 use App\Modules\Billing\Models\Payment;
+use App\Modules\Billing\Models\SubscriptionChange;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -90,14 +91,25 @@ class PaymentService
 
             $this->invoices->applyPaymentAmount($locked, $amount);
 
-            // Activate / renew the subscription once the invoice is fully paid.
+            // On FULL payment, apply any pending upgrade/reactivation gated on
+            // this invoice (sets the new plan + activates), otherwise activate or
+            // renew the current subscription. No unpaid entitlement is granted.
             if ($locked->status === InvoiceStatus::Paid && $locked->subscription_id !== null) {
-                $subscription = $locked->subscription;
-                if ($subscription !== null && ! $subscription->status->isTerminal()) {
-                    if ($subscription->status === SubscriptionStatus::Active) {
-                        $this->subscriptions->renew($subscription, $actor);
-                    } else {
-                        $this->subscriptions->activate($subscription, $actor);
+                $pending = SubscriptionChange::query()
+                    ->where('invoice_id', $locked->getKey())
+                    ->where('status', 'pending')
+                    ->exists();
+
+                if ($pending) {
+                    $this->subscriptions->applyPendingChangeForInvoice($locked, $actor);
+                } else {
+                    $subscription = $locked->subscription;
+                    if ($subscription !== null && ! $subscription->status->isTerminal()) {
+                        if ($subscription->status === SubscriptionStatus::Active) {
+                            $this->subscriptions->renew($subscription, $actor);
+                        } else {
+                            $this->subscriptions->activate($subscription, $actor);
+                        }
                     }
                 }
             }

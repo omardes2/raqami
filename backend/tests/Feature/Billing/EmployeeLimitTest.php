@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Billing;
 
-use App\Modules\Billing\Services\SubscriptionManager;
+use App\Modules\Billing\Models\Invoice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithBilling;
 use Tests\Concerns\InteractsWithTenancy;
@@ -56,27 +56,35 @@ class EmployeeLimitTest extends TestCase
         $this->createEmployeeViaApi($owner, $tenant, 'NowAllowed')->assertCreated();
     }
 
-    public function test_upgrading_to_a_higher_plan_allows_growth(): void
+    public function test_upgrading_to_a_higher_plan_allows_growth_after_payment(): void
     {
         [$owner, $tenant] = $this->createCompanyWithOwner();
         $small = $this->makePlan(['name' => 'Small', 'employee_limit' => 1, 'monthly_price_minor' => 1000, 'trial_days' => 0]);
         $big = $this->makePlan(['name' => 'Big', 'employee_limit' => 50, 'monthly_price_minor' => 5000, 'trial_days' => 0]);
-        $sub = $this->subscribeTenant($tenant, $small, ['trial' => false]);
+        $this->subscribeTenant($tenant, $small, ['trial' => false]);
         $this->makeEmployee($tenant, ['employee_number' => 'EMP-1']);
 
         $this->createEmployeeViaApi($owner, $tenant, 'Blocked')->assertStatus(422);
 
-        // Upgrade to the larger plan (applies immediately).
-        $this->withinTenant($tenant, fn () => app(SubscriptionManager::class)->changePlan($sub, $big));
+        // Request the upgrade (payment-gated) — limits do NOT rise yet.
+        $invoiceId = $this->actingAs($owner)->withHeaders($this->tenantHeaders($tenant))
+            ->postJson('/api/billing/subscription/change-plan', ['plan_id' => $big->id])
+            ->assertOk()->json('invoice.id');
+        $this->createEmployeeViaApi($owner, $tenant, 'StillBlocked')->assertStatus(422);
+
+        // Pay the upgrade invoice -> higher plan applies -> growth allowed.
+        $invoice = $this->withinTenant($tenant, fn () => Invoice::query()->findOrFail($invoiceId));
+        $this->payInvoiceFully($tenant, $invoice);
 
         $this->createEmployeeViaApi($owner, $tenant, 'NowAllowed')->assertCreated();
     }
 
-    public function test_tenant_without_subscription_is_unlimited(): void
+    public function test_tenant_without_subscription_cannot_create_employees(): void
     {
         [$owner, $tenant] = $this->createCompanyWithOwner();
 
-        // No subscription at all -> creation is never blocked (fail-open V1).
-        $this->createEmployeeViaApi($owner, $tenant, 'Free')->assertCreated();
+        // Fail-closed: no usable subscription -> creation rejected (not unlimited).
+        $this->createEmployeeViaApi($owner, $tenant, 'Blocked')->assertStatus(422)
+            ->assertJsonPath('errors.subscription.0', __('billing.subscription_required'));
     }
 }

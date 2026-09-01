@@ -5,6 +5,8 @@ namespace App\Modules\Onboarding\Services;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Authorization\Services\RoleAssignmentService;
 use App\Modules\Authorization\Services\RoleProvisioner;
+use App\Modules\Billing\Models\Plan;
+use App\Modules\Billing\Services\SubscriptionManager;
 use App\Modules\Identity\Models\TenantMembership;
 use App\Modules\Identity\Models\User;
 use App\Modules\Tenancy\Models\Tenant;
@@ -27,6 +29,7 @@ class CompanyOnboardingService
         private readonly RoleProvisioner $roleProvisioner,
         private readonly RoleAssignmentService $assignments,
         private readonly AuditLogger $audit,
+        private readonly SubscriptionManager $subscriptions,
     ) {}
 
     /**
@@ -74,6 +77,15 @@ class CompanyOnboardingService
                     'subject' => $membership,
                     'metadata' => ['role' => 'owner', 'reason' => 'onboarding_owner'],
                 ]);
+
+                // Bootstrap a trial from the platform's default trial plan when
+                // one is configured. Without it the tenant has no usable
+                // subscription and product entitlements stay fail-closed until a
+                // plan is chosen (billing/account routes remain reachable).
+                $defaultTrial = Plan::defaultTrial();
+                if ($defaultTrial !== null) {
+                    $this->subscriptions->start($defaultTrial, 'monthly', ['trial' => true], $owner);
+                }
 
                 return $tenant;
             });

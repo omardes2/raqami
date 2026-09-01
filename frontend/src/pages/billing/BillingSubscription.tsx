@@ -37,8 +37,11 @@ export default function BillingSubscriptionPage() {
     }
   }
 
+  // A terminal (canceled/expired) subscription reactivates via subscribe(); a
+  // live one changes plan. No subscription => fresh subscribe.
+  const terminal = !sub || ['canceled', 'expired'].includes(sub.status)
   const choose = (plan: Plan) =>
-    act(() => (sub ? billing.changePlan({ plan_id: plan.id, interval }) : billing.subscribe({ plan_id: plan.id, interval })))
+    act(() => (terminal ? billing.subscribe({ plan_id: plan.id, interval }) : billing.changePlan({ plan_id: plan.id, interval })))
 
   return (
     <div>

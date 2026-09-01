@@ -74,19 +74,22 @@ class SubscriptionTest extends TestCase
             ->assertJsonPath('data.cancel_at_period_end', false);
     }
 
-    public function test_upgrade_applies_immediately(): void
+    public function test_upgrade_is_payment_gated_not_immediate(): void
     {
         [$owner, $tenant] = $this->createCompanyWithOwner();
         $starter = $this->makePlan(['name' => 'Starter', 'monthly_price_minor' => 1999]);
         $business = $this->makePlan(['name' => 'Business', 'monthly_price_minor' => 4999]);
         $this->subscribeTenant($tenant, $starter);
 
+        // Requesting the upgrade records a pending change + invoice but does NOT
+        // change the plan until the invoice is paid.
         $this->actingAs($owner)->withHeaders($this->tenantHeaders($tenant))
             ->postJson('/api/billing/subscription/change-plan', ['plan_id' => $business->id])
             ->assertOk()
-            ->assertJsonPath('subscription.plan_id', $business->id)
+            ->assertJsonPath('subscription.plan_id', $starter->id)
             ->assertJsonPath('change.change_type', 'upgrade')
-            ->assertJsonPath('change.status', 'applied');
+            ->assertJsonPath('change.status', 'pending')
+            ->assertJsonPath('invoice.total_minor', 4999);
     }
 
     public function test_downgrade_is_scheduled_and_deletes_no_data(): void
@@ -153,6 +156,26 @@ class SubscriptionTest extends TestCase
             $this->expectException(RuntimeException::class);
             $manager->renew($sub); // canceled -> active is not allowed
         });
+    }
+
+    public function test_terminal_subscription_operations_return_422_not_500(): void
+    {
+        [$owner, $tenant] = $this->createCompanyWithOwner();
+        $plan = $this->makePlan(['trial_days' => 0]);
+        $other = $this->makePlan(['name' => 'Other', 'trial_days' => 0]);
+        $sub = $this->subscribeTenant($tenant, $plan, ['trial' => false]);
+        $this->withinTenant($tenant, fn () => app(SubscriptionManager::class)->cancelNow($sub));
+
+        $headers = $this->tenantHeaders($tenant);
+        // change-plan on a terminal subscription is a client-safe 422 (not a 500).
+        $this->actingAs($owner)->withHeaders($headers)
+            ->postJson('/api/billing/subscription/change-plan', ['plan_id' => $other->id])->assertStatus(422);
+        // cancel again -> 422.
+        $this->actingAs($owner)->withHeaders($headers)
+            ->postJson('/api/billing/subscription/cancel')->assertStatus(422);
+        // resume with no pending cancellation -> 422.
+        $this->actingAs($owner)->withHeaders($headers)
+            ->postJson('/api/billing/subscription/resume')->assertStatus(422);
     }
 
     public function test_full_lifecycle_transitions(): void

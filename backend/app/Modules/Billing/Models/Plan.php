@@ -19,7 +19,7 @@ class Plan extends Model
     protected $fillable = [
         'name', 'slug', 'description', 'status', 'visibility',
         'monthly_price_minor', 'annual_price_minor', 'currency',
-        'trial_days', 'employee_limit', 'sort_order', 'is_featured',
+        'trial_days', 'employee_limit', 'sort_order', 'is_featured', 'is_default_trial',
     ];
 
     protected function casts(): array
@@ -33,12 +33,19 @@ class Plan extends Model
             'employee_limit' => 'integer',
             'sort_order' => 'integer',
             'is_featured' => 'boolean',
+            'is_default_trial' => 'boolean',
         ];
     }
 
     public function features(): HasMany
     {
         return $this->hasMany(PlanFeature::class);
+    }
+
+    /** The single platform-configured default trial plan, if any. */
+    public static function defaultTrial(): ?self
+    {
+        return static::query()->where('is_default_trial', true)->where('status', PlanStatus::Active->value)->first();
     }
 
     public function isActive(): bool

@@ -3,6 +3,7 @@
 return [
     // Entitlements / employee limit
     'employee_limit_reached' => 'تسمح خطتك بحد أقصى :limit موظفًا. قم بترقية خطتك لإضافة المزيد.',
+    'subscription_required' => 'يلزم وجود اشتراك نشط أو فترة تجريبية لاستخدام هذه الميزة. يرجى اختيار خطة من صفحة الفوترة.',
 
     // Coupons
     'coupon_invalid' => 'رمز القسيمة غير صالح.',
@@ -26,6 +27,9 @@ return [
     'plan_not_available' => 'الخطة المختارة غير متاحة.',
     'nothing_to_pay' => 'لا يوجد رصيد مستحق للدفع.',
     'currency_change_unsupported' => 'الانتقال إلى خطة بعملة مختلفة غير مدعوم.',
+    'subscription_terminal' => 'انتهى هذا الاشتراك. ابدأ اشتراكًا جديدًا للمتابعة.',
+    'no_pending_cancellation' => 'لا يوجد إلغاء مجدول لاستئنافه.',
+    'not_terminal_for_reactivation' => 'هذا الاشتراك ما زال نشطًا؛ لا حاجة لإعادة التفعيل.',
 
     // Bank transfer
     'bank_account_unavailable' => 'لا يوجد حساب بنكي مهيأ لهذه العملة.',

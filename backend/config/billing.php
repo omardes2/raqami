@@ -22,4 +22,12 @@ return [
     // ISO 4217 currency codes the billing UI/validation accepts (foundation;
     // no automatic FX conversion in Sprint 2 — one currency per invoice/payment).
     'currencies' => ['USD', 'EUR', 'GBP', 'SAR', 'AED', 'JOD', 'ILS'],
+
+    // ISO 4217 minor-unit exponents. Money is ALWAYS stored as integer minor
+    // units; this only governs how a stored value is split into major/minor for
+    // display. Not every currency has 2 decimals (e.g. JOD = 3). Default is 2.
+    'currency_exponents' => [
+        'USD' => 2, 'EUR' => 2, 'GBP' => 2, 'SAR' => 2, 'AED' => 2, 'ILS' => 2,
+        'JOD' => 3,
+    ],
 ];
