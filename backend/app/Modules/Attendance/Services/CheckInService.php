@@ -234,9 +234,14 @@ class CheckInService
             $this->reject(__('attendance.no_schedule'));
         }
 
-        if ($resolved->hasSchedule() && ! $resolved->isScheduledWorkingDay()
-            && $settings->off_day_work_policy === 'reject' && ! $settings->allow_unscheduled_work) {
-            $this->reject(__('attendance.not_working_day'));
+        // Off-day (scheduled but non-working) attendance without an authorizing
+        // exception: 'allow' permits it, 'reject'/'require_approval' do not (the
+        // exception above is the record of an approval). Never silently treated
+        // as ordinary attendance.
+        if ($resolved->hasSchedule() && ! $resolved->isScheduledWorkingDay() && ! $settings->allow_unscheduled_work) {
+            if ($settings->off_day_work_policy !== 'allow') {
+                $this->reject(__('attendance.not_working_day'));
+            }
         }
     }
 
