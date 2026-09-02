@@ -126,6 +126,20 @@ class PermissionCatalog
         'leave.attachments.view_sensitive' => ['leave', 'Access sensitive leave attachments (e.g. medical)'],
         'leave.reports.view' => ['leave', 'View leave reports & team calendar'],
         'leave.settings.manage' => ['leave', 'Manage company leave settings'],
+
+        // Sprint 6 — Tasks & Teams.
+        'tasks.view_own' => ['tasks', 'View own assigned tasks'],
+        'tasks.create' => ['tasks', 'Create tasks (within scope)'],
+        'tasks.view' => ['tasks', 'View tasks (within scope)'],
+        'tasks.manage' => ['tasks', 'Manage tasks (within scope)'],
+        'tasks.assign' => ['tasks', 'Assign tasks (within scope)'],
+        'tasks.comment' => ['tasks', 'Comment on visible tasks'],
+        'tasks.attach' => ['tasks', 'Attach files to visible tasks'],
+        'tasks.reports.view' => ['tasks', 'View task reports & workload (within scope)'],
+        'tasks.settings.manage' => ['tasks', 'Manage the tenant task status catalog'],
+        'projects.view' => ['tasks', 'View projects (within scope)'],
+        'projects.create' => ['tasks', 'Create projects (within scope)'],
+        'projects.manage' => ['tasks', 'Manage projects & governance (within scope)'],
     ];
 
     /** Sprint 3 + 4 attendance permission groups reused in default role mappings. */
@@ -178,6 +192,28 @@ class PermissionCatalog
 
     private const LEAVE_VIEW = [
         'leave.view', 'leave.reports.view',
+    ];
+
+    /**
+     * Sprint 6 task permission groups. Project-local authority (owner/manager
+     * membership) is a bounded ACL evaluated by TaskVisibilityResolver — it is
+     * NOT part of these company/scoped grants.
+     */
+    private const TASKS_FULL = [
+        'tasks.view', 'tasks.create', 'tasks.manage', 'tasks.assign',
+        'tasks.comment', 'tasks.attach', 'tasks.reports.view', 'tasks.settings.manage',
+        'projects.view', 'projects.create', 'projects.manage',
+    ];
+
+    private const TASKS_MANAGER = [
+        'tasks.view', 'tasks.create', 'tasks.manage', 'tasks.assign',
+        'tasks.comment', 'tasks.attach', 'tasks.reports.view',
+        'projects.view', 'projects.create', 'projects.manage',
+    ];
+
+    /** Employee participation: visibility comes from assignment, not a broad grant. */
+    private const TASKS_PARTICIPANT = [
+        'tasks.view_own', 'tasks.comment', 'tasks.attach',
     ];
 
     /** Sprint 2 billing permission groups reused in default role mappings. */
@@ -242,6 +278,7 @@ class PermissionCatalog
                 ...self::LEAVE_FULL,
                 // Distinct privileges above LEAVE_FULL (Owner holds via '*').
                 'leave.negative_override', 'leave.attachments.view_sensitive',
+                ...self::TASKS_FULL,
             ],
         ],
         'hr-manager' => [
@@ -257,6 +294,8 @@ class PermissionCatalog
                 ...self::LEAVE_FULL,
                 // HR sees sensitive (medical) attachments; not negative_override.
                 'leave.attachments.view_sensitive',
+                // HR does NOT own tasks/projects by default (D9) — reports only.
+                'tasks.reports.view',
             ],
         ],
         'department-manager' => [
@@ -269,13 +308,20 @@ class PermissionCatalog
                 'employee_documents.view', 'employee_contracts.view',
                 ...self::ATTENDANCE_MANAGER,
                 ...self::LEAVE_MANAGER,
+                // Scope-limited task administration (branch/department by assignment).
+                ...self::TASKS_MANAGER,
             ],
         ],
         'team-leader' => [
             'name' => 'Team Leader',
             // Scope-limited to their team by role assignment. Leave approval is NOT
             // default (D2) — view only unless a custom role grants leave.approve.
-            'permissions' => ['user.view', 'teams.view', 'employees.view', ...self::ATTENDANCE_VIEW, ...self::LEAVE_VIEW],
+            // Tasks: scoped view + assign within their team (D3); NO tasks.manage.
+            'permissions' => [
+                'user.view', 'teams.view', 'employees.view',
+                ...self::ATTENDANCE_VIEW, ...self::LEAVE_VIEW,
+                'tasks.view', 'tasks.assign', 'tasks.comment', 'tasks.attach', 'tasks.reports.view',
+            ],
         ],
         'accountant' => [
             'name' => 'Accountant',
@@ -290,7 +336,10 @@ class PermissionCatalog
         'employee' => [
             'name' => 'Employee',
             // Self-service endpoints require authentication, not a permission.
-            'permissions' => [],
+            // Task participation: view own assigned + comment/attach. NO tasks.create
+            // by default (grantable later); status/checklist/watch on an assigned
+            // task are participation-inherent, not a permission.
+            'permissions' => [...self::TASKS_PARTICIPANT],
         ],
     ];
 
