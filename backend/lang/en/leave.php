@@ -12,6 +12,7 @@ return [
     'no_coverage' => 'The selected dates do not include any leave to take.',
     'half_day_not_allowed' => 'Half-day leave is not allowed for this leave type or policy.',
     'half_day_single_day' => 'Half-day leave must be for a single day.',
+    'half_day_requires_schedule' => 'Half-day leave requires scheduled working hours on that day.',
     'insufficient_balance' => 'There is not enough leave balance for this request.',
     'overlap' => 'This request overlaps another active leave request.',
     'min_request_minutes' => 'This request is shorter than the minimum allowed.',

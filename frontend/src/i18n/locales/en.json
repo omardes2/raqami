@@ -717,6 +717,7 @@
     "status_rejected": "Rejected",
     "status_withdrawn": "Withdrawn",
     "status_cancellation_pending": "Cancellation pending",
-    "status_cancelled": "Cancelled"
+    "status_cancelled": "Cancelled",
+    "attachment_required_notice": "Supporting document required before approval"
   }
 }

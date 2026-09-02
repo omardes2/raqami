@@ -22,7 +22,9 @@ class LeavePolicyService
         'entitlement_method', 'entitlement_minutes',
         'accrual_frequency', 'accrual_minutes', 'proration_enabled',
         'max_balance_minutes', 'allow_negative_balance', 'max_negative_minutes',
-        'carry_forward_enabled', 'carry_forward_max_minutes', 'carry_forward_expiry_days',
+        // carry_forward_expiry_days is RESERVED (DB column only) — not writable in
+        // Sprint 5 (carried-balance expiry-after-N-days is not implemented).
+        'carry_forward_enabled', 'carry_forward_max_minutes',
         'consumption_basis', 'nominal_day_minutes', 'count_holidays', 'count_non_working_days',
         'allow_half_day', 'minimum_request_minutes', 'maximum_request_minutes',
         'minimum_notice_days', 'maximum_advance_booking_days', 'requires_attachment',

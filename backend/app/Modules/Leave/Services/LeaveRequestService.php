@@ -56,6 +56,7 @@ class LeaveRequestService
 
         $period = $this->periods->resolveOrCreate($employee, (string) $input['leave_type_id'], $policy, $start);
         $computation = $this->calculator->compute($employee, $policy, $kind, $start, $end, $period->starts_on, $period->ends_on);
+        $this->assertHalfDayHasSchedule($kind, $computation);
 
         $balance = $this->balances->rebuildForPeriod($period->fresh());
         $availableBefore = (int) $balance->available_minutes;
@@ -95,6 +96,7 @@ class LeaveRequestService
             }
 
             $this->validateAgainstPolicy($policy, $computation);
+            $this->assertHalfDayHasSchedule($kind, $computation);
             $this->assertNoOverlap($employee, $computation, null);
 
             return $this->balances->withLockedBalance($period, function ($balance) use (
@@ -259,34 +261,78 @@ class LeaveRequestService
         }
     }
 
-    /** Coverage-interval-aware overlap against active requests sharing any work_date. */
+    /**
+     * Conflict detection on TWO dimensions against active requests sharing a
+     * work_date: (1) coverage-interval overlap for scheduled/partial work (so two
+     * non-overlapping halves may coexist), and (2) same-date CONSUMPTION conflict
+     * for calendar-day-consumed dates that occupy no attendance time (nominal
+     * basis) — two active requests may never consume the same logical date,
+     * regardless of leave type.
+     */
     private function assertNoOverlap(Employee $employee, LeaveComputation $computation, ?string $ignoreRequestId): void
     {
-        $newByDate = [];
+        // The new request's effect per work_date: coverage intervals + does it consume?
+        $new = [];
         foreach ($computation->days as $day) {
-            if ($day->coverageIntervals !== []) {
-                $newByDate[$day->workDate] = $day->coverageIntervals;
+            if ($day->coverageIntervals === [] && $day->consumptionMinutes <= 0) {
+                continue; // excluded day (no coverage, no consumption) → no conflict
             }
+            $new[$day->workDate] = [
+                'coverage' => $day->coverageIntervals,
+                'consumes' => $day->consumptionMinutes > 0,
+            ];
         }
-        if ($newByDate === []) {
-            return; // nothing occupies attendance time (e.g. nominal-only) → no conflict
+        if ($new === []) {
+            return;
         }
 
         $existing = LeaveRequest::query()
             ->where('employee_id', $employee->getKey())
             ->whereIn('status', self::ACTIVE_STATUSES)
             ->when($ignoreRequestId !== null, fn ($q) => $q->whereKeyNot($ignoreRequestId))
-            ->with(['days' => fn ($q) => $q->whereIn('work_date', array_keys($newByDate))])
+            ->with(['days' => fn ($q) => $q->whereIn('work_date', array_keys($new))])
             ->get();
 
         foreach ($existing as $request) {
             foreach ($request->days as $day) {
                 $date = $day->work_date->toDateString();
-                $intervals = $day->coverage_intervals ?? [];
-                if (isset($newByDate[$date]) && $intervals !== []
-                    && IntervalMath::overlaps($newByDate[$date], $intervals)) {
+                if (! isset($new[$date])) {
+                    continue;
+                }
+                $mine = $new[$date];
+                $exCoverage = $day->coverage_intervals ?? [];
+                $exConsumes = (int) $day->consumption_minutes > 0;
+
+                // Both occupy attendance time → conflict only if the intervals overlap.
+                if ($mine['coverage'] !== [] && $exCoverage !== []) {
+                    if (IntervalMath::overlaps($mine['coverage'], $exCoverage)) {
+                        $this->fail(__('leave.overlap'));
+                    }
+
+                    continue;
+                }
+
+                // Otherwise at least one side consumes the WHOLE date (nominal /
+                // zero-coverage) — two consuming requests cannot share the date.
+                if ($mine['consumes'] && $exConsumes) {
                     $this->fail(__('leave.overlap'));
                 }
+            }
+        }
+    }
+
+    /**
+     * A half-day request needs actual scheduled work to split — there is no
+     * meaningful first/second half of a zero-schedule day (no invented AM/PM).
+     */
+    private function assertHalfDayHasSchedule(LeaveRequestKind $kind, LeaveComputation $computation): void
+    {
+        if ($kind === LeaveRequestKind::FullDay) {
+            return;
+        }
+        foreach ($computation->days as $day) {
+            if ($day->scheduledMinutes <= 0 && ($day->coverageMinutes > 0 || $day->consumptionMinutes > 0)) {
+                $this->fail(__('leave.half_day_requires_schedule'));
             }
         }
     }

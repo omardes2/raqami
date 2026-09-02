@@ -717,6 +717,7 @@
     "status_rejected": "مرفوضة",
     "status_withdrawn": "مسحوبة",
     "status_cancellation_pending": "إلغاء قيد الانتظار",
-    "status_cancelled": "ملغاة"
+    "status_cancelled": "ملغاة",
+    "attachment_required_notice": "يلزم إرفاق مستند داعم قبل الاعتماد"
   }
 }

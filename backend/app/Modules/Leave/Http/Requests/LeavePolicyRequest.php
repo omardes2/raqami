@@ -38,7 +38,9 @@ class LeavePolicyRequest extends FormRequest
             'max_negative_minutes' => ['nullable', 'integer', 'min:0'],
             'carry_forward_enabled' => ['sometimes', 'boolean'],
             'carry_forward_max_minutes' => ['nullable', 'integer', 'min:0'],
-            'carry_forward_expiry_days' => ['nullable', 'integer', 'min:0'],
+            // carry_forward_expiry_days is RESERVED (DB column only) and NOT
+            // accepted here — carried-balance expiry-after-N-days is not
+            // implemented in Sprint 5. Do not expose it as a live field.
             'consumption_basis' => ['sometimes', Rule::in(ConsumptionBasis::values())],
             'nominal_day_minutes' => ['nullable', 'integer', 'min:1'],
             'count_holidays' => ['sometimes', 'boolean'],

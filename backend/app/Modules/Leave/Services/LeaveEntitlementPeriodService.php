@@ -8,6 +8,7 @@ use App\Modules\Leave\Models\LeaveEntitlementPeriod;
 use App\Modules\Leave\Models\LeavePolicy;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Database\UniqueConstraintViolationException;
 
 /**
  * Resolves (and lazily creates) the entitlement period that contains a date for
@@ -31,19 +32,29 @@ class LeaveEntitlementPeriodService
         $basis = $this->basisFor($policy);
         [$startsOn, $endsOn] = $this->windowFor($basis, $employee, CarbonImmutable::parse($date));
 
-        return LeaveEntitlementPeriod::query()->firstOrCreate(
-            [
-                'employee_id' => $employee->getKey(),
-                'leave_type_id' => $leaveTypeId,
-                'starts_on' => $startsOn->toDateString(),
-            ],
-            [
-                'leave_policy_id' => $policy?->getKey(),
-                'period_type' => $basis->value,
-                'ends_on' => $endsOn->toDateString(),
-                'status' => 'open',
-            ],
-        );
+        $keys = [
+            'employee_id' => $employee->getKey(),
+            'leave_type_id' => $leaveTypeId,
+            'starts_on' => $startsOn->toDateString(),
+        ];
+        $attributes = [
+            'leave_policy_id' => $policy?->getKey(),
+            'period_type' => $basis->value,
+            'ends_on' => $endsOn->toDateString(),
+            'status' => 'open',
+        ];
+
+        if ($existing = LeaveEntitlementPeriod::query()->where($keys)->first()) {
+            return $existing;
+        }
+
+        try {
+            return LeaveEntitlementPeriod::query()->create(array_merge($keys, $attributes));
+        } catch (UniqueConstraintViolationException) {
+            // A concurrent caller created the same logical period first — re-read
+            // it (the unique index guarantees a single row); never surface a 500.
+            return LeaveEntitlementPeriod::query()->where($keys)->firstOrFail();
+        }
     }
 
     private function basisFor(?LeavePolicy $policy): PeriodType

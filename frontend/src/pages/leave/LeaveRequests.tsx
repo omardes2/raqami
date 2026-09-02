@@ -58,7 +58,10 @@ export default function LeaveRequests() {
               <td>{r.employee_id}</td>
               <td>{r.starts_on} → {r.ends_on}</td>
               <td>{minutes(r.requested_consumption_minutes)}</td>
-              <td>{t(`leave.status_${r.status}`)}</td>
+              <td>
+                {t(`leave.status_${r.status}`)}
+                {r.missing_required_attachment && <div className="warn">{t('leave.attachment_required_notice')}</div>}
+              </td>
               <td>
                 {r.status === 'pending' && can('leave.approve') && (
                   <>

@@ -35,7 +35,7 @@ class LeaveRequestController extends Controller
     {
         $query = LeaveRequest::query()
             ->whereHas('employee', fn ($q) => $this->scope->applyScope($q, $request->user(), 'leave.view'))
-            ->with('days')
+            ->with(['days', 'policy', 'leaveType', 'attachments'])
             ->orderByDesc('starts_on');
 
         if ($request->filled('status')) {

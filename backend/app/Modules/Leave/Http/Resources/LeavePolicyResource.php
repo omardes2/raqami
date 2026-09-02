@@ -31,7 +31,8 @@ class LeavePolicyResource extends JsonResource
             'max_negative_minutes' => $this->max_negative_minutes,
             'carry_forward_enabled' => (bool) $this->carry_forward_enabled,
             'carry_forward_max_minutes' => $this->carry_forward_max_minutes,
-            'carry_forward_expiry_days' => $this->carry_forward_expiry_days,
+            // carry_forward_expiry_days intentionally NOT exposed (reserved column;
+            // carried-balance expiry-after-N-days is not implemented in Sprint 5).
             'consumption_basis' => $this->consumption_basis?->value,
             'nominal_day_minutes' => $this->nominal_day_minutes,
             'count_holidays' => (bool) $this->count_holidays,

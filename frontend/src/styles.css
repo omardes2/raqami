@@ -222,3 +222,7 @@ legend { padding-inline: 0.5rem; color: var(--muted); font-size: 0.85rem; font-w
 .day-row input[type="time"] { padding: 0.4rem 0.6rem; border: 1px solid var(--border); border-radius: var(--radius); font: inherit; }
 .form-actions { display: flex; align-items: center; gap: 0.75rem; margin-block-start: 1rem; }
 .small { font-size: 0.82rem; }
+
+/* Sprint 5 leave: inline advisory notices */
+.warn { color: var(--warning, #b8860b); font-size: 0.85em; }
+.hint { color: var(--warning, #b8860b); font-size: 0.9em; }

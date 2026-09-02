@@ -122,17 +122,36 @@ row locks, status guards, `version`); the reservation→usage conversion runs on
 
 - `leave:process-accruals` — fixed upfront grants + monthly/annual accrual, capped
   by `max_balance`, idempotent.
-- `leave:process-periods` — carry-forward (capped) into the next period + expiry of
-  the remainder at period end, idempotent.
+- `leave:process-periods` — carry-forward (capped by `carry_forward_max_minutes`)
+  into the next period + expiry of the **non-carried remainder** at period close,
+  idempotent (stable ledger keys; re-runs never duplicate carry/expiry).
 - Both run per-tenant (failure-isolated), scheduler-ready; **no cron is wired**.
   First-year proration is an off-by-default extension hook (D4).
+
+**Carried-balance expiry-after-N-days is NOT implemented in Sprint 5.** The
+`leave_policies.carry_forward_expiry_days` column exists but is **reserved/future
+only** — it is not accepted by the policy API, not returned by the resource, and
+not surfaced in the UI. What *is* implemented: carry-forward, the carry maximum,
+and period-close expiry of the non-carried excess.
+
+### Request editing
+
+There is **no** direct edit of a submitted request's dates/type/portion — a
+generic update route does not exist. To change a pending request the employee
+**withdraws** (releasing the reservation) and submits a new one; an approved
+request is changed via cancellation + a new request. This keeps accounting and
+approval routing rebuilt from scratch rather than mutated behind a reservation.
 
 ## 10. Attachments & medical privacy
 
 Private S3-compatible storage (`leave_request_attachments`), tenant-prefixed keys,
 metadata-only rows (`storage_key` hidden), authorized streamed/signed downloads,
 never a public URL, no binary in the DB. `requires_attachment` is enforced at
-approval. **Sensitive (medical) attachments** require the distinct
+**approval** (the employee may submit — reserving balance — then upload the
+document while pending; approval is blocked until it exists). A derived
+`missing_required_attachment` flag is returned on the request so the UI shows
+"supporting document required before approval". **Sensitive (medical) attachments**
+require the distinct
 `leave.attachments.view_sensitive` permission — a leave viewer/approver does **not**
 automatically gain access; the employee always can. Medical content never enters
 audit metadata, reports, notifications, or the team calendar.

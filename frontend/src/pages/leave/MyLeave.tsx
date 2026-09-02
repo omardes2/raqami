@@ -185,7 +185,10 @@ export default function MyLeave() {
                 <td>{r.starts_on} → {r.ends_on}</td>
                 <td>{t(`leave.${r.request_kind}`)}</td>
                 <td>{minutes(r.requested_consumption_minutes)}</td>
-                <td>{t(`leave.status_${r.status}`)}</td>
+                <td>
+                  {t(`leave.status_${r.status}`)}
+                  {r.missing_required_attachment && <div className="warn">{t('leave.attachment_required_notice')}</div>}
+                </td>
                 <td>
                   {r.status === 'pending' && <button type="button" onClick={() => void withdraw(r.id)} disabled={busy}>{t('leave.withdraw')}</button>}
                   {r.status === 'approved' && <button type="button" onClick={() => void requestCancellation(r.id)} disabled={busy}>{t('leave.request_cancellation')}</button>}

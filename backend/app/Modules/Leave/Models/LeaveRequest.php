@@ -81,4 +81,27 @@ class LeaveRequest extends Model
     {
         return $this->hasMany(LeaveRequestAttachment::class);
     }
+
+    /**
+     * Whether a required supporting document is still missing. Approval is blocked
+     * until this is false (see LeaveApprovalService). Surfaced to the UI so a
+     * pending request clearly shows "document required before approval".
+     */
+    public function missingRequiredAttachment(): bool
+    {
+        $this->loadMissing(['policy', 'leaveType', 'attachments']);
+
+        $requires = ($this->policy?->requires_attachment ?? false)
+            || ($this->leaveType?->requires_attachment ?? false);
+        if (! $requires) {
+            return false;
+        }
+
+        $threshold = $this->leaveType?->attachment_required_after_minutes;
+        if ($threshold !== null && (int) $this->requested_consumption_minutes < (int) $threshold) {
+            return false;
+        }
+
+        return $this->attachments->count() === 0;
+    }
 }

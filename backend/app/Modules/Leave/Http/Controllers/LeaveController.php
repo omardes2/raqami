@@ -46,7 +46,7 @@ class LeaveController extends Controller
 
         $query = LeaveRequest::query()
             ->where('employee_id', $employee->getKey())
-            ->with('days')
+            ->with(['days', 'policy', 'leaveType', 'attachments'])
             ->orderByDesc('starts_on');
 
         return LeaveRequestResource::collection(

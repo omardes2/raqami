@@ -31,6 +31,7 @@ class LeaveRequestResource extends JsonResource
             'cancellation_requested_at' => $this->cancellation_requested_at?->toISOString(),
             'decision_note' => $this->decision_note,
             'version' => (int) $this->version,
+            'missing_required_attachment' => $this->missingRequiredAttachment(),
             'days' => $this->whenLoaded('days', fn () => $this->days->map(fn ($d) => [
                 'work_date' => $d->work_date?->toDateString(),
                 'scheduled_minutes' => (int) $d->scheduled_minutes,

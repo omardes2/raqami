@@ -35,7 +35,6 @@ export interface LeavePolicy {
   max_negative_minutes: number | null
   carry_forward_enabled: boolean
   carry_forward_max_minutes: number | null
-  carry_forward_expiry_days: number | null
   consumption_basis: string
   nominal_day_minutes: number | null
   count_holidays: boolean
@@ -100,6 +99,7 @@ export interface LeaveRequest {
   reason: string | null
   submitted_at: string | null
   version: number
+  missing_required_attachment?: boolean
   days?: LeaveRequestDay[]
   approvals?: LeaveApprovalStep[]
 }
