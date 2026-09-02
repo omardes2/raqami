@@ -29,6 +29,14 @@ import AttendanceExceptions from './pages/attendance/AttendanceExceptions'
 import AttendanceOvertime from './pages/attendance/AttendanceOvertime'
 import AttendanceAnomalies from './pages/attendance/AttendanceAnomalies'
 import AttendanceReports from './pages/attendance/AttendanceReports'
+import MyLeave from './pages/leave/MyLeave'
+import LeaveRequests from './pages/leave/LeaveRequests'
+import LeaveCalendar from './pages/leave/LeaveCalendar'
+import LeaveBalances from './pages/leave/LeaveBalances'
+import LeaveTypes from './pages/leave/LeaveTypes'
+import LeavePolicies from './pages/leave/LeavePolicies'
+import LeaveReports from './pages/leave/LeaveReports'
+import LeaveSettings from './pages/leave/LeaveSettings'
 import BillingLayout from './pages/billing/BillingLayout'
 import BillingOverview from './pages/billing/BillingOverview'
 import BillingSubscription from './pages/billing/BillingSubscription'
@@ -80,6 +88,14 @@ export default function App() {
           <Route path="/attendance/anomalies" element={<AttendanceAnomalies />} />
           <Route path="/attendance/reports" element={<AttendanceReports />} />
           <Route path="/attendance/settings" element={<AttendanceSettingsPage />} />
+          <Route path="/leave" element={<MyLeave />} />
+          <Route path="/leave/requests" element={<LeaveRequests />} />
+          <Route path="/leave/calendar" element={<LeaveCalendar />} />
+          <Route path="/leave/balances" element={<LeaveBalances />} />
+          <Route path="/leave/types" element={<LeaveTypes />} />
+          <Route path="/leave/policies" element={<LeavePolicies />} />
+          <Route path="/leave/reports" element={<LeaveReports />} />
+          <Route path="/leave/settings" element={<LeaveSettings />} />
           <Route path="/billing" element={<BillingLayout />}>
             <Route index element={<BillingOverview />} />
             <Route path="subscription" element={<BillingSubscription />} />
