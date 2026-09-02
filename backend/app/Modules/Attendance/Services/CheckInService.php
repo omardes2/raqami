@@ -12,8 +12,11 @@ use App\Modules\Attendance\Support\AttendanceEligibility;
 use App\Modules\Attendance\Support\AttendanceLock;
 use App\Modules\Attendance\Support\PunchInput;
 use App\Modules\Attendance\Support\ResolvedWorkDay;
+use App\Modules\Attendance\Support\ScheduledSegment;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Employees\Models\Employee;
+use App\Modules\Leave\Services\LeaveResolver;
+use App\Modules\Leave\Support\IntervalMath;
 use App\Modules\Tenancy\Services\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
@@ -37,6 +40,7 @@ class CheckInService
         private readonly AttendanceRecordAggregator $aggregator,
         private readonly ExceptionResolver $exceptions,
         private readonly HolidayResolver $holidays,
+        private readonly LeaveResolver $leave,
         private readonly AuditLogger $audit,
         private readonly TenantContext $context,
     ) {}
@@ -75,6 +79,11 @@ class CheckInService
             // The active segment for this punch drives the session snapshot + math.
             $segment = $resolved->segmentFor($now);
             $active = $segment !== null ? $resolved->forSegment($segment) : $resolved;
+
+            // Approved leave covering part of this segment shifts the REMAINING
+            // expected window, so a punch during covered time is not counted late
+            // (and early-leave/overtime at checkout use the same frozen window).
+            $active = $this->adjustForApprovedLeave($active, $employee, $resolved->workDate);
 
             $this->assertNoOverlap($record, $now);
 
@@ -131,6 +140,53 @@ class CheckInService
 
             return $record;
         });
+    }
+
+    /**
+     * If approved leave covers the leading part of the active segment, shift the
+     * expected window to the remaining (uncovered) work so lateness/early-leave
+     * are measured against real expectation. Half-day leave is always a prefix or
+     * suffix of the segment (never the middle), so the remainder is contiguous.
+     * A fully-covered segment (working during approved leave) is left unchanged.
+     */
+    private function adjustForApprovedLeave(ResolvedWorkDay $active, Employee $employee, CarbonImmutable $workDate): ResolvedWorkDay
+    {
+        if ($active->scheduledStartAt === null || $active->scheduledEndAt === null) {
+            return $active;
+        }
+
+        $leave = $this->leave->resolve($employee, $workDate);
+        if ($leave === null || ! $leave->hasCoverage()) {
+            return $active;
+        }
+
+        $expected = [[
+            'start_at' => $active->scheduledStartAt->utc()->toIso8601String(),
+            'end_at' => $active->scheduledEndAt->utc()->toIso8601String(),
+        ]];
+        $remaining = IntervalMath::subtract($expected, $leave->coverageIntervals);
+
+        if ($remaining === []) {
+            return $active; // fully covered — preserve the punch, no adjustment
+        }
+
+        $newStart = CarbonImmutable::parse($remaining[0]['start_at']);
+        $newEnd = CarbonImmutable::parse($remaining[count($remaining) - 1]['end_at']);
+
+        if ($newStart->equalTo($active->scheduledStartAt) && $newEnd->equalTo($active->scheduledEndAt)) {
+            return $active; // leave does not touch this segment's boundaries
+        }
+
+        $segment = new ScheduledSegment(
+            $active->segments[0]->sequence ?? 1,
+            $newStart,
+            $newEnd,
+            $active->graceMinutes,
+            $active->breakMinutes,
+            $active->overtimeAfterMinutes,
+        );
+
+        return $active->forSegment($segment);
     }
 
     /** Find or create the daily aggregate record for the resolved work day. */

@@ -165,6 +165,23 @@ not built initially; see ADR-009)
   `days`, `reason`, `status` (`pending|approved|rejected|cancelled`),
   `approver_id`, `decided_at`, `decision_note`, timestamps.
 
+> **SUPERSEDED by Sprint 5 (see `LEAVE.md` / ADR-021).** The conceptual model
+> above (mutable `leave_balances.balance`, floating `days`) is **not** what was
+> built. Sprint 5 uses **integer minutes** as the canonical unit, an **immutable
+> ledger** (`leave_balance_transactions`) as the source of truth with a maintained
+> projection (`leave_balances`: granted/accrued/carried/adjusted/used/reserved/
+> expired/available minutes + `version`), and separates balance **consumption**
+> from attendance **coverage**. Real Sprint 5 tenant tables (all `tenant_id` +
+> FORCE RLS): `leave_types`, `leave_policies`, `leave_policy_assignments`,
+> `leave_entitlement_periods`, `leave_balances`, `leave_balance_transactions`
+> (append-only), `leave_requests` (statuses `pending|approved|rejected|withdrawn|
+> cancellation_pending|cancelled`, `version`), `leave_request_days` (per-work_date
+> snapshot: scheduled/coverage/consumption minutes, coverage_intervals,
+> consumption_basis, holiday/schedule snapshots), `leave_request_approvals`
+> (snapshotted steps), `leave_request_attachments` (private), `leave_settings`.
+> **No `attendance_records` schema change** — leave↔attendance is many-to-many,
+> resolved via `leave_request_days` + `LeaveResolver`.
+
 ### 2.6 Tasks & Teams (see `TASKS.md`) — Tasks V1 (ADR-016)
 
 **board_columns** (Kanban workflow, per tenant/team/board)

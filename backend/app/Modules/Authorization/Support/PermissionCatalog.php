@@ -106,6 +106,26 @@ class PermissionCatalog
         'attendance.anomalies.view' => ['attendance', 'View attendance anomalies'],
         'attendance.anomalies.manage' => ['attendance', 'Acknowledge / resolve / dismiss attendance anomalies'],
         'attendance.materialization.run' => ['attendance', 'Run daily attendance materialization'],
+
+        // --- Sprint 5: Leave (tenant scope) ---
+        // Employee self-service (own request/balance/history) requires an
+        // authenticated, employee-linked user — NOT a permission. These keys gate
+        // viewing/administering OTHER employees' leave.
+        'leave.view_own' => ['leave', 'View own leave (self-service reference)'],
+        'leave.request' => ['leave', 'Request own leave (self-service reference)'],
+        'leave.view' => ['leave', 'View employees leave requests (within scope)'],
+        'leave.manage' => ['leave', 'Administer leave requests (cancel / reassign)'],
+        'leave.approve' => ['leave', 'Approve / reject leave requests (within scope)'],
+        'leave.types.view' => ['leave', 'View leave types'],
+        'leave.types.manage' => ['leave', 'Manage leave types'],
+        'leave.policies.view' => ['leave', 'View leave policies & assignments'],
+        'leave.policies.manage' => ['leave', 'Manage leave policies & assignments'],
+        'leave.balances.view' => ['leave', 'View leave balances (within scope)'],
+        'leave.balances.adjust' => ['leave', 'Adjust leave balances (within scope)'],
+        'leave.negative_override' => ['leave', 'Approve / reserve leave INTO a negative balance'],
+        'leave.attachments.view_sensitive' => ['leave', 'Access sensitive leave attachments (e.g. medical)'],
+        'leave.reports.view' => ['leave', 'View leave reports & team calendar'],
+        'leave.settings.manage' => ['leave', 'Manage company leave settings'],
     ];
 
     /** Sprint 3 + 4 attendance permission groups reused in default role mappings. */
@@ -137,6 +157,27 @@ class PermissionCatalog
     private const ATTENDANCE_VIEW = [
         'attendance.view', 'attendance.reports.view',
         'attendance.holidays.view',
+    ];
+
+    /**
+     * Sprint 5 leave permission groups. leave.negative_override and
+     * leave.attachments.view_sensitive are deliberately EXCLUDED from LEAVE_FULL
+     * and granted explicitly (a distinct privilege, like attendance.overtime.override).
+     */
+    private const LEAVE_FULL = [
+        'leave.view', 'leave.manage', 'leave.approve',
+        'leave.types.view', 'leave.types.manage',
+        'leave.policies.view', 'leave.policies.manage',
+        'leave.balances.view', 'leave.balances.adjust',
+        'leave.reports.view', 'leave.settings.manage',
+    ];
+
+    private const LEAVE_MANAGER = [
+        'leave.view', 'leave.approve', 'leave.balances.view', 'leave.reports.view',
+    ];
+
+    private const LEAVE_VIEW = [
+        'leave.view', 'leave.reports.view',
     ];
 
     /** Sprint 2 billing permission groups reused in default role mappings. */
@@ -198,6 +239,9 @@ class PermissionCatalog
                 // Owner holds it via '*'. HR Manager reviews but cannot override
                 // unless explicitly granted a custom role that includes it.
                 'attendance.overtime.override',
+                ...self::LEAVE_FULL,
+                // Distinct privileges above LEAVE_FULL (Owner holds via '*').
+                'leave.negative_override', 'leave.attachments.view_sensitive',
             ],
         ],
         'hr-manager' => [
@@ -210,6 +254,9 @@ class PermissionCatalog
                 'job_titles.create', 'job_titles.update', 'job_titles.archive',
                 ...self::EMPLOYEES_FULL,
                 ...self::ATTENDANCE_FULL,
+                ...self::LEAVE_FULL,
+                // HR sees sensitive (medical) attachments; not negative_override.
+                'leave.attachments.view_sensitive',
             ],
         ],
         'department-manager' => [
@@ -221,12 +268,14 @@ class PermissionCatalog
                 'employees.view', 'employees.update',
                 'employee_documents.view', 'employee_contracts.view',
                 ...self::ATTENDANCE_MANAGER,
+                ...self::LEAVE_MANAGER,
             ],
         ],
         'team-leader' => [
             'name' => 'Team Leader',
-            // Scope-limited to their team by role assignment.
-            'permissions' => ['user.view', 'teams.view', 'employees.view', ...self::ATTENDANCE_VIEW],
+            // Scope-limited to their team by role assignment. Leave approval is NOT
+            // default (D2) — view only unless a custom role grants leave.approve.
+            'permissions' => ['user.view', 'teams.view', 'employees.view', ...self::ATTENDANCE_VIEW, ...self::LEAVE_VIEW],
         ],
         'accountant' => [
             'name' => 'Accountant',

@@ -268,3 +268,40 @@ hold (server-authoritative, Employee ≠ User, UTC, FORCE RLS, org scopes).
   overtime pay, AI, biometric/face/kiosk, labor-law rounding.
 
 Sprint 4 is complete on its branch; Sprint 5 has **not** started.
+
+---
+
+## Sprint 5 — Leave Management (IMPLEMENTED on feature branch)
+
+Delivered on `feature/sprint-5-leave-management`. Built on the Sprint 3/4
+attendance engine (all invariants hold: server-authoritative, Employee ≠ User,
+UTC, FORCE RLS, org scopes).
+
+- **Integer-minute accounting** with an **immutable ledger**
+  (`leave_balance_transactions`, append-only) + a maintained projection
+  (`leave_balances`); reservation→usage deducts availability exactly once.
+- **Types & policies** (separate), **`LeavePolicyResolver`** (same precedence as
+  schedules), **entitlement periods** (calendar / anniversary / custom year — no
+  Jan 1 assumption), **consumption basis** (scheduled vs nominal-calendar-day, D7,
+  contradiction-guarded).
+- **Requests** with per-work_date snapshots separating **coverage** (attendance)
+  from **consumption** (balance); full/first-half/second-half via coverage-interval
+  geometry; coverage-aware overlap; **no server draft**; non-authoritative preview.
+- **Approvals** (snapshotted direct-manager → department-manager → HR-pool
+  fallback; Team Lead never automatic; self-approval impossible; concurrency-safe),
+  **withdrawal**, and **approved-leave cancellation** (`cancellation_pending` stays
+  active until finalized; usage reversed once; HR/Admin direct-cancel with reason).
+- **Accrual / carry-forward / expiry / adjustments** (ledger-based, idempotent,
+  `leave:process-accruals` + `leave:process-periods`, no cron).
+- **Attendance integration** via **`LeaveResolver`**: full leave → `on_leave`,
+  partial leave preserves remaining expected work (no false lateness); precedence
+  Holiday > OnLeave > Weekend > Absent; real punch never overwritten; **no
+  `attendance_records` schema change**.
+- **Private attachments** with sensitive (medical) gating, **permissions +
+  default roles**, **reports + team calendar** (minutes only), full **frontend**
+  (AR/EN, RTL/LTR), **FORCE RLS** on all eleven new tables (raw-SQL tested; ledger
+  append-only), and **audit** for all critical actions.
+- **Out of scope (unchanged):** payroll/money, country statutory rules, arbitrary
+  hourly leave, notification delivery (Sprint 8 — audit + hooks only).
+
+Sprint 5 is complete on its branch; Sprint 6 has **not** started.

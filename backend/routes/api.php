@@ -45,6 +45,13 @@ use App\Modules\Identity\Http\Controllers\MembershipController;
 use App\Modules\Identity\Http\Controllers\PasswordResetController;
 use App\Modules\Identity\Http\Controllers\RegisterController;
 use App\Modules\Identity\Http\Controllers\UserController;
+use App\Modules\Leave\Http\Controllers\LeaveBalanceController;
+use App\Modules\Leave\Http\Controllers\LeaveController;
+use App\Modules\Leave\Http\Controllers\LeavePolicyController;
+use App\Modules\Leave\Http\Controllers\LeaveReportController;
+use App\Modules\Leave\Http\Controllers\LeaveRequestController;
+use App\Modules\Leave\Http\Controllers\LeaveSettingsController;
+use App\Modules\Leave\Http\Controllers\LeaveTypeController;
 use App\Modules\Localization\Http\Controllers\LocaleController;
 use App\Modules\Onboarding\Http\Controllers\CompanyOnboardingController;
 use App\Modules\Organization\Http\Controllers\BranchController;
@@ -287,6 +294,67 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('attend
 
     // --- Sprint 4: On-demand materialization (company scope) ---
     Route::post('materialization/run', [AttendanceMaterializationController::class, 'run'])->middleware('permission:attendance.materialization.run');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Sprint 5 — Leave (tenant-scoped)
+|--------------------------------------------------------------------------
+| Self-service (own balances/requests/withdraw/cancellation/attachments) is
+| gated by authentication + employee link — NOT a permission. Company-wide
+| config (types, policies, settings) uses `permission:` (company scope).
+| Actions over other employees (review, cancel, balances) use `permission.any:`
+| and are further constrained by organizational scope in the controllers.
+*/
+Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('leave')->group(function () {
+    // --- Employee self-service ---
+    Route::get('me/balances', [LeaveController::class, 'myBalances']);
+    Route::get('me/requests', [LeaveController::class, 'myRequests']);
+    Route::post('requests/preview', [LeaveController::class, 'preview']);
+    Route::post('requests', [LeaveController::class, 'store']);
+    Route::get('requests/{leaveRequest}', [LeaveController::class, 'show']);
+    Route::post('requests/{leaveRequest}/withdraw', [LeaveController::class, 'withdraw']);
+    Route::post('requests/{leaveRequest}/request-cancellation', [LeaveController::class, 'requestCancellation']);
+    Route::post('requests/{leaveRequest}/attachments', [LeaveController::class, 'storeAttachment']);
+    Route::get('me/requests/{leaveRequest}/attachments/{attachment}/download', [LeaveController::class, 'downloadAttachment']);
+
+    // --- Management: request review (organizational scope) ---
+    Route::get('requests', [LeaveRequestController::class, 'index'])->middleware('permission.any:leave.view');
+    Route::get('manage/requests/{leaveRequest}', [LeaveRequestController::class, 'show'])->middleware('permission.any:leave.view');
+    Route::post('requests/{leaveRequest}/approve', [LeaveRequestController::class, 'approve'])->middleware('permission.any:leave.approve');
+    Route::post('requests/{leaveRequest}/reject', [LeaveRequestController::class, 'reject'])->middleware('permission.any:leave.approve');
+    Route::post('requests/{leaveRequest}/cancel', [LeaveRequestController::class, 'cancel'])->middleware('permission.any:leave.manage');
+    Route::post('requests/{leaveRequest}/cancellation/approve', [LeaveRequestController::class, 'approveCancellation'])->middleware('permission.any:leave.approve');
+    Route::post('requests/{leaveRequest}/cancellation/reject', [LeaveRequestController::class, 'rejectCancellation'])->middleware('permission.any:leave.approve');
+    Route::get('requests/{leaveRequest}/attachments/{attachment}/download', [LeaveRequestController::class, 'downloadAttachment'])->middleware('permission.any:leave.view');
+
+    // --- Balances (organizational scope) ---
+    Route::get('balances', [LeaveBalanceController::class, 'index'])->middleware('permission.any:leave.balances.view');
+    Route::post('balances/adjust', [LeaveBalanceController::class, 'adjust'])->middleware('permission.any:leave.balances.adjust');
+
+    // --- Reports & team calendar (organizational scope) ---
+    Route::get('reports/summary', [LeaveReportController::class, 'summary'])->middleware('permission.any:leave.reports.view');
+    Route::get('calendar', [LeaveReportController::class, 'calendar'])->middleware('permission.any:leave.reports.view');
+
+    // --- Leave types (company scope) ---
+    Route::get('types', [LeaveTypeController::class, 'index'])->middleware('permission:leave.types.view');
+    Route::post('types', [LeaveTypeController::class, 'store'])->middleware('permission:leave.types.manage');
+    Route::get('types/{leaveType}', [LeaveTypeController::class, 'show'])->middleware('permission:leave.types.view');
+    Route::match(['put', 'patch'], 'types/{leaveType}', [LeaveTypeController::class, 'update'])->middleware('permission:leave.types.manage');
+    Route::post('types/{leaveType}/archive', [LeaveTypeController::class, 'archive'])->middleware('permission:leave.types.manage');
+
+    // --- Leave policies + assignments (company scope) ---
+    Route::get('policies', [LeavePolicyController::class, 'index'])->middleware('permission:leave.policies.view');
+    Route::post('policies', [LeavePolicyController::class, 'store'])->middleware('permission:leave.policies.manage');
+    Route::get('policies/{policy}', [LeavePolicyController::class, 'show'])->middleware('permission:leave.policies.view');
+    Route::match(['put', 'patch'], 'policies/{policy}', [LeavePolicyController::class, 'update'])->middleware('permission:leave.policies.manage');
+    Route::post('policies/{policy}/archive', [LeavePolicyController::class, 'archive'])->middleware('permission:leave.policies.manage');
+    Route::post('policies/{policy}/assignments', [LeavePolicyController::class, 'assign'])->middleware('permission:leave.policies.manage');
+    Route::delete('policies/{policy}/assignments/{assignment}', [LeavePolicyController::class, 'unassign'])->middleware('permission:leave.policies.manage');
+
+    // --- Leave settings (company scope) ---
+    Route::get('settings', [LeaveSettingsController::class, 'show'])->middleware('permission:leave.settings.manage');
+    Route::put('settings', [LeaveSettingsController::class, 'update'])->middleware('permission:leave.settings.manage');
 });
 
 /*
