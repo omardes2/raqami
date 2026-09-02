@@ -555,3 +555,36 @@ the schedule, the geofence membership, lateness, worked time, and status.
   scheduler-ready (no cron). No money (Sprint 7), no country rules, no notification
   transport (Sprint 8).
 - **Approved by:** Project Owner (2026-09-02, D1–D7 + Corrections A/B)
+
+## ADR-022: Tasks & Teams — optional projects, stable scope, central visibility
+
+- **Status:** Accepted (Sprint 6).
+- **Context:** Companies need task & team collaboration without a generic
+  workflow/BPM platform, and without duplicating the existing Organization team
+  model or coupling to Leave/Attendance/Payroll.
+- **Decision:** (1) **Reuse** `Team`/`TeamMembership`/`Department`/`Branch`/
+  `Employee`; no new team concept. (2) **Projects are optional** — a task is
+  standalone or in a project. (3) Placement uses a single stable
+  `(scope_type, scope_id)` (company|branch|department|team, ADR-015 semantics);
+  standalone tasks carry their own stable scope, project tasks inherit the
+  project's — DB-enforced XOR. (4) A single **`TaskVisibilityResolver`** is the
+  authority for all intra-tenant visibility (out-of-scope → scope-safe 404), with
+  a **members_only** project ceiling that ordinary org scope cannot bypass; reports
+  and workload run through it so hidden counts never leak. (5) **Project-local
+  authority** (`project_memberships` manager|member; owner = `owner_employee_id`)
+  is bounded to one project and never escalates to tenant settings, other projects,
+  or company reports; governance requires owner/`projects.manage`. (6) Multiple
+  assignees with **at most one primary** (DB partial-unique); assignees are
+  Employees, collaboration identities are Users (an Employee may have no User).
+  (7) **Status category** is the semantic truth (no `is_terminal`); `done` sets
+  `completed_at`, `cancelled` does not; category locks once referenced; one active
+  default (bootstrap by immutable `bootstrap_key`). (8) **Kanban** manual ordering
+  (`board_rank`) is project-top-level only, sparse bigint with synchronous
+  single-column renormalization (no cron, no floats). (9) Creator-scoped
+  idempotency (fingerprint; mismatch → 409) and optimistic `version` (stale → 409)
+  on tasks and comments; soft-delete comments. (10) `task_activity_events` is an
+  append-only user timeline (metadata never carries bodies/keys/secrets), separate
+  from `AuditLogger`. (11) FORCE RLS on all 11 task tables. No labels, no
+  dependencies, no Leave/Attendance/Payroll coupling, no AI, no notification
+  transport (Sprint 8) — domain events only.
+- **Approved by:** Project Owner (2026-09-02, D1–D9 + Corrections A–H)

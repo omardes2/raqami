@@ -282,3 +282,20 @@ tests, especially:
   are scope-checked with scope-safe 404s (no existence leak).
 - **No money, no country rules, no notification transport** (Sprint 7 / Sprint 8
   boundaries respected).
+
+## Sprint 6 — Tasks & Teams (ADR-022)
+
+All 11 task tenant tables carry `tenant_id`, tenant-first indexes,
+`BelongsToTenant` + `TenantScope`, and **ENABLE + FORCE RLS** (`tenant_isolation`
+USING+WITH CHECK, `platform_readonly` SELECT), closed by default;
+`task_activity_events` is additionally **append-only** (SELECT/INSERT policies +
+mutation-reject trigger). Intra-tenant authorization is centralized in
+`TaskVisibilityResolver` (out-of-scope ids → scope-safe 404), including the
+`members_only` project ceiling that ordinary org scope cannot bypass; reports and
+workload are built on it so hidden task counts never leak. Explicit same-tenant
+validation guards every supplied relation (scope target, owner/assignee employee,
+parent task, status, comment↔task, attachment↔comment↔task, mention user) beyond
+FK + RLS. Attachments reuse the private-storage pattern (hidden `storage_key`,
+streamed downloads, no public URL). Activity metadata never carries comment
+bodies, file bytes, storage keys, or secrets. Raw-SQL cross-tenant isolation,
+platform-readonly write denial, and append-only enforcement are tested.
