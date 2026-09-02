@@ -265,3 +265,24 @@ constrained to the caller's organizational scope by `EmployeeScopeResolver`.
 Precise GPS coordinates are exposed only via `attendance.view_location`
 **within a scope covering that employee** (scope-aware, NB-1) — or to the
 employee viewing their own record.
+
+### Sprint 4 — Attendance Advanced permissions
+
+- `attendance.holidays.view`, `attendance.holidays.manage` (company scope —
+  holiday calendars are shared config)
+- `attendance.exceptions.view`, `attendance.exceptions.manage` (org scope)
+- `attendance.overtime.view`, `attendance.overtime.review` (org scope)
+- `attendance.overtime.override` (org scope) — approve overtime ABOVE the
+  server-calculated amount; a distinct privilege never implied by review. Owner
+  (via `*`) and Admin hold it by default; HR Manager reviews but does not
+  override unless a custom role grants it; Department Manager / Team Leader /
+  Employee never.
+- `attendance.anomalies.view`, `attendance.anomalies.manage` (org scope)
+- `attendance.materialization.run` (company scope — on-demand daily run)
+
+Default mappings: **Owner / Admin / HR Manager** = full Sprint 4 set.
+**Department Manager** = holidays.view, exceptions.view/manage, overtime.view/
+review, anomalies.view/manage (scoped); does **not** manage company-wide holiday
+calendars. **Team Leader** = holidays.view (+ Sprint 3 view). **Employee** = none
+(self-service unaffected). Overtime review and exception approval never allow the
+employee to act on their own records (segregation of duties, service-enforced).

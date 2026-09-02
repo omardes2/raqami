@@ -20,6 +20,7 @@ class WorkSchedule extends Model
     protected $fillable = [
         'tenant_id', 'name', 'code', 'timezone', 'status', 'description',
         'grace_minutes', 'break_minutes', 'overtime_after_minutes',
+        'cycle_length_days', 'anchor_date',
     ];
 
     protected function casts(): array
@@ -29,7 +30,17 @@ class WorkSchedule extends Model
             'grace_minutes' => 'integer',
             'break_minutes' => 'integer',
             'overtime_after_minutes' => 'integer',
+            'cycle_length_days' => 'integer',
+            'anchor_date' => 'date',
         ];
+    }
+
+    /** True when this schedule rotates on a fixed cycle rather than weekly. */
+    public function isCyclic(): bool
+    {
+        return $this->cycle_length_days !== null
+            && $this->cycle_length_days > 0
+            && $this->anchor_date !== null;
     }
 
     public function days(): HasMany

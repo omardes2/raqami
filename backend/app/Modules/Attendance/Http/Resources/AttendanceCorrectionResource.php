@@ -16,6 +16,7 @@ class AttendanceCorrectionResource extends JsonResource
         return [
             'id' => $this->id,
             'attendance_record_id' => $this->attendance_record_id,
+            'attendance_session_id' => $this->attendance_session_id,
             'employee_id' => $this->employee_id,
             'requested_by_user_id' => $this->requested_by_user_id,
             'requested_check_in_at' => $this->requested_check_in_at?->toISOString(),

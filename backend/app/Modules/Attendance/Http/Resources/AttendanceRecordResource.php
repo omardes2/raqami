@@ -43,6 +43,25 @@ class AttendanceRecordResource extends JsonResource
             'corrected_at' => $this->corrected_at?->toISOString(),
             'check_in_inside_geofence' => $this->check_in_inside_geofence,
             'check_out_inside_geofence' => $this->check_out_inside_geofence,
+            // Sprint 4: daily aggregate + materialization + concurrency.
+            'version' => $this->version,
+            'attendance_mode' => $this->attendance_mode,
+            'is_materialized' => $this->is_materialized,
+            'materialized_at' => $this->materialized_at?->toISOString(),
+            'holiday_id' => $this->holiday_id,
+            'sessions' => $this->whenLoaded('sessions', fn () => $this->sessions->map(fn ($s) => [
+                'id' => $s->id,
+                'sequence' => $s->sequence,
+                'check_in_at' => $s->check_in_at?->toISOString(),
+                'check_out_at' => $s->check_out_at?->toISOString(),
+                'worked_minutes' => $s->worked_minutes,
+                'late_minutes' => $s->late_minutes,
+                'early_leave_minutes' => $s->early_leave_minutes,
+                'overtime_minutes' => $s->overtime_minutes,
+                'is_manual' => $s->is_manual,
+                'check_in_inside_geofence' => $s->check_in_inside_geofence,
+                'check_out_inside_geofence' => $s->check_out_inside_geofence,
+            ])),
         ];
 
         if ($this->canViewLocation($request)) {

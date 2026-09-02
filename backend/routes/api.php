@@ -1,11 +1,16 @@
 <?php
 
+use App\Modules\Attendance\Http\Controllers\AttendanceAnomalyController;
 use App\Modules\Attendance\Http\Controllers\AttendanceController;
 use App\Modules\Attendance\Http\Controllers\AttendanceCorrectionController;
+use App\Modules\Attendance\Http\Controllers\AttendanceExceptionController;
 use App\Modules\Attendance\Http\Controllers\AttendanceLocationController;
+use App\Modules\Attendance\Http\Controllers\AttendanceMaterializationController;
 use App\Modules\Attendance\Http\Controllers\AttendanceRecordController;
 use App\Modules\Attendance\Http\Controllers\AttendanceReportController;
 use App\Modules\Attendance\Http\Controllers\AttendanceSettingsController;
+use App\Modules\Attendance\Http\Controllers\HolidayCalendarController;
+use App\Modules\Attendance\Http\Controllers\OvertimeApprovalController;
 use App\Modules\Attendance\Http\Controllers\WorkScheduleController;
 use App\Modules\Audit\Http\Controllers\AuditLogController;
 use App\Modules\Authorization\Http\Controllers\PermissionController;
@@ -253,6 +258,35 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('attend
 
     // --- Reports (organizational scope) ---
     Route::get('reports/summary', [AttendanceReportController::class, 'summary'])->middleware('permission.any:attendance.reports.view');
+    Route::get('reports/advanced', [AttendanceReportController::class, 'advanced'])->middleware('permission.any:attendance.reports.view');
+    Route::get('reports/by-employee', [AttendanceReportController::class, 'byEmployee'])->middleware('permission.any:attendance.reports.view');
+
+    // --- Sprint 4: Holiday calendars (company scope) ---
+    Route::get('holidays/calendars', [HolidayCalendarController::class, 'index'])->middleware('permission:attendance.holidays.view');
+    Route::post('holidays/calendars', [HolidayCalendarController::class, 'store'])->middleware('permission:attendance.holidays.manage');
+    Route::get('holidays/calendars/{calendar}', [HolidayCalendarController::class, 'show'])->middleware('permission:attendance.holidays.view');
+    Route::match(['put', 'patch'], 'holidays/calendars/{calendar}', [HolidayCalendarController::class, 'update'])->middleware('permission:attendance.holidays.manage');
+    Route::post('holidays/calendars/{calendar}/holidays', [HolidayCalendarController::class, 'addHoliday'])->middleware('permission:attendance.holidays.manage');
+    Route::delete('holidays/calendars/{calendar}/holidays/{holiday}', [HolidayCalendarController::class, 'deleteHoliday'])->middleware('permission:attendance.holidays.manage');
+    Route::post('holidays/calendars/{calendar}/assignments', [HolidayCalendarController::class, 'assign'])->middleware('permission:attendance.holidays.manage');
+    Route::delete('holidays/calendars/{calendar}/assignments/{assignment}', [HolidayCalendarController::class, 'unassign'])->middleware('permission:attendance.holidays.manage');
+
+    // --- Sprint 4: Attendance exceptions (organizational scope) ---
+    Route::get('exceptions', [AttendanceExceptionController::class, 'index'])->middleware('permission.any:attendance.exceptions.view');
+    Route::post('exceptions', [AttendanceExceptionController::class, 'store'])->middleware('permission.any:attendance.exceptions.manage');
+    Route::post('exceptions/{exception}/revoke', [AttendanceExceptionController::class, 'revoke'])->middleware('permission.any:attendance.exceptions.manage');
+
+    // --- Sprint 4: Overtime approval (organizational scope) ---
+    Route::get('overtime', [OvertimeApprovalController::class, 'index'])->middleware('permission.any:attendance.overtime.view');
+    Route::post('overtime/{approval}/approve', [OvertimeApprovalController::class, 'approve'])->middleware('permission.any:attendance.overtime.review');
+    Route::post('overtime/{approval}/reject', [OvertimeApprovalController::class, 'reject'])->middleware('permission.any:attendance.overtime.review');
+
+    // --- Sprint 4: Attendance anomalies (organizational scope) ---
+    Route::get('anomalies', [AttendanceAnomalyController::class, 'index'])->middleware('permission.any:attendance.anomalies.view');
+    Route::post('anomalies/{anomaly}/review', [AttendanceAnomalyController::class, 'review'])->middleware('permission.any:attendance.anomalies.manage');
+
+    // --- Sprint 4: On-demand materialization (company scope) ---
+    Route::post('materialization/run', [AttendanceMaterializationController::class, 'run'])->middleware('permission:attendance.materialization.run');
 });
 
 /*

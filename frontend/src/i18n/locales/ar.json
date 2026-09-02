@@ -24,6 +24,11 @@
     "schedules": "جداول العمل",
     "locations": "المواقع",
     "corrections": "طلبات التصحيح",
+    "holidays": "العطلات",
+    "exceptions": "الاستثناءات",
+    "overtime": "العمل الإضافي",
+    "anomalies": "التنبيهات",
+    "reports": "التقارير",
     "attendance_settings": "إعدادات الحضور"
   },
   "org": {
@@ -388,7 +393,13 @@
       "check_out": "تسجيل الخروج",
       "history": "السجل الأخير",
       "no_records": "لا يوجد حضور بعد.",
-      "gps_hint": "يُقرأ موقعك من هذا الجهاز للتحقق من موقع العمل. الخادم هو من يحدّد النتيجة."
+      "gps_hint": "يُقرأ موقعك من هذا الجهاز للتحقق من موقع العمل. الخادم هو من يحدّد النتيجة.",
+      "request_correction": "طلب تصحيح",
+      "correction_session": "الجلسة المراد تصحيحها",
+      "correction_session_pick": "اختر جلسة…",
+      "correction_new_in": "وقت الدخول المصحّح (اختياري)",
+      "correction_new_out": "وقت الخروج المصحّح (اختياري)",
+      "correction_submit": "إرسال الطلب"
     },
     "status": {
       "present": "حاضر",
@@ -397,6 +408,7 @@
       "incomplete": "غير مكتمل",
       "on_leave": "في إجازة",
       "holiday": "عطلة",
+      "weekend": "يوم راحة / إجازة أسبوعية",
       "pending_review": "قيد المراجعة"
     },
     "fields": {
@@ -446,7 +458,17 @@
       "corrections_enabled": "تفعيل التصحيحات",
       "employee_corrections": "السماح للموظفين بطلب التصحيح",
       "unscheduled_work": "السماح بالعمل دون جدول",
-      "saved": "تم الحفظ."
+      "saved": "تم الحفظ.",
+      "advanced": "إعدادات متقدمة",
+      "materialization": "توليد حالة الحضور اليومية تلقائياً (غياب / راحة / عطلة)",
+      "multiple_sessions": "السماح بعدة جلسات في اليوم (الورديات المقسّمة)",
+      "overtime_requires_approval": "العمل الإضافي يتطلب اعتماداً",
+      "overtime_auto_approve": "اعتماد العمل الإضافي تلقائياً",
+      "off_day_policy": "سياسة العمل في يوم الراحة",
+      "off_day_reject": "رفض",
+      "off_day_allow": "سماح",
+      "off_day_require_approval": "يتطلب اعتماداً (استثناء)",
+      "default_mode": "نمط الحضور الافتراضي"
     },
     "schedules": {
       "title": "جداول العمل",
@@ -490,6 +512,108 @@
       "pending": "قيد الانتظار",
       "approved": "معتمد",
       "rejected": "مرفوض"
+    },
+    "mode": {
+      "onsite": "في الموقع",
+      "remote": "عن بُعد",
+      "field": "ميداني"
+    },
+    "holidays": {
+      "title": "تقويمات العطلات",
+      "empty": "لا توجد تقويمات عطلات بعد.",
+      "calendar_name": "اسم التقويم",
+      "calendar_code": "الرمز",
+      "create_calendar": "إنشاء تقويم",
+      "add_holiday": "إضافة عطلة",
+      "assign_company": "إسناد للشركة",
+      "holiday_name": "اسم العطلة",
+      "holiday_date": "التاريخ (سنة-شهر-يوم)",
+      "end_date": "تاريخ الانتهاء",
+      "type": "النوع",
+      "no_holidays": "لا توجد عطلات في هذا التقويم.",
+      "assigned_to": "مُسنَد إلى",
+      "effective_from": "ساري من (سنة-شهر-يوم)"
+    },
+    "exceptions": {
+      "title": "استثناءات الحضور",
+      "empty": "لا توجد استثناءات.",
+      "create": "إضافة استثناء",
+      "employee_id": "معرّف الموظف",
+      "type": "النوع",
+      "effective_from": "من",
+      "effective_until": "إلى",
+      "mode": "النمط",
+      "reason": "السبب",
+      "revoke": "إلغاء"
+    },
+    "exception_type": {
+      "remote": "عن بُعد",
+      "field": "ميداني",
+      "off_day_work": "عمل في يوم راحة",
+      "alternate_location": "موقع بديل",
+      "schedule_override": "تجاوز الجدول"
+    },
+    "exception_status": {
+      "active": "نشط",
+      "revoked": "ملغى"
+    },
+    "overtime": {
+      "title": "اعتمادات العمل الإضافي",
+      "empty": "لا توجد طلبات عمل إضافي.",
+      "calculated": "المحتسب",
+      "approved": "المعتمد",
+      "approve": "اعتماد",
+      "reject": "رفض",
+      "approved_prompt": "دقائق العمل الإضافي المعتمدة",
+      "reject_notes": "ملاحظات (اختياري)"
+    },
+    "overtime_status": {
+      "pending": "قيد الانتظار",
+      "approved": "معتمد",
+      "rejected": "مرفوض"
+    },
+    "anomalies": {
+      "title": "تنبيهات الحضور",
+      "intro": "نتائج قائمة على قواعد للمراجعة. هذه إشارات وصفية وليست اتهامات، ولا تؤدي إلى أي إجراء تلقائي.",
+      "empty": "لا توجد تنبيهات.",
+      "type": "النوع",
+      "severity": "الخطورة",
+      "detected_at": "تاريخ الاكتشاف",
+      "acknowledge": "إقرار",
+      "resolve": "حل",
+      "dismiss": "تجاهل",
+      "note": "ملاحظة الحل (اختياري)"
+    },
+    "anomaly_type": {
+      "missing_checkout": "خروج مفقود",
+      "long_session": "جلسة طويلة",
+      "suspicious_location_change": "تغيّر غير معتاد في الموقع",
+      "outside_geofence": "خارج النطاق الجغرافي",
+      "overlapping_sessions": "جلسات متداخلة",
+      "lateness_streak": "تأخر متكرر متتالٍ",
+      "excessive_corrections": "تصحيحات متكررة"
+    },
+    "anomaly_severity": {
+      "info": "معلومة",
+      "warning": "تحذير",
+      "high": "مرتفع"
+    },
+    "anomaly_status": {
+      "open": "مفتوح",
+      "acknowledged": "مُقَر",
+      "resolved": "محلول",
+      "dismissed": "متجاهَل"
+    },
+    "reports": {
+      "title": "تقارير الحضور",
+      "attendance_rate": "نسبة الحضور",
+      "punctuality_rate": "نسبة الالتزام بالمواعيد",
+      "scheduled_days": "أيام العمل المجدولة",
+      "status_breakdown": "توزيع الحالات",
+      "overtime": "العمل الإضافي",
+      "overtime_calculated": "المحتسب",
+      "overtime_approved": "العمل الإضافي المعتمد",
+      "by_employee": "حسب الموظف"
     }
   }
 }

@@ -42,7 +42,7 @@ class AttendanceRecordController extends Controller
     {
         $this->authorizeRecord($request, $record);
 
-        return (new AttendanceRecordResource($record->load(['employee', 'events'])))->response();
+        return (new AttendanceRecordResource($record->load(['employee', 'events', 'sessions'])))->response();
     }
 
     public function storeManual(ManualAttendanceRequest $request): JsonResponse

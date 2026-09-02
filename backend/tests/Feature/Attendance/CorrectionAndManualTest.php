@@ -5,6 +5,7 @@ namespace Tests\Feature\Attendance;
 use App\Modules\Attendance\Enums\CorrectionStatus;
 use App\Modules\Attendance\Models\AttendanceRecord;
 use App\Modules\Attendance\Services\AttendanceCorrectionService;
+use App\Modules\Attendance\Services\AttendanceRecordAggregator;
 use App\Modules\Attendance\Services\ManualAttendanceService;
 use App\Modules\Attendance\Services\WorkScheduleService;
 use App\Modules\Employees\Models\Employee;
@@ -83,6 +84,33 @@ class CorrectionAndManualTest extends TestCase
             }
 
             $this->assertSame(CorrectionStatus::Pending, $correction->fresh()->status);
+        });
+    }
+
+    public function test_stale_correction_is_rejected_when_record_changed(): void
+    {
+        [$owner, $tenant] = $this->createCompanyWithOwner();
+        $reviewer = $this->memberWithRole($tenant, 'hr-manager');
+        $employee = $this->scheduledEmployee($tenant);
+
+        $this->withinTenant($tenant, function () use ($owner, $reviewer, $employee) {
+            $record = app(ManualAttendanceService::class)->record(
+                $employee,
+                ['check_in_at' => '2026-03-02 09:00:00', 'check_out_at' => '2026-03-02 16:00:00', 'reason' => 'x'],
+                $owner,
+            );
+
+            $correction = app(AttendanceCorrectionService::class)->request(
+                $record,
+                ['requested_check_in_at' => '2026-03-02 08:00:00', 'reason' => 'on time'],
+                $owner,
+            );
+
+            // The record moves on after the request (a re-aggregation bumps version).
+            app(AttendanceRecordAggregator::class)->aggregate($record->fresh());
+
+            $this->expectException(ValidationException::class);
+            app(AttendanceCorrectionService::class)->approve($correction, $reviewer);
         });
     }
 

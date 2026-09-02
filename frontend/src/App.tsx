@@ -24,6 +24,11 @@ import AttendanceSchedules from './pages/attendance/AttendanceSchedules'
 import AttendanceLocations from './pages/attendance/AttendanceLocations'
 import AttendanceSettingsPage from './pages/attendance/AttendanceSettings'
 import AttendanceCorrections from './pages/attendance/AttendanceCorrections'
+import AttendanceHolidays from './pages/attendance/AttendanceHolidays'
+import AttendanceExceptions from './pages/attendance/AttendanceExceptions'
+import AttendanceOvertime from './pages/attendance/AttendanceOvertime'
+import AttendanceAnomalies from './pages/attendance/AttendanceAnomalies'
+import AttendanceReports from './pages/attendance/AttendanceReports'
 import BillingLayout from './pages/billing/BillingLayout'
 import BillingOverview from './pages/billing/BillingOverview'
 import BillingSubscription from './pages/billing/BillingSubscription'
@@ -69,6 +74,11 @@ export default function App() {
           <Route path="/attendance/schedules" element={<AttendanceSchedules />} />
           <Route path="/attendance/locations" element={<AttendanceLocations />} />
           <Route path="/attendance/corrections" element={<AttendanceCorrections />} />
+          <Route path="/attendance/holidays" element={<AttendanceHolidays />} />
+          <Route path="/attendance/exceptions" element={<AttendanceExceptions />} />
+          <Route path="/attendance/overtime" element={<AttendanceOvertime />} />
+          <Route path="/attendance/anomalies" element={<AttendanceAnomalies />} />
+          <Route path="/attendance/reports" element={<AttendanceReports />} />
           <Route path="/attendance/settings" element={<AttendanceSettingsPage />} />
           <Route path="/billing" element={<BillingLayout />}>
             <Route index element={<BillingOverview />} />

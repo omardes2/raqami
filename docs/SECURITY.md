@@ -228,3 +228,29 @@ tests, especially:
   audited with actor, tenant, target, and timestamp.
 - **Client-safe 422s** for ineligible/duplicate/out-of-geofence/window-violation
   punches (no internal 500s).
+
+### Sprint 4 — Attendance Advanced
+
+- **FORCE RLS on every new table.** All eight new Sprint 4 tenant tables
+  (`attendance_sessions`, `work_schedule_segments`, `holiday_calendars`,
+  `holidays`, `holiday_calendar_assignments`, `attendance_exceptions`,
+  `overtime_approvals`, `attendance_anomalies`) carry `tenant_id` + FORCE RLS;
+  raw-SQL cross-tenant tests prove isolation, and the platform read-only context
+  can SELECT but never write them.
+- **Session integrity.** At most one open session per employee (partial unique
+  index + advisory lock); overlap prevention on check-in; the daily record is a
+  server-derived aggregate the client cannot set.
+- **Authorized deviations only.** Remote/field/off-day attendance requires an
+  `attendance_exception` created by an authorized actor — an employee can never
+  self-declare; off-day work is never silently accepted (`off_day_work_policy`).
+- **Segregation of duties (extended).** Overtime approval and exception approval
+  forbid self-approval; correction and overtime approval use **optimistic
+  concurrency** (stale record version → refused) so decisions never apply to
+  outdated numbers. Every create/approve/reject/revoke/resolve is audited.
+- **Neutral anomalies, no automated action.** Rule-based findings use neutral
+  language (`suspicious_location_change`, never "fraud"), are advisory only, and
+  never trigger disciplinary action; GPS jump detection uses coordinates already
+  captured, and reports expose **no raw GPS**.
+- **Materialization safety.** The daily processor runs per-tenant inside its own
+  RLS context, is idempotent, isolates per-tenant failures, and never overwrites
+  a real punch.

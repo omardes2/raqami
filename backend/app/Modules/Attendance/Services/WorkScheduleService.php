@@ -68,25 +68,66 @@ class WorkScheduleService
     }
 
     /**
-     * Replace the schedule's weekday rows. Each entry must carry weekday (0-6);
-     * a working day requires start_time + end_time.
+     * Replace the schedule's day-pattern rows. Each entry carries `weekday` — the
+     * weekday (0-6) for weekly schedules or the cycle-day-index for rotating ones.
+     * A working day supplies either a single start_time/end_time OR a `segments`
+     * array (split shifts). Segments are stored in work_schedule_segments; the
+     * day's start_time/end_time mirror the first segment for compatibility.
      *
      * @param  array<int, array<string, mixed>>  $days
      */
     public function syncDays(WorkSchedule $schedule, array $days): void
     {
-        $schedule->days()->delete();
+        $schedule->days()->delete(); // cascades to segments
 
         foreach ($days as $day) {
-            $schedule->days()->create([
+            $segments = $this->normalizeSegments($day);
+            $first = $segments[0] ?? null;
+
+            $row = $schedule->days()->create([
                 'weekday' => $day['weekday'],
                 'is_working_day' => $day['is_working_day'] ?? true,
-                'start_time' => $day['start_time'] ?? null,
-                'end_time' => $day['end_time'] ?? null,
+                'start_time' => $first['start_time'] ?? ($day['start_time'] ?? null),
+                'end_time' => $first['end_time'] ?? ($day['end_time'] ?? null),
                 'break_minutes' => $day['break_minutes'] ?? null,
                 'grace_minutes' => $day['grace_minutes'] ?? null,
             ]);
+
+            foreach ($segments as $i => $segment) {
+                $row->segments()->create([
+                    'sequence' => $segment['sequence'] ?? ($i + 1),
+                    'start_time' => $segment['start_time'],
+                    'end_time' => $segment['end_time'],
+                    'break_minutes' => $segment['break_minutes'] ?? null,
+                    'grace_minutes' => $segment['grace_minutes'] ?? null,
+                    'overtime_after_minutes' => $segment['overtime_after_minutes'] ?? null,
+                ]);
+            }
         }
+    }
+
+    /**
+     * Build the segment list for a day: an explicit `segments` array, or a single
+     * segment synthesized from start_time/end_time. Empty for off/no-hours days.
+     *
+     * @param  array<string, mixed>  $day
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeSegments(array $day): array
+    {
+        if (($day['is_working_day'] ?? true) === false) {
+            return [];
+        }
+
+        if (! empty($day['segments'])) {
+            return array_values($day['segments']);
+        }
+
+        if (! empty($day['start_time']) && ! empty($day['end_time'])) {
+            return [['start_time' => $day['start_time'], 'end_time' => $day['end_time']]];
+        }
+
+        return [];
     }
 
     /**

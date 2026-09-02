@@ -227,6 +227,41 @@ providers — are captured here as **ADRs**.
   extraction until real load justifies them (see ADR-009).
 - **Approved by:** Project Owner (2026-08-31)
 
+## ADR-019: Attendance sessions with a derived daily aggregate
+- **Status:** Accepted
+- **Date:** 2026-09-01
+- **Context:** Sprint 4 needs split shifts and multiple check-ins per day
+  without breaking the Sprint 3 one-record-per-day model or its computed history.
+- **Decision:** Introduce `attendance_sessions` as the unit of check-in/out
+  (multiple closed per `work_date`, at most one open per employee via a partial
+  unique index + advisory lock). `attendance_records` becomes the **daily
+  aggregate**, recomputed from its sessions by a single `AttendanceRecordAggregator`
+  and carrying a `version` counter for optimistic concurrency. Split shifts use
+  `work_schedule_segments`; rotation uses `cycle_length_days` + `anchor_date`
+  (weekday reinterpreted as cycle-day-index). All migrations are additive with
+  idempotent backfills — no Sprint 3 data is dropped. `allow_multiple_sessions`
+  defaults off to preserve Sprint 3 semantics.
+- **Approved by:** Project Owner (2026-09-01)
+
+## ADR-020: Materialization, overtime, and anomalies — server-owned, neutral, no money
+- **Status:** Accepted
+- **Date:** 2026-09-01
+- **Context:** Advanced attendance must derive absence/holiday/weekend state,
+  track overtime, and surface irregularities — without straying into payroll,
+  leave business logic, or accusatory automation.
+- **Decision:** (1) Daily state is **materialized** server-side
+  (`attendance:process-daily`): absence only **after** a configurable cutoff
+  (never at midnight), holiday overrides absence, a real punch is never
+  overwritten, idempotent per-tenant. (2) **Overtime** keeps raw
+  `calculated_minutes` separate from reviewer `approved_minutes`, forbids
+  self-approval and over-approval-without-override, uses optimistic concurrency,
+  and performs **no monetary conversion**. (3) **Anomalies** are neutral,
+  rule-based, deduplicated findings (`suspicious_location_change`, never
+  "fraud") that never trigger automatic disciplinary action. (4) Remote/field/
+  off-day attendance requires an authorized `attendance_exception`; employees
+  never self-declare. Leave remains out of scope (a future integration hook only).
+- **Approved by:** Project Owner (2026-09-01)
+
 ---
 
 ## Final Architecture Decisions (summary)

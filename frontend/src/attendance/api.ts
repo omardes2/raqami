@@ -2,6 +2,20 @@ import { api, ensureCsrf } from '../lib/api'
 
 // --- Types (mirror the backend attendance resources) ---
 
+export interface AttendanceSessionSummary {
+  id: string
+  sequence: number
+  check_in_at: string | null
+  check_out_at: string | null
+  worked_minutes: number
+  late_minutes: number
+  early_leave_minutes: number
+  overtime_minutes: number
+  is_manual: boolean
+  check_in_inside_geofence: boolean | null
+  check_out_inside_geofence: boolean | null
+}
+
 export interface AttendanceRecord {
   id: string
   employee_id: string
@@ -24,6 +38,10 @@ export interface AttendanceRecord {
   corrected_at: string | null
   check_in_inside_geofence: boolean | null
   check_out_inside_geofence: boolean | null
+  version?: number
+  attendance_mode?: string | null
+  is_materialized?: boolean
+  sessions?: AttendanceSessionSummary[]
   location?: {
     check_in_latitude: number | null
     check_in_longitude: number | null
@@ -46,6 +64,28 @@ export interface AttendanceSettings {
   attendance_correction_enabled: boolean
   allow_employee_correction_request: boolean
   allow_unscheduled_work: boolean
+  // Sprint 4
+  materialization_enabled?: boolean
+  absence_materialize_after_minutes?: number
+  allow_multiple_sessions?: boolean
+  auto_close_missing_checkout?: boolean
+  overtime_requires_approval?: boolean
+  overtime_auto_approve?: boolean
+  off_day_work_policy?: string
+  default_attendance_mode?: string
+  anomaly_max_session_minutes?: number | null
+  anomaly_gps_jump_meters?: number | null
+  anomaly_lateness_streak_days?: number | null
+  anomaly_corrections_threshold?: number | null
+}
+
+export interface WorkScheduleSegment {
+  sequence: number
+  start_time: string
+  end_time: string
+  break_minutes: number | null
+  grace_minutes: number | null
+  overtime_after_minutes: number | null
 }
 
 export interface WorkScheduleDay {
@@ -55,6 +95,7 @@ export interface WorkScheduleDay {
   end_time: string | null
   break_minutes: number | null
   grace_minutes: number | null
+  segments?: WorkScheduleSegment[]
 }
 
 export interface WorkScheduleAssignment {
@@ -76,8 +117,116 @@ export interface WorkSchedule {
   grace_minutes: number
   break_minutes: number
   overtime_after_minutes: number
+  cycle_length_days: number | null
+  anchor_date: string | null
+  is_cyclic: boolean
   days?: WorkScheduleDay[]
   assignments?: WorkScheduleAssignment[]
+}
+
+export interface HolidayItem {
+  id: string
+  holiday_calendar_id: string
+  name: string
+  date: string | null
+  end_date: string | null
+  type: string
+  is_paid: boolean | null
+}
+
+export interface HolidayCalendarAssignment {
+  id: string
+  scope_type: string
+  scope_id: string | null
+  effective_from: string | null
+  effective_until: string | null
+}
+
+export interface HolidayCalendar {
+  id: string
+  name: string
+  code: string
+  description: string | null
+  holidays?: HolidayItem[]
+  assignments?: HolidayCalendarAssignment[]
+  created_at: string | null
+}
+
+export interface AttendanceException {
+  id: string
+  employee_id: string
+  type: string
+  effective_from: string | null
+  effective_until: string | null
+  attendance_mode: string | null
+  alternate_schedule_id: string | null
+  alternate_location_id: string | null
+  reason: string
+  status: string
+  created_at: string | null
+}
+
+export interface OvertimeApproval {
+  id: string
+  attendance_record_id: string
+  employee_id: string
+  work_date: string | null
+  calculated_minutes: number
+  approved_minutes: number | null
+  status: string
+  reviewed_by_user_id: string | null
+  reviewed_at: string | null
+  notes: string | null
+  created_at: string | null
+}
+
+export interface AttendanceAnomaly {
+  id: string
+  employee_id: string
+  attendance_record_id: string | null
+  attendance_session_id: string | null
+  type: string
+  severity: string
+  detected_at: string | null
+  status: string
+  metadata: Record<string, unknown> | null
+  resolution_note: string | null
+  created_at: string | null
+}
+
+export interface ComplianceReport {
+  present: number
+  late: number
+  absent: number
+  scheduled_days: number
+  attendance_rate: number | null
+  punctuality_rate: number | null
+}
+
+export interface OvertimeReport {
+  requests: number
+  pending: number
+  approved: number
+  rejected: number
+  calculated_minutes: number
+  approved_minutes: number
+}
+
+export interface EmployeeRollup {
+  employee_id: string
+  records: number
+  present: number
+  late: number
+  absent: number
+  worked_minutes: number
+  late_minutes: number
+  overtime_minutes: number
+}
+
+export interface AdvancedReport {
+  compliance: ComplianceReport
+  status_breakdown: Record<string, number>
+  overtime: OvertimeReport
 }
 
 export interface AttendanceLocation {
@@ -236,6 +385,83 @@ export const attendance = {
     await ensureCsrf()
     const { data } = await api.post(`/attendance/corrections/${id}/reject`, { rejection_reason: reason })
     return data
+  },
+
+  // --- Sprint 4: Holidays ---
+  async holidayCalendars(): Promise<HolidayCalendar[]> {
+    const { data } = await api.get('/attendance/holidays/calendars')
+    return unwrap<HolidayCalendar[]>(data)
+  },
+  async createHolidayCalendar(payload: Record<string, unknown>): Promise<HolidayCalendar> {
+    await ensureCsrf()
+    const { data } = await api.post('/attendance/holidays/calendars', payload)
+    return data
+  },
+  async addHoliday(calendarId: string, payload: Record<string, unknown>): Promise<HolidayItem> {
+    await ensureCsrf()
+    const { data } = await api.post(`/attendance/holidays/calendars/${calendarId}/holidays`, payload)
+    return data
+  },
+  async deleteHoliday(calendarId: string, holidayId: string): Promise<void> {
+    await ensureCsrf()
+    await api.delete(`/attendance/holidays/calendars/${calendarId}/holidays/${holidayId}`)
+  },
+  async assignHolidayCalendar(calendarId: string, payload: Record<string, unknown>): Promise<void> {
+    await ensureCsrf()
+    await api.post(`/attendance/holidays/calendars/${calendarId}/assignments`, payload)
+  },
+
+  // --- Sprint 4: Exceptions ---
+  async exceptions(params: Record<string, unknown> = {}): Promise<AttendanceException[]> {
+    const { data } = await api.get('/attendance/exceptions', { params })
+    return unwrap<AttendanceException[]>(data)
+  },
+  async createException(payload: Record<string, unknown>): Promise<AttendanceException> {
+    await ensureCsrf()
+    const { data } = await api.post('/attendance/exceptions', payload)
+    return data
+  },
+  async revokeException(id: string): Promise<AttendanceException> {
+    await ensureCsrf()
+    const { data } = await api.post(`/attendance/exceptions/${id}/revoke`)
+    return data
+  },
+
+  // --- Sprint 4: Overtime approval ---
+  async overtime(params: Record<string, unknown> = {}): Promise<OvertimeApproval[]> {
+    const { data } = await api.get('/attendance/overtime', { params })
+    return unwrap<OvertimeApproval[]>(data)
+  },
+  async approveOvertime(id: string, payload: Record<string, unknown> = {}): Promise<OvertimeApproval> {
+    await ensureCsrf()
+    const { data } = await api.post(`/attendance/overtime/${id}/approve`, payload)
+    return data
+  },
+  async rejectOvertime(id: string, notes?: string): Promise<OvertimeApproval> {
+    await ensureCsrf()
+    const { data } = await api.post(`/attendance/overtime/${id}/reject`, { notes })
+    return data
+  },
+
+  // --- Sprint 4: Anomalies ---
+  async anomalies(params: Record<string, unknown> = {}): Promise<AttendanceAnomaly[]> {
+    const { data } = await api.get('/attendance/anomalies', { params })
+    return unwrap<AttendanceAnomaly[]>(data)
+  },
+  async reviewAnomaly(id: string, status: string, note?: string): Promise<AttendanceAnomaly> {
+    await ensureCsrf()
+    const { data } = await api.post(`/attendance/anomalies/${id}/review`, { status, note })
+    return data
+  },
+
+  // --- Sprint 4: Advanced reports ---
+  async advancedReport(params: Record<string, unknown> = {}): Promise<AdvancedReport> {
+    const { data } = await api.get('/attendance/reports/advanced', { params })
+    return { compliance: data.compliance, status_breakdown: data.status_breakdown, overtime: data.overtime }
+  },
+  async byEmployeeReport(params: Record<string, unknown> = {}): Promise<EmployeeRollup[]> {
+    const { data } = await api.get('/attendance/reports/by-employee', { params })
+    return data.employees as EmployeeRollup[]
   },
 }
 

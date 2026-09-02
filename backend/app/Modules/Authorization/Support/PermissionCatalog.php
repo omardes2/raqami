@@ -94,24 +94,49 @@ class PermissionCatalog
         'attendance.locations.manage' => ['attendance', 'Manage attendance geofence locations'],
         'attendance.settings.manage' => ['attendance', 'Manage company attendance settings'],
         'attendance.reports.view' => ['attendance', 'View attendance reports'],
+
+        // --- Sprint 4: Attendance advanced (tenant scope) ---
+        'attendance.holidays.view' => ['attendance', 'View holiday calendars & holidays'],
+        'attendance.holidays.manage' => ['attendance', 'Manage holiday calendars, holidays & assignments'],
+        'attendance.exceptions.view' => ['attendance', 'View attendance exceptions (remote/off-day/etc.)'],
+        'attendance.exceptions.manage' => ['attendance', 'Create / revoke attendance exceptions'],
+        'attendance.overtime.view' => ['attendance', 'View overtime approvals'],
+        'attendance.overtime.review' => ['attendance', 'Approve / reject overtime'],
+        'attendance.overtime.override' => ['attendance', 'Approve overtime ABOVE the server-calculated amount'],
+        'attendance.anomalies.view' => ['attendance', 'View attendance anomalies'],
+        'attendance.anomalies.manage' => ['attendance', 'Acknowledge / resolve / dismiss attendance anomalies'],
+        'attendance.materialization.run' => ['attendance', 'Run daily attendance materialization'],
     ];
 
-    /** Sprint 3 attendance permission groups reused in default role mappings. */
+    /** Sprint 3 + 4 attendance permission groups reused in default role mappings. */
     private const ATTENDANCE_FULL = [
         'attendance.view', 'attendance.view_location', 'attendance.manage',
         'attendance.corrections.review',
         'attendance.schedules.view', 'attendance.schedules.manage',
         'attendance.locations.manage', 'attendance.settings.manage',
         'attendance.reports.view',
+        // Sprint 4
+        'attendance.holidays.view', 'attendance.holidays.manage',
+        'attendance.exceptions.view', 'attendance.exceptions.manage',
+        'attendance.overtime.view', 'attendance.overtime.review',
+        'attendance.anomalies.view', 'attendance.anomalies.manage',
+        'attendance.materialization.run',
     ];
 
     private const ATTENDANCE_MANAGER = [
         'attendance.view', 'attendance.manage', 'attendance.corrections.review',
         'attendance.schedules.view', 'attendance.reports.view',
+        // Sprint 4: managers see holidays/exceptions/anomalies and review overtime
+        // for their scope, but do not manage company-wide holiday calendars.
+        'attendance.holidays.view',
+        'attendance.exceptions.view', 'attendance.exceptions.manage',
+        'attendance.overtime.view', 'attendance.overtime.review',
+        'attendance.anomalies.view', 'attendance.anomalies.manage',
     ];
 
     private const ATTENDANCE_VIEW = [
         'attendance.view', 'attendance.reports.view',
+        'attendance.holidays.view',
     ];
 
     /** Sprint 2 billing permission groups reused in default role mappings. */
@@ -169,6 +194,10 @@ class PermissionCatalog
                 ...self::EMPLOYEES_FULL,
                 ...self::BILLING_FULL,
                 ...self::ATTENDANCE_FULL,
+                // Overtime override is a distinct privilege above ATTENDANCE_FULL;
+                // Owner holds it via '*'. HR Manager reviews but cannot override
+                // unless explicitly granted a custom role that includes it.
+                'attendance.overtime.override',
             ],
         ],
         'hr-manager' => [

@@ -433,3 +433,37 @@ carry the schedule-timezone context.
 No partitioning yet (ADR-009); `attendance_records`/`attendance_events` remain
 the high-volume candidates. Concurrency is protected by a per-employee advisory
 xact lock + row locks around check-in/out.
+
+### Sprint 4 — Attendance Advanced (new tenant tables)
+
+All carry `tenant_id` + FORCE RLS (`tenant_isolation` + `platform_readonly`),
+proven by raw-SQL cross-tenant tests.
+
+- **attendance_sessions** — individual check-in/out sessions; several closed per
+  `work_date` (split shifts), **at most one open** per employee (partial unique
+  index `… WHERE check_out_at IS NULL`). Server computes every minute field; the
+  daily `attendance_records` row is re-aggregated from these.
+- **work_schedule_segments** — split-shift expected windows under
+  `work_schedule_days` (`unique(work_schedule_day_id, sequence)`).
+- **holiday_calendars / holidays / holiday_calendar_assignments** — holiday
+  calendars, their (single or multi-day) holidays, and company/branch
+  assignments with effective dates; resolved branch > company.
+- **attendance_exceptions** — authorized remote/field/off-day/alternate
+  exceptions (effective dates, mode, alternate schedule/location, status).
+- **overtime_approvals** — one per `attendance_record` (`unique(tenant_id,
+  attendance_record_id)`); raw `calculated_minutes` kept separate from
+  `approved_minutes`; status pending/approved/rejected.
+- **attendance_anomalies** — neutral rule-based findings with a `dedupe_key`
+  (`unique(tenant_id, dedupe_key)` → idempotent detection), severity, status,
+  and jsonb metadata.
+
+`attendance_corrections` gained a nullable `attendance_session_id` (FK, nullOnDelete)
+so corrections target the authoritative session; legacy rows keep it null.
+
+`attendance_records` gained `version` (optimistic concurrency), `attendance_mode`,
+`is_materialized` / `materialized_at`, and `holiday_id`; the Sprint 3 one-open-
+record index moved to `attendance_sessions`. `work_schedules` gained
+`cycle_length_days` + `anchor_date` (rotation). `attendance_settings` gained the
+Sprint 4 policy columns. All Sprint 4 migrations are **additive** with idempotent
+backfills (a default segment per working day; a session per existing record) —
+no Sprint 3 data is dropped or transformed destructively.

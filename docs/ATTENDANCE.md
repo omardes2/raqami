@@ -150,3 +150,104 @@ attendance data.
 - **Open (does not block V1):** overtime policy defaults and legal rounding rules
   per region — tied to the first country payroll rule provider (see
   `PAYROLL.md`, `DECISIONS.md`).
+
+---
+
+## 11. Sprint 4 — Attendance Advanced
+
+Sprint 4 extends (never replaces) the Sprint 3 engine. All Sprint 3 invariants
+still hold: the **server** is authoritative for time, work_date, schedule,
+geofence, calculations, and status; Employee ≠ User; UTC storage; FORCE RLS on
+every tenant table.
+
+### 11.1 Sessions & the daily aggregate
+
+- **`attendance_sessions`** holds each individual check-in/out. A `work_date`
+  may carry several **closed** sessions (split shifts); **at most one open**
+  session per employee (partial unique index + advisory lock).
+- **`attendance_records`** is now the **daily aggregate**, recomputed from its
+  sessions by `AttendanceRecordAggregator` (sum of worked/late/early/overtime,
+  first check-in / last check-out, derived status). A `version` counter supports
+  optimistic concurrency.
+- `allow_multiple_sessions` (default **off**) preserves Sprint 3
+  single-session-per-day behavior; tenants opt in to split shifts.
+
+### 11.2 Advanced schedules
+
+- **Split shifts** via `work_schedule_segments` (several expected windows per
+  day). Each session is calculated against the segment nearest its check-in.
+- **Rotation** via `work_schedules.cycle_length_days` + `anchor_date`; on a
+  cyclic schedule `work_schedule_days.weekday` is reinterpreted as the
+  cycle-day-index. Overnight reach-back is generalized to per-segment windows.
+
+### 11.3 Holidays
+
+`holiday_calendars` → `holidays` (single or multi-day) assigned to company or
+branch via `holiday_calendar_assignments`. `HolidayResolver` applies **branch >
+company** precedence. A holiday **overrides** a scheduled working day: no absence
+is ever materialized on a holiday.
+
+### 11.4 Daily materialization
+
+`AttendanceDayMaterializer` derives the state of employees who did not punch:
+**weekend/off**, **holiday**, **absent** (only **after** the configured cutoff,
+never at midnight), and flags an open record past day-end as **incomplete**. A
+**real punch is never overwritten**. `AttendanceDailyProcessor` +
+`attendance:process-daily` run it across all tenants, each in its own RLS
+context; idempotent (re-running yields the same result).
+
+### 11.5 Exceptions (remote / field / off-day / alternate)
+
+`attendance_exceptions` record **authorized** deviations created by HR/managers
+(never self-declared). `ExceptionResolver` returns the active exception for a
+date; check-in honors it for geofence (remote/field skip the office geofence)
+and for the `off_day_work_policy` (`reject` / `allow` / `require_approval`).
+
+### 11.6 Overtime approval
+
+Raw server-computed overtime (`calculated_minutes`) is kept **separate** from
+reviewer-decided `approved_minutes` (only approved overtime feeds future
+payroll). No self-approval; no over-approval without an explicit override;
+optimistic concurrency refuses a stale record version. **No monetary
+conversion.**
+
+### 11.7 Anomalies (neutral, rule-based)
+
+`attendance_anomalies` are descriptive, rule-based findings — **no AI, no fraud
+language, no automatic disciplinary action**. Types: missing checkout, long
+session, overlapping sessions, `suspicious_location_change`, lateness streak,
+excessive corrections. Each rule is gated by a tenant threshold (null = off) and
+carries a stable `dedupe_key` (idempotent). Findings transition
+open → acknowledged → resolved/dismissed by human review only.
+
+### 11.8 Corrections & reports
+
+- Corrections are **session-aware**: a correction targets an `attendance_session`
+  (auto-resolved on a single-session day; an explicit target is **required** on a
+  multi-session day; a session is **created** on approval for a materialized-absent
+  record). Approval updates the session, re-aggregates the record, and re-syncs
+  overtime — it never writes check-in/out onto the aggregate, so a later
+  re-aggregation cannot revert a correction. Overlap with sibling sessions is
+  refused. Legacy Sprint 3 corrections (no session) remain valid.
+- Corrections capture the record's `version` at request time and refuse a
+  **stale** approval (optimistic concurrency).
+
+### 11.9 Precedence & authorization refinements
+
+- **Holiday × check-in.** Check-in consults `HolidayResolver`. A holiday means the
+  employee is not normally expected to work, so self check-in follows
+  `off_day_work_policy` (reject / require_approval → blocked without an approved
+  exception; allow → permitted). Resolution order: eligibility → holiday →
+  schedule → exception → off-day/holiday policy → mode/geofence. Real holiday
+  attendance is never overwritten by materialization.
+- **Overtime override.** Approving overtime ABOVE the server-calculated amount
+  requires the distinct `attendance.overtime.override` permission (scope-checked);
+  a plain reviewer is refused. Owner/Admin hold it by default; HR Manager reviews
+  but does not override unless explicitly granted.
+- **Materialization concurrency.** The materializer takes the per-employee
+  advisory lock (same key as punches), so concurrent workers — or a worker racing
+  a live punch — converge on one record; deriving a day is audited once.
+- Advanced reports add neutral **compliance rates** (attendance & punctuality —
+  never a "performance score"), a full status breakdown, the calculated-vs-
+  approved overtime rollup, and a per-employee rollup — **no raw GPS** in any
+  report.

@@ -12,6 +12,7 @@ return [
     // Scheduling
     'no_schedule' => 'لا يوجد جدول عمل مُسنَد لهذا اليوم.',
     'not_working_day' => 'اليوم ليس يوم عمل حسب الجدول.',
+    'holiday_not_working_day' => 'اليوم عطلة؛ يتطلب تسجيل الحضور استثناءً معتمداً.',
     'early_not_allowed' => 'تسجيل الدخول المبكر غير مسموح.',
     'too_early' => 'الوقت مبكر جداً لتسجيل الدخول.',
     'late_not_allowed' => 'تسجيل الدخول المتأخر غير مسموح.',
@@ -29,6 +30,8 @@ return [
     'correction_empty' => 'يجب أن يغيّر التصحيح وقت الدخول و/أو وقت الخروج.',
     'correction_reviewed' => 'تمت مراجعة هذا التصحيح بالفعل.',
     'correction_self' => 'لا يمكنك مراجعة طلب التصحيح الخاص بك.',
+    'correction_session_required' => 'يحتوي هذا اليوم على عدة جلسات؛ يرجى تحديد الجلسة المراد تصحيحها.',
+    'correction_session_invalid' => 'الجلسة المحددة لا تنتمي إلى سجل الحضور هذا.',
 
     // Schedule assignments
     'assignment_company_no_scope' => 'إسناد على مستوى الشركة يجب ألا يحدّد نطاقاً محدداً.',
@@ -39,4 +42,31 @@ return [
     'not_linked' => 'حسابك غير مرتبط بسجل موظف.',
     'branch_invalid' => 'الفرع المحدّد غير موجود في هذه الشركة.',
     'date_range_too_large' => 'نطاق التاريخ كبير جداً؛ يرجى تضييقه إلى سنة واحدة أو أقل.',
+
+    // Sprint 4 — sessions
+    'session_overlap' => 'تسجيل الدخول هذا يتداخل مع جلسة حضور قائمة.',
+
+    // Sprint 4 — holidays
+    'holiday_end_before_start' => 'لا يمكن أن يكون تاريخ نهاية العطلة قبل تاريخ بدايتها.',
+    'holiday_scope_invalid' => 'نطاق إسناد تقويم العطلات غير صالح.',
+
+    // Sprint 4 — exceptions
+    'exception_end_before_start' => 'لا يمكن أن يكون تاريخ نهاية الاستثناء قبل تاريخ بدايته.',
+    'exception_reviewed' => 'تمت مراجعة استثناء الحضور هذا بالفعل.',
+    'exception_self' => 'لا يمكنك اعتماد استثناء الحضور الخاص بك.',
+    'exception_alternate_location_invalid' => 'الموقع البديل المحدّد غير موجود في هذه الشركة.',
+    'exception_alternate_schedule_invalid' => 'الجدول البديل المحدّد غير موجود في هذه الشركة.',
+
+    // Sprint 4 — overtime approval
+    'overtime_reviewed' => 'تمت مراجعة طلب العمل الإضافي هذا بالفعل.',
+    'overtime_self' => 'لا يمكنك مراجعة طلب العمل الإضافي الخاص بك.',
+    'overtime_stale' => 'تغيّر سجل الحضور منذ إنشاء طلب العمل الإضافي؛ يرجى التحديث وإعادة المحاولة.',
+    'overtime_minutes_invalid' => 'دقائق العمل الإضافي المعتمدة غير صالحة.',
+    'overtime_override_forbidden' => 'غير مصرّح لك باعتماد عمل إضافي يتجاوز المقدار المحتسب.',
+
+    // Sprint 4 — corrections concurrency
+    'correction_stale' => 'تغيّر سجل الحضور منذ إنشاء طلب التصحيح؛ يرجى التحديث وإعادة المحاولة.',
+
+    // Sprint 4 — anomalies
+    'anomaly_reviewed' => 'تمت معالجة تباين الحضور هذا بالفعل.',
 ];

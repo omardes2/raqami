@@ -5,6 +5,7 @@ namespace App\Modules\Attendance\Services;
 use App\Modules\Attendance\Enums\AttendanceEventType;
 use App\Modules\Attendance\Models\AttendanceEvent;
 use App\Modules\Attendance\Models\AttendanceRecord;
+use App\Modules\Attendance\Models\AttendanceSession;
 use App\Modules\Attendance\Support\AttendanceLock;
 use App\Modules\Attendance\Support\PunchInput;
 use App\Modules\Attendance\Support\ResolvedWorkDay;
@@ -17,9 +18,10 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Records a check-out against the employee's open record. The server sets the
- * instant and recomputes worked/early-leave/overtime minutes from the SNAPSHOT
- * taken at check-in — so later schedule edits never rewrite closed history.
+ * Closes the employee's single OPEN session. The server sets the instant and
+ * recomputes that session's worked/early-leave/overtime minutes from the SNAPSHOT
+ * captured at its check-in — so later schedule edits never rewrite closed history.
+ * The daily attendance_record is then re-aggregated from all its sessions.
  * Transactional + advisory-locked; idempotent on client_request_id.
  */
 class CheckOutService
@@ -28,6 +30,8 @@ class CheckOutService
         private readonly AttendanceSettingsService $settings,
         private readonly GeofenceService $geofence,
         private readonly AttendanceCalculator $calculator,
+        private readonly AttendanceRecordAggregator $aggregator,
+        private readonly OvertimeApprovalService $overtime,
         private readonly AuditLogger $audit,
         private readonly TenantContext $context,
     ) {}
@@ -43,18 +47,18 @@ class CheckOutService
                 return $replay;
             }
 
-            $record = AttendanceRecord::query()
+            $session = AttendanceSession::query()
                 ->where('employee_id', $employee->getKey())
-                ->whereNotNull('check_in_at')
                 ->whereNull('check_out_at')
                 ->lockForUpdate()
                 ->first();
 
-            if ($record === null) {
+            if ($session === null) {
                 $this->reject(__('attendance.no_open'));
             }
 
-            if ($now->lessThan(CarbonImmutable::parse($record->check_in_at))) {
+            $checkIn = CarbonImmutable::parse($session->check_in_at);
+            if ($now->lessThan($checkIn)) {
                 $this->reject(__('attendance.checkout_before_checkin'));
             }
 
@@ -63,26 +67,24 @@ class CheckOutService
 
             $geo = $this->geofence->evaluate($input->latitude, $input->longitude, $input->accuracyMeters);
 
-            $resolved = ResolvedWorkDay::fromRecordSnapshot($record);
-            $computation = $this->calculator->compute(
-                $resolved,
-                CarbonImmutable::parse($record->check_in_at),
-                $now,
-            );
+            // Recompute this session against ITS OWN frozen segment snapshot.
+            $resolved = ResolvedWorkDay::fromSessionSnapshot($session);
+            $computation = $this->calculator->compute($resolved, $checkIn, $now);
 
-            $record->fill([
+            $session->fill([
                 'check_out_at' => $now,
                 'worked_minutes' => $computation->workedMinutes,
                 'break_minutes' => $computation->breakMinutes,
                 'late_minutes' => $computation->lateMinutes,
                 'early_leave_minutes' => $computation->earlyLeaveMinutes,
                 'overtime_minutes' => $computation->overtimeMinutes,
-                'status' => $computation->status,
                 'check_out_latitude' => $input->latitude,
                 'check_out_longitude' => $input->longitude,
                 'check_out_inside_geofence' => $input->hasCoordinates() ? $geo->inside : null,
                 'check_out_location_id' => $geo->matchedLocationId,
             ])->save();
+
+            $record = $session->record()->lockForUpdate()->first();
 
             AttendanceEvent::query()->create([
                 'employee_id' => $employee->getKey(),
@@ -101,12 +103,16 @@ class CheckOutService
                 'client_request_id' => $input->clientRequestId,
             ]);
 
+            $record = $this->aggregator->aggregate($record);
+            $this->overtime->syncForRecord($record, $actor);
+
             $this->audit->log('attendance.checked_out', [
                 'actor' => $actor,
                 'subject' => $record,
                 'metadata' => [
                     'employee_id' => (string) $employee->getKey(),
                     'work_date' => $record->work_date->toDateString(),
+                    'session_id' => (string) $session->getKey(),
                     'worked_minutes' => $computation->workedMinutes,
                     'overtime_minutes' => $computation->overtimeMinutes,
                 ],
