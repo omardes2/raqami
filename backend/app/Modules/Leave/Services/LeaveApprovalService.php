@@ -37,6 +37,7 @@ class LeaveApprovalService
         return DB::transaction(function () use ($request, $reviewer, $note, $expectedVersion) {
             $request = LeaveRequest::query()->lockForUpdate()->findOrFail($request->getKey());
             $this->assertActionable($request, $reviewer, $expectedVersion);
+            $this->assertAttachmentIfRequired($request);
 
             $step = $this->currentStep($request);
             if ($step === null) {
@@ -167,6 +168,26 @@ class LeaveApprovalService
             ->orderBy('step_order')
             ->lockForUpdate()
             ->first();
+    }
+
+    /** A request whose policy/type requires an attachment cannot be finalized without one. */
+    private function assertAttachmentIfRequired(LeaveRequest $request): void
+    {
+        $type = $request->leaveType;
+        $policy = $request->policy;
+        $requires = ($policy?->requires_attachment ?? false) || ($type?->requires_attachment ?? false);
+        if (! $requires) {
+            return;
+        }
+
+        $threshold = $type?->attachment_required_after_minutes;
+        if ($threshold !== null && (int) $request->requested_consumption_minutes < (int) $threshold) {
+            return;
+        }
+
+        if ($request->attachments()->count() === 0) {
+            $this->fail(__('leave.attachment_required'));
+        }
     }
 
     private function assertActionable(LeaveRequest $request, Model $reviewer, ?int $expectedVersion): void
