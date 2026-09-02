@@ -37,6 +37,14 @@ import LeaveTypes from './pages/leave/LeaveTypes'
 import LeavePolicies from './pages/leave/LeavePolicies'
 import LeaveReports from './pages/leave/LeaveReports'
 import LeaveSettings from './pages/leave/LeaveSettings'
+import MyTasks from './pages/tasks/MyTasks'
+import TasksPage from './pages/tasks/Tasks'
+import TaskDetail from './pages/tasks/TaskDetail'
+import Projects from './pages/tasks/Projects'
+import ProjectDetail from './pages/tasks/ProjectDetail'
+import Workload from './pages/tasks/Workload'
+import TaskStatuses from './pages/tasks/TaskStatuses'
+import TaskReports from './pages/tasks/TaskReports'
 import BillingLayout from './pages/billing/BillingLayout'
 import BillingOverview from './pages/billing/BillingOverview'
 import BillingSubscription from './pages/billing/BillingSubscription'
@@ -96,6 +104,14 @@ export default function App() {
           <Route path="/leave/policies" element={<LeavePolicies />} />
           <Route path="/leave/reports" element={<LeaveReports />} />
           <Route path="/leave/settings" element={<LeaveSettings />} />
+          <Route path="/tasks" element={<MyTasks />} />
+          <Route path="/tasks/manage" element={<TasksPage />} />
+          <Route path="/tasks/workload" element={<Workload />} />
+          <Route path="/tasks/statuses" element={<TaskStatuses />} />
+          <Route path="/tasks/reports" element={<TaskReports />} />
+          <Route path="/tasks/:id" element={<TaskDetail />} />
+          <Route path="/projects" element={<Projects />} />
+          <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/billing" element={<BillingLayout />}>
             <Route index element={<BillingOverview />} />
             <Route path="subscription" element={<BillingSubscription />} />
