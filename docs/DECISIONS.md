@@ -527,3 +527,31 @@ the schedule, the geofence membership, lateness, worked time, and status.
 - **Out of Sprint 3 scope.** Payroll/overtime pay, leave business flows (a future
   hook only), tasks, AI, biometric/face/kiosk hardware, rotating-shift planners,
   and labor-law rounding remain deferred (see ADR-017 / SPRINTS).
+
+## ADR-021: Leave — integer-minute ledger, coverage vs consumption, `on_leave`
+- **Status:** Accepted
+- **Date:** 2026-09-02
+- **Context:** Sprint 5 needs a global-SaaS leave system that integrates with the
+  Sprint 3/4 attendance engine without money, country rules, or a notification
+  transport, and without floating-point balance errors.
+- **Decision:** (1) **Integer minutes** are the canonical unit; a day of leave is
+  the employee's *scheduled* minutes (no global 8h). (2) Balances use an
+  **immutable ledger** (`leave_balance_transactions`, append-only) as the source of
+  truth with a transactionally-maintained projection (`leave_balances`); the
+  reservation→usage conversion deducts availability exactly once. (3) Policies
+  declare a **consumption basis** (`scheduled_minutes` default, or
+  `nominal_calendar_day` with `nominal_day_minutes`); `count_holidays` /
+  `count_non_working_days` require the nominal basis (contradiction-guarded).
+  (4) `leave_request_days` snapshots **both** balance **consumption** and attendance
+  **coverage** (UTC coverage intervals), freezing the effect at submission.
+  (5) Half-day is `full_day|first_half|second_half`, geometric over work minutes
+  (`ceil(T/2)`); no arbitrary hourly leave in V1, but the interval model is
+  hourly-ready. (6) Approval steps are **snapshotted** (direct_manager →
+  department_manager → HR pool; Team Lead never automatic; HR pool is an RBAC set);
+  self-approval is impossible. (7) A single **`LeaveResolver`** is attendance's only
+  leave dependency; **no `attendance_records` schema change** (leave↔attendance is
+  many-to-many). (8) `leave.negative_override` and `leave.attachments.view_sensitive`
+  are distinct privileges. (9) Accrual/carry/expiry are ledger-based, idempotent,
+  scheduler-ready (no cron). No money (Sprint 7), no country rules, no notification
+  transport (Sprint 8).
+- **Approved by:** Project Owner (2026-09-02, D1–D7 + Corrections A/B)

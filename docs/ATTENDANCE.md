@@ -251,3 +251,29 @@ open → acknowledged → resolved/dismissed by human review only.
   never a "performance score"), a full status breakdown, the calculated-vs-
   approved overtime rollup, and a per-employee rollup — **no raw GPS** in any
   report.
+
+---
+
+## 12. Sprint 5 — Leave integration (`on_leave` made real)
+
+Sprint 4 reserved `AttendanceStatus::OnLeave` as a hook; Sprint 5 produces it via
+a single authority, **`LeaveResolver`** — attendance never queries leave requests
+ad hoc, and `attendance_records` gains **no** leave column (a day may carry several
+partial leaves, resolved through `leave_request_days`).
+
+- **Full coverage** of a day's expected work by approved (or cancellation_pending)
+  leave → the materializer writes `on_leave`; **no absence** is produced.
+- **Partial coverage** → attendance expects only the **remaining** work
+  (`expected − coverage`); `CheckInService` shifts the active segment to the
+  uncovered remainder, so a punch during covered time is not late (checkout
+  early-leave/overtime inherit the frozen window), and absence for an uncovered
+  remainder still applies.
+- **Precedence:** eligibility → real-punch short-circuit (never overwritten) →
+  Holiday → full leave (OnLeave) → Weekend/off → remaining-work absence after
+  cutoff. Holiday > OnLeave > Weekend > Absent. A holiday/non-working day is never
+  turned into `on_leave` merely because a nominal-basis policy consumed balance
+  (attendance status ≠ balance consumption).
+- Real work during approved leave is **preserved** (no auto-refund/cancel/delete).
+  Final leave cancellation re-materializes the freed days through the central
+  materializer (`LeaveAttendanceSync`), never by writing statuses from the Leave
+  module. See `LEAVE.md`.

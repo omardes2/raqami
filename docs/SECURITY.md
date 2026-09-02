@@ -254,3 +254,31 @@ tests, especially:
 - **Materialization safety.** The daily processor runs per-tenant inside its own
   RLS context, is idempotent, isolates per-tenant failures, and never overwrites
   a real punch.
+
+### Sprint 5 — Leave Management
+
+- **FORCE RLS on every new table.** All eleven Sprint 5 leave tables carry
+  `tenant_id` + FORCE RLS (`tenant_isolation` + `platform_readonly`); raw-SQL
+  cross-tenant tests prove isolation, and the platform read-only context can
+  SELECT but never write them.
+- **Append-only ledger.** `leave_balance_transactions` has SELECT/INSERT policies
+  only (no UPDATE/DELETE) plus a mutation-reject trigger — the balance source of
+  truth is immutable for the application role (corrections are compensating
+  reversal/adjustment rows).
+- **Server-authoritative accounting.** Coverage and consumption are computed
+  server-side from the schedule/holiday resolvers and the policy; the client never
+  supplies balances, coverage, or consumption. Submit recalculates and reserves in
+  one transaction under an advisory + row lock (no double-spend under races).
+- **Segregation of duties.** Self-approval is impossible even for Owner/Admin
+  (service-enforced); approvals use row locks + status guards + `version`
+  (double-approval safe); the reservation→usage conversion runs exactly once.
+- **Sensitive (medical) attachments** are private (S3-compatible, `storage_key`
+  hidden, streamed/signed downloads) and gated by the distinct
+  `leave.attachments.view_sensitive` — a leave viewer/approver does not
+  automatically gain access; medical content never enters audit metadata, reports,
+  the team calendar, or notifications.
+- **Cross-tenant integrity.** Scope targets (branch/department/team/employee) are
+  validated to belong to the acting tenant before assignment; per-employee actions
+  are scope-checked with scope-safe 404s (no existence leak).
+- **No money, no country rules, no notification transport** (Sprint 7 / Sprint 8
+  boundaries respected).

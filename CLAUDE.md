@@ -125,6 +125,7 @@ The current deliverable is **planning and documentation only**.
 | [`docs/DATABASE.md`](docs/DATABASE.md) | Conceptual data model |
 | [`docs/PERMISSIONS.md`](docs/PERMISSIONS.md) | Roles & granular permissions |
 | [`docs/ATTENDANCE.md`](docs/ATTENDANCE.md) | Attendance, shifts, GPS, geofencing |
+| [`docs/LEAVE.md`](docs/LEAVE.md) | Leave types, policies, ledger balances, approvals |
 | [`docs/TASKS.md`](docs/TASKS.md) | Tasks & team management |
 | [`docs/PAYROLL.md`](docs/PAYROLL.md) | Payroll & payslips |
 | [`docs/SAAS-BILLING.md`](docs/SAAS-BILLING.md) | Plans, subscriptions, payments |

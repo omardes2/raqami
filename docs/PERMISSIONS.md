@@ -286,3 +286,33 @@ review, anomalies.view/manage (scoped); does **not** manage company-wide holiday
 calendars. **Team Leader** = holidays.view (+ Sprint 3 view). **Employee** = none
 (self-service unaffected). Overtime review and exception approval never allow the
 employee to act on their own records (segregation of duties, service-enforced).
+
+## 12. Sprint 5 permissions (implemented)
+
+Added leave permissions (module `leave`):
+
+- `leave.view_own`, `leave.request` — self-service reference; enforcement is
+  authentication + employee link, **not** a granted permission (the `employee`
+  role stays empty).
+- `leave.view`, `leave.manage` (cancel/reassign), `leave.approve`
+- `leave.types.view`, `leave.types.manage`
+- `leave.policies.view`, `leave.policies.manage`
+- `leave.balances.view`, `leave.balances.adjust`
+- `leave.negative_override` — approve/reserve INTO a negative balance; a distinct
+  privilege never implied by approval or balance-adjust.
+- `leave.attachments.view_sensitive` — access sensitive (medical) attachments; a
+  leave viewer/approver does not automatically gain it.
+- `leave.reports.view`, `leave.settings.manage`
+
+Default mappings: **Owner / Admin** = full leave set + `negative_override` +
+`attachments.view_sensitive` (Owner via `*`). **HR Manager** = full leave set +
+`attachments.view_sensitive`; **no** `negative_override` by default. **Department
+Manager** = scoped view/approve/reports + balances.view. **Team Leader** = view +
+reports only (approval only if a custom role grants `leave.approve`; D2 — never
+automatic). **Accountant / Employee** = none (Employee self-service unaffected).
+
+**Gating model** mirrors attendance: company-wide config (types, policies,
+settings) uses `permission:<key>` (company scope); per-employee actions (review,
+cancel, balances, reports) use `permission.any:<key>` and are further constrained
+by `EmployeeScopeResolver` (scope-safe 404). Self-approval is impossible
+regardless of role.
