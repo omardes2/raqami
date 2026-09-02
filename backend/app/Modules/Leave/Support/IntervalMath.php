@@ -76,6 +76,34 @@ final class IntervalMath
         return $result;
     }
 
+    /**
+     * Merge overlapping/adjacent intervals into a normalized, ordered set.
+     *
+     * @return array<int, array{start_at:string,end_at:string}>
+     */
+    public static function merge(array $intervals): array
+    {
+        $bounds = [];
+        foreach ($intervals as $i) {
+            $bounds[] = self::bounds($i);
+        }
+        usort($bounds, fn ($a, $b) => $a[0] <=> $b[0]);
+
+        $merged = [];
+        foreach ($bounds as [$s, $e]) {
+            if ($merged !== [] && $s <= $merged[count($merged) - 1][1]) {
+                $merged[count($merged) - 1][1] = max($merged[count($merged) - 1][1], $e);
+            } else {
+                $merged[] = [$s, $e];
+            }
+        }
+
+        return array_map(fn ($b) => [
+            'start_at' => CarbonImmutable::createFromTimestampUTC($b[0])->toIso8601String(),
+            'end_at' => CarbonImmutable::createFromTimestampUTC($b[1])->toIso8601String(),
+        ], $merged);
+    }
+
     /** Total minutes across intervals. */
     public static function totalMinutes(array $intervals): int
     {

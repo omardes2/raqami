@@ -10,6 +10,9 @@ use App\Modules\Attendance\Support\AttendanceLock;
 use App\Modules\Attendance\Support\ResolvedWorkDay;
 use App\Modules\Audit\Services\AuditLogger;
 use App\Modules\Employees\Models\Employee;
+use App\Modules\Leave\Services\LeaveResolver;
+use App\Modules\Leave\Support\IntervalMath;
+use App\Modules\Leave\Support\ResolvedLeaveDay;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -38,6 +41,7 @@ class AttendanceDayMaterializer
         private readonly ScheduleResolver $resolver,
         private readonly HolidayResolver $holidays,
         private readonly AttendanceSettingsService $settings,
+        private readonly LeaveResolver $leave,
         private readonly AuditLogger $audit,
     ) {}
 
@@ -51,7 +55,7 @@ class AttendanceDayMaterializer
         $now = ($now ?? CarbonImmutable::now())->utc();
         $settings = $this->settings->current();
 
-        $counts = ['absent' => 0, 'weekend' => 0, 'holiday' => 0, 'incomplete' => 0, 'skipped' => 0];
+        $counts = ['absent' => 0, 'weekend' => 0, 'holiday' => 0, 'on_leave' => 0, 'incomplete' => 0, 'skipped' => 0];
 
         if (! $settings->materialization_enabled) {
             return $counts;
@@ -71,7 +75,7 @@ class AttendanceDayMaterializer
     }
 
     /**
-     * @return 'absent'|'weekend'|'holiday'|'incomplete'|'skipped'
+     * @return 'absent'|'weekend'|'holiday'|'on_leave'|'incomplete'|'skipped'
      */
     public function materializeEmployee(Employee $employee, CarbonImmutable $localDate, CarbonImmutable $now, $settings): string
     {
@@ -100,13 +104,15 @@ class AttendanceDayMaterializer
             }
 
             $holiday = $this->holidays->resolve($employee->branch_id, $resolved->workDate);
+            $leave = $this->leave->resolve($employee, $resolved->workDate);
 
-            // Nothing to materialize for an unscheduled employee on an ordinary day.
-            if ($holiday === null && ! $resolved->hasSchedule()) {
+            // Nothing to materialize for an unscheduled employee on an ordinary day
+            // with no leave coverage.
+            if ($holiday === null && ! $resolved->hasSchedule() && ($leave === null || ! $leave->hasCoverage())) {
                 return 'skipped';
             }
 
-            [$status, $holidayId] = $this->deriveState($resolved, $holiday, $now, $settings);
+            [$status, $holidayId] = $this->deriveState($resolved, $holiday, $leave, $now, $settings);
 
             if ($status === null) {
                 return 'skipped'; // working day, before the absence cutoff
@@ -114,18 +120,26 @@ class AttendanceDayMaterializer
 
             $this->writeMaterialized($record, $employee, $resolved, $status, $holidayId, $now);
 
-            return $status->value === 'weekend' ? 'weekend'
-                : ($status->value === 'holiday' ? 'holiday' : 'absent');
+            return match ($status) {
+                AttendanceStatus::Weekend => 'weekend',
+                AttendanceStatus::Holiday => 'holiday',
+                AttendanceStatus::OnLeave => 'on_leave',
+                default => 'absent',
+            };
         });
     }
 
     /**
-     * Decide the derived status (or null = not yet). Holiday first (a holiday is
-     * never an absence), then off/weekend, then absence after the cutoff.
+     * Decide the derived status (or null = not yet). Deterministic precedence:
+     * Holiday → Weekend/off → (full approved leave → OnLeave) → absence-after-
+     * cutoff on the REMAINING expected work (expected minus leave coverage).
+     * A holiday/non-working day is never turned into OnLeave merely because a
+     * nominal-basis policy consumed balance — attendance status and balance
+     * consumption are distinct concepts.
      *
      * @return array{0:?AttendanceStatus, 1:?string}
      */
-    private function deriveState(ResolvedWorkDay $resolved, $holiday, CarbonImmutable $now, $settings): array
+    private function deriveState(ResolvedWorkDay $resolved, $holiday, ?ResolvedLeaveDay $leave, CarbonImmutable $now, $settings): array
     {
         if ($holiday !== null) {
             return [AttendanceStatus::Holiday, (string) $holiday->getKey()];
@@ -135,7 +149,26 @@ class AttendanceDayMaterializer
             return [AttendanceStatus::Weekend, null];
         }
 
-        $cutoff = $resolved->scheduledStartAt->addMinutes((int) $settings->absence_materialize_after_minutes);
+        // Expected work intervals minus approved leave coverage = remaining work.
+        $expected = array_map(fn ($seg) => [
+            'start_at' => $seg->startAt->utc()->toIso8601String(),
+            'end_at' => $seg->endAt->utc()->toIso8601String(),
+        ], $resolved->segments);
+
+        $coverage = $leave?->coverageIntervals ?? [];
+        $remaining = $coverage === [] ? $expected : IntervalMath::subtract($expected, $coverage);
+        $remainingMinutes = IntervalMath::totalMinutes($remaining);
+
+        // Full coverage of all expected work → OnLeave.
+        if ($leave !== null && $leave->hasCoverage() && $remainingMinutes === 0) {
+            return [AttendanceStatus::OnLeave, null];
+        }
+
+        // Absence is measured against the REMAINING (uncovered) expected start.
+        $remainingStart = $remaining !== []
+            ? CarbonImmutable::parse($remaining[0]['start_at'])
+            : $resolved->scheduledStartAt;
+        $cutoff = $remainingStart->addMinutes((int) $settings->absence_materialize_after_minutes);
         if ($now->lessThan($cutoff)) {
             return [null, null];
         }

@@ -29,7 +29,7 @@ class AttendanceDailyProcessor
     public function process(CarbonImmutable $localDate, ?CarbonImmutable $now = null): array
     {
         $now = ($now ?? CarbonImmutable::now())->utc();
-        $totals = ['tenants' => 0, 'absent' => 0, 'weekend' => 0, 'holiday' => 0, 'incomplete' => 0, 'skipped' => 0, 'anomalies' => 0, 'errors' => 0];
+        $totals = ['tenants' => 0, 'absent' => 0, 'weekend' => 0, 'holiday' => 0, 'on_leave' => 0, 'incomplete' => 0, 'skipped' => 0, 'anomalies' => 0, 'errors' => 0];
 
         $tenantIds = $this->context->runAsPlatform(
             fn () => Tenant::query()->orderBy('id')->pluck('id')->all()
@@ -47,7 +47,7 @@ class AttendanceDailyProcessor
                     return $materialized;
                 });
 
-                foreach (['absent', 'weekend', 'holiday', 'incomplete', 'skipped', 'anomalies'] as $key) {
+                foreach (['absent', 'weekend', 'holiday', 'on_leave', 'incomplete', 'skipped', 'anomalies'] as $key) {
                     $totals[$key] += $counts[$key];
                 }
             } catch (Throwable $e) {
