@@ -140,6 +140,21 @@ class PermissionCatalog
         'projects.view' => ['tasks', 'View projects (within scope)'],
         'projects.create' => ['tasks', 'Create projects (within scope)'],
         'projects.manage' => ['tasks', 'Manage projects & governance (within scope)'],
+
+        // Sprint 7 — Payroll (company-level authority; sensitive financial data).
+        'payroll.view_own' => ['payroll', 'View own finalized payslips'],
+        'payroll.compensation.view' => ['payroll', 'View employee compensation (sensitive)'],
+        'payroll.compensation.manage' => ['payroll', 'Create / change / end employee compensation'],
+        'payroll.components.manage' => ['payroll', 'Manage the tenant compensation component catalog'],
+        'payroll.runs.view' => ['payroll', 'View payroll periods & runs'],
+        'payroll.runs.manage' => ['payroll', 'Create payroll periods & runs'],
+        'payroll.calculate' => ['payroll', 'Calculate / recalculate a payroll run'],
+        'payroll.adjust' => ['payroll', 'Create / edit manual payroll adjustments'],
+        'payroll.approve' => ['payroll', 'Approve a calculated payroll run (four-eyes)'],
+        'payroll.finalize' => ['payroll', 'Finalize a payroll run (immutable)'],
+        'payroll.negative_override' => ['payroll', 'Finalize despite a negative net (with reason)'],
+        'payroll.reports.view' => ['payroll', 'View payroll reports & totals'],
+        'payroll.settings.manage' => ['payroll', 'Manage company payroll settings'],
     ];
 
     /** Sprint 3 + 4 attendance permission groups reused in default role mappings. */
@@ -216,6 +231,29 @@ class PermissionCatalog
         'tasks.view_own', 'tasks.comment', 'tasks.attach',
     ];
 
+    /**
+     * Sprint 7 payroll permission groups. Payroll management is COMPANY-level
+     * authority only (financial privacy). PAYROLL_ACCOUNTANT is the operational
+     * subset: the Accountant may view compensation and run/calculate/adjust
+     * payroll, but NOT change compensation, manage components, approve, finalize,
+     * override negative net, or manage settings (D17).
+     */
+    private const PAYROLL_FULL = [
+        'payroll.compensation.view', 'payroll.compensation.manage',
+        'payroll.components.manage',
+        'payroll.runs.view', 'payroll.runs.manage',
+        'payroll.calculate', 'payroll.adjust', 'payroll.approve', 'payroll.finalize',
+        'payroll.negative_override',
+        'payroll.reports.view', 'payroll.settings.manage',
+    ];
+
+    private const PAYROLL_ACCOUNTANT = [
+        'payroll.compensation.view',
+        'payroll.runs.view', 'payroll.runs.manage',
+        'payroll.calculate', 'payroll.adjust',
+        'payroll.reports.view',
+    ];
+
     /** Sprint 2 billing permission groups reused in default role mappings. */
     private const BILLING_FULL = [
         'billing.view', 'billing.manage',
@@ -279,6 +317,7 @@ class PermissionCatalog
                 // Distinct privileges above LEAVE_FULL (Owner holds via '*').
                 'leave.negative_override', 'leave.attachments.view_sensitive',
                 ...self::TASKS_FULL,
+                ...self::PAYROLL_FULL,
             ],
         ],
         'hr-manager' => [
@@ -331,6 +370,10 @@ class PermissionCatalog
                 ...self::ORG_VIEW,
                 'employees.view', 'employee_contracts.view',
                 ...self::BILLING_ACCOUNTANT,
+                // Sprint 7: the Accountant is the operational payroll role (view
+                // compensation, run/calculate/adjust) — but NOT manage
+                // compensation, components, approve, finalize, override, settings.
+                ...self::PAYROLL_ACCOUNTANT,
             ],
         ],
         'employee' => [
@@ -339,7 +382,7 @@ class PermissionCatalog
             // Task participation: view own assigned + comment/attach. NO tasks.create
             // by default (grantable later); status/checklist/watch on an assigned
             // task are participation-inherent, not a permission.
-            'permissions' => [...self::TASKS_PARTICIPANT],
+            'permissions' => [...self::TASKS_PARTICIPANT, 'payroll.view_own'],
         ],
     ];
 
