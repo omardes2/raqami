@@ -60,6 +60,7 @@ use App\Modules\Organization\Http\Controllers\JobTitleController;
 use App\Modules\Organization\Http\Controllers\TeamController;
 use App\Modules\Payroll\Http\Controllers\EmployeeCompensationComponentController;
 use App\Modules\Payroll\Http\Controllers\EmployeeCompensationController;
+use App\Modules\Payroll\Http\Controllers\MePayslipController;
 use App\Modules\Payroll\Http\Controllers\PayrollAdjustmentController;
 use App\Modules\Payroll\Http\Controllers\PayrollApprovalController;
 use App\Modules\Payroll\Http\Controllers\PayrollCalculationController;
@@ -508,6 +509,12 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('task-s
 | amounts are only served from these compensation-view-gated endpoints.
 */
 Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('payroll')->group(function () {
+    // Employee self-service (Sprint 7.5): READ-ONLY finalized payslips. Gated by the
+    // self-service permission payroll.view_own AND the actor's own linked Employee;
+    // other/cross-tenant/non-finalized entries are scope-safe 404s. No mutation.
+    Route::get('me/payslips', [MePayslipController::class, 'index'])->middleware('permission:payroll.view_own');
+    Route::get('me/payslips/{entry}', [MePayslipController::class, 'show'])->middleware('permission:payroll.view_own');
+
     // Settings.
     Route::get('settings', [PayrollSettingsController::class, 'show'])->middleware('permission.any:payroll.settings.manage');
     Route::patch('settings', [PayrollSettingsController::class, 'update'])->middleware('permission.any:payroll.settings.manage');
