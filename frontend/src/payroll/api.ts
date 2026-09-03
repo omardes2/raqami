@@ -65,6 +65,51 @@ export interface PayrollRun {
   version: number
 }
 
+export interface PayrollEntryLine {
+  id: string
+  line_code: string
+  line_type: string
+  direction: string
+  source_type: string
+  source_id: string | null
+  label: string
+  quantity_minutes: number | null
+  rate_minor_per_hour: number | null
+  rate_bps: number | null
+  amount_minor: number
+  metadata: Record<string, unknown> | null
+  sort_order: number
+}
+
+export interface PayrollEntry {
+  id: string
+  employee_id: string
+  employee: { employee_number: string | null; name: string | null; job_title: string | null }
+  status: string
+  currency: string | null
+  gross_minor: number | null
+  deduction_minor: number | null
+  net_minor: number | null
+  negative_net: boolean
+  error_code: string | null
+  calculation_version: string | null
+  calculated_at: string | null
+  lines?: PayrollEntryLine[]
+}
+
+export interface RunCurrencyGroup {
+  currency: string
+  gross_minor: number
+  deduction_minor: number
+  net_minor: number
+  employee_count: number
+}
+
+export interface RunSummary {
+  by_currency: RunCurrencyGroup[]
+  counts: { cohort: number; calculated: number; failed: number; pending: number }
+}
+
 // $wrap=null resources return a bare object for one item; collections may be a
 // bare array or a { data } envelope depending on the endpoint — handle both.
 const one = <T>(d: { data?: T } | T): T => (d && typeof d === 'object' && 'data' in (d as object) ? (d as { data: T }).data : (d as T))
@@ -138,6 +183,28 @@ export const payroll = {
   async run(id: string): Promise<PayrollRun> {
     const { data } = await api.get(`/payroll/runs/${id}`)
     return one<PayrollRun>(data)
+  },
+  async calculateRun(id: string): Promise<PayrollRun> {
+    await ensureCsrf()
+    const { data } = await api.post(`/payroll/runs/${id}/calculate`, {})
+    return one<PayrollRun>(data)
+  },
+  async recalculateRun(id: string): Promise<PayrollRun> {
+    await ensureCsrf()
+    const { data } = await api.post(`/payroll/runs/${id}/recalculate`, {})
+    return one<PayrollRun>(data)
+  },
+  async runEntries(id: string): Promise<PayrollEntry[]> {
+    const { data } = await api.get(`/payroll/runs/${id}/entries`)
+    return many<PayrollEntry>(data)
+  },
+  async runSummary(id: string): Promise<RunSummary> {
+    const { data } = await api.get(`/payroll/runs/${id}/summary`)
+    return data as RunSummary
+  },
+  async entry(entryId: string): Promise<PayrollEntry> {
+    const { data } = await api.get(`/payroll/entries/${entryId}`)
+    return one<PayrollEntry>(data)
   },
   async createRun(periodId: string): Promise<PayrollRun> {
     await ensureCsrf()
