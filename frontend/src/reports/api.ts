@@ -30,6 +30,7 @@ export interface OrgTurnover {
   joiners_total: number
   leavers_total: number
   by_month: TurnoverMonth[]
+  data_quality: { missing_hire_date: number }
 }
 
 export interface ReportMeta {

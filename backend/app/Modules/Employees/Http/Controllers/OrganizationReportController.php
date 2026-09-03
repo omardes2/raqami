@@ -35,9 +35,15 @@ class OrganizationReportController extends Controller
         $tz = $this->timezone();
         [$from, $to] = $request->window($tz);
 
+        $meta = $this->meta(['from' => $from->toDateString(), 'to' => $to->toDateString()]);
+        $meta['semantics'] = [
+            'joiners' => 'employees_with_recorded_hire_date_in_window',
+            'leavers' => 'employees_with_recorded_termination_date_in_window',
+        ];
+
         return response()->json([
             'data' => $this->reports->turnover($request->user(), $from, $to),
-            'meta' => $this->meta(['from' => $from->toDateString(), 'to' => $to->toDateString()]),
+            'meta' => $meta,
         ]);
     }
 

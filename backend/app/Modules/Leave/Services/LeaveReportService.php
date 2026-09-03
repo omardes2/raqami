@@ -93,17 +93,20 @@ class LeaveReportService
             ->whereIn('employee_id', $employeeIds)
             ->whereDate('starts_on', '<=', $to->toDateString())
             ->whereDate('ends_on', '>=', $from->toDateString())
-            ->selectRaw('status, COUNT(*) as requests, COALESCE(SUM(requested_consumption_minutes),0) as consumption_minutes')
+            ->selectRaw('status, COUNT(*) as requests, COALESCE(SUM(requested_consumption_minutes),0) as requested_consumption_minutes')
             ->groupBy('status')
             ->get();
 
         return [
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
+            // Field name is explicit: this is the REQUESTED entitlement-consumption
+            // amount per status (a request's requested_consumption_minutes), NOT
+            // settled/used balance — pending/rejected/cancelled amounts are requests.
             'by_status' => $rows->map(fn ($r) => [
                 'status' => $r->status instanceof \BackedEnum ? $r->status->value : (string) $r->status,
                 'requests' => (int) $r->requests,
-                'consumption_minutes' => (int) $r->consumption_minutes,
+                'requested_consumption_minutes' => (int) $r->requested_consumption_minutes,
             ])->all(),
             'total_requests' => (int) $rows->sum('requests'),
         ];

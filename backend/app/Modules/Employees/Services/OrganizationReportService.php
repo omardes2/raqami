@@ -120,9 +120,21 @@ class OrganizationReportService
             ->sort()
             ->values();
 
+        // Data-quality signal (scoped, non-sensitive): current employees missing a
+        // hire_date cannot appear as joiners, so surfacing the count lets a reader
+        // judge how complete the joiner figure is. Termination has no equivalent
+        // gap in the CURRENT population — a 'terminated' status change always stamps
+        // termination_date (EmployeeService::changeStatus), and administratively
+        // archived rows are soft-deleted and out of this population by design.
+        $missingHireDate = (int) $this->scopedEmployees($user)->whereNull('hire_date')->count();
+
         return [
             'from' => $fromDate,
             'to' => $toDate,
+            // Explicit, truthful semantics: these are RECORDED-date counts, not a
+            // guarantee of every hire/departure. "leavers" counts employees whose
+            // termination_date falls in the window; an administrative archive that
+            // did not set termination_date is intentionally not counted here.
             'source' => 'employees.hire_date / employees.termination_date',
             'joiners_total' => (int) $joinersByMonth->sum(),
             'leavers_total' => (int) $leaversByMonth->sum(),
@@ -131,6 +143,9 @@ class OrganizationReportService
                 'joiners' => (int) ($joinersByMonth[$m] ?? 0),
                 'leavers' => (int) ($leaversByMonth[$m] ?? 0),
             ])->all(),
+            'data_quality' => [
+                'missing_hire_date' => $missingHireDate,
+            ],
         ];
     }
 }

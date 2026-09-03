@@ -949,9 +949,11 @@
       "department": "Department",
       "unassigned": "Unassigned",
       "turnover": "Turnover (joiners / leavers)",
-      "joiners": "Joiners",
-      "leavers": "Leavers",
-      "month": "Month"
+      "joiners": "Recorded joiners",
+      "leavers": "Recorded leavers",
+      "month": "Month",
+      "turnover_basis": "Based on employees with a recorded hire or termination date in the selected window; administrative archives without a termination date are not counted.",
+      "missing_hire_date": "{{count}} employee(s) in scope have no recorded hire date and are not included in joiners."
     },
     "filters": {
       "from": "From",

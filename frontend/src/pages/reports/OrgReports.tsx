@@ -122,9 +122,13 @@ export default function OrgReports() {
 
           <section className="card">
             <h3>{t('reports.org.turnover')}</h3>
+            <p className="hint">{t('reports.org.turnover_basis')}</p>
             <p className="muted">
               {turnover.from} — {turnover.to} · {t('reports.org.joiners')}: {turnover.joiners_total} · {t('reports.org.leavers')}: {turnover.leavers_total}
             </p>
+            {turnover.data_quality.missing_hire_date > 0 && (
+              <p className="warn">{t('reports.org.missing_hire_date', { count: turnover.data_quality.missing_hire_date })}</p>
+            )}
             <table>
               <thead><tr><th>{t('reports.org.month')}</th><th>{t('reports.org.joiners')}</th><th>{t('reports.org.leavers')}</th></tr></thead>
               <tbody>
