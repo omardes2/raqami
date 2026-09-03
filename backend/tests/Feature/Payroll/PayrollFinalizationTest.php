@@ -24,6 +24,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use Tests\Concerns\CommitsPayrollAtTopLevel;
 use Tests\Concerns\InteractsWithTenancy;
 use Tests\TestCase;
 
@@ -36,6 +37,7 @@ use Tests\TestCase;
  */
 class PayrollFinalizationTest extends TestCase
 {
+    use CommitsPayrollAtTopLevel;
     use InteractsWithTenancy;
 
     private function employee(Tenant $tenant, $owner, int $base = 300000): Employee
@@ -79,7 +81,7 @@ class PayrollFinalizationTest extends TestCase
 
     public function test_finalize_from_calculated_freezes_run_entries_and_closes_period(): void
     {
-        [$owner, $tenant] = $this->createCompanyWithOwner();
+        [$owner, $tenant] = $this->trackedCompany();
         $emp = $this->employee($tenant, $owner);
         $run = $this->makeRun($tenant, $owner);
         $this->calc($tenant, $owner, $run);
@@ -96,7 +98,7 @@ class PayrollFinalizationTest extends TestCase
 
     public function test_exactly_once_second_finalize_is_rejected(): void
     {
-        [$owner, $tenant] = $this->createCompanyWithOwner();
+        [$owner, $tenant] = $this->trackedCompany();
         $this->employee($tenant, $owner);
         $run = $this->makeRun($tenant, $owner);
         $this->calc($tenant, $owner, $run);
@@ -108,7 +110,7 @@ class PayrollFinalizationTest extends TestCase
 
     public function test_four_eyes_requires_prior_approval_before_finalize(): void
     {
-        [$owner, $tenant] = $this->createCompanyWithOwner();
+        [$owner, $tenant] = $this->trackedCompany();
         $this->employee($tenant, $owner);
         $this->withinTenant($tenant, fn () => app(PayrollSettingsService::class)->update($owner, ['require_four_eyes' => true]));
         $run = $this->makeRun($tenant, $owner);
@@ -120,7 +122,7 @@ class PayrollFinalizationTest extends TestCase
 
     public function test_four_eyes_finalizer_must_differ_from_approver(): void
     {
-        [$owner, $tenant] = $this->createCompanyWithOwner();
+        [$owner, $tenant] = $this->trackedCompany();
         $this->employee($tenant, $owner);
         $this->withinTenant($tenant, fn () => app(PayrollSettingsService::class)->update($owner, ['require_four_eyes' => true]));
         $run = $this->makeRun($tenant, $owner);
@@ -143,7 +145,7 @@ class PayrollFinalizationTest extends TestCase
 
     public function test_negative_net_requires_override_permission_and_reason(): void
     {
-        [$owner, $tenant] = $this->createCompanyWithOwner();
+        [$owner, $tenant] = $this->trackedCompany();
         $emp = $this->employee($tenant, $owner);
         $run = $this->makeRun($tenant, $owner);
         $this->calc($tenant, $owner, $run);
@@ -182,7 +184,7 @@ class PayrollFinalizationTest extends TestCase
 
     public function test_finalize_blocks_a_stale_run(): void
     {
-        [$owner, $tenant] = $this->createCompanyWithOwner();
+        [$owner, $tenant] = $this->trackedCompany();
         $emp = $this->employee($tenant, $owner);
         $run = $this->makeRun($tenant, $owner);
         $this->calc($tenant, $owner, $run);
@@ -197,7 +199,7 @@ class PayrollFinalizationTest extends TestCase
 
     public function test_finalize_blocks_a_cohort_drift(): void
     {
-        [$owner, $tenant] = $this->createCompanyWithOwner();
+        [$owner, $tenant] = $this->trackedCompany();
         $this->employee($tenant, $owner);
         $run = $this->makeRun($tenant, $owner);
         $this->calc($tenant, $owner, $run);
@@ -209,7 +211,7 @@ class PayrollFinalizationTest extends TestCase
 
     public function test_self_payroll_finalize_is_blocked(): void
     {
-        [$owner, $tenant] = $this->createCompanyWithOwner();
+        [$owner, $tenant] = $this->trackedCompany();
         $emp = $this->employee($tenant, $owner);
         $this->withinTenant($tenant, fn () => $emp->forceFill(['user_id' => (string) $owner->getKey()])->save());
         $run = $this->makeRun($tenant, $owner);
@@ -221,7 +223,7 @@ class PayrollFinalizationTest extends TestCase
 
     public function test_nested_finalization_is_rejected_fail_closed(): void
     {
-        [$owner, $tenant] = $this->createCompanyWithOwner();
+        [$owner, $tenant] = $this->trackedCompany();
         $this->employee($tenant, $owner);
         $run = $this->makeRun($tenant, $owner);
         $this->calc($tenant, $owner, $run);
@@ -232,7 +234,7 @@ class PayrollFinalizationTest extends TestCase
 
     public function test_finalize_rejects_a_tampered_persisted_line(): void
     {
-        [$owner, $tenant] = $this->createCompanyWithOwner();
+        [$owner, $tenant] = $this->trackedCompany();
         $emp = $this->employee($tenant, $owner);
         $run = $this->makeRun($tenant, $owner);
         $this->calc($tenant, $owner, $run);
@@ -250,7 +252,7 @@ class PayrollFinalizationTest extends TestCase
 
     public function test_finalize_rejects_tampered_entry_totals(): void
     {
-        [$owner, $tenant] = $this->createCompanyWithOwner();
+        [$owner, $tenant] = $this->trackedCompany();
         $this->employee($tenant, $owner);
         $run = $this->makeRun($tenant, $owner);
         $this->calc($tenant, $owner, $run);
@@ -264,7 +266,7 @@ class PayrollFinalizationTest extends TestCase
 
     public function test_finalize_rejects_a_tampered_stored_snapshot(): void
     {
-        [$owner, $tenant] = $this->createCompanyWithOwner();
+        [$owner, $tenant] = $this->trackedCompany();
         $this->employee($tenant, $owner);
         $run = $this->makeRun($tenant, $owner);
         $this->calc($tenant, $owner, $run);

@@ -18,6 +18,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
+use Tests\Concerns\CommitsPayrollAtTopLevel;
 use Tests\Concerns\InteractsWithTenancy;
 use Tests\TestCase;
 
@@ -29,12 +30,13 @@ use Tests\TestCase;
  */
 class PayrollImmutabilityTest extends TestCase
 {
+    use CommitsPayrollAtTopLevel;
     use InteractsWithTenancy;
 
     /** @return array{0:mixed,1:Tenant,2:Employee,3:PayrollRun} */
     private function finalizedRun(bool $withAdjustment = false): array
     {
-        [$owner, $tenant] = $this->createCompanyWithOwner();
+        [$owner, $tenant] = $this->trackedCompany();
 
         $emp = $this->withinTenant($tenant, function () use ($owner) {
             $e = app(EmployeeService::class)->create(['first_name' => 'A', 'last_name' => 'B', 'employment_status' => 'active', 'hire_date' => '2020-01-01']);
