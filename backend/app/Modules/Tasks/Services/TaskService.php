@@ -16,10 +16,13 @@ use App\Modules\Tasks\Support\ProjectAuthorizer;
 use App\Modules\Tasks\Support\TaskActivityRecorder;
 use App\Modules\Tasks\Support\TaskAuthorizer;
 use App\Modules\Tasks\Support\TaskScopeResolver;
+use App\Modules\Tasks\Support\TaskVisibilityResolver;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Task lifecycle: standalone (stable scope) or project (inherited scope) tasks,
@@ -37,6 +40,7 @@ class TaskService
         private readonly TaskWatcherService $watchers,
         private readonly TaskActivityRecorder $activity,
         private readonly AuditLogger $audit,
+        private readonly TaskVisibilityResolver $visibility,
     ) {}
 
     /**
@@ -65,8 +69,13 @@ class TaskService
         $project = null;
         if (! empty($data['project_id'])) {
             $project = Project::query()->find($data['project_id']);
-            if ($project === null) {
-                $this->fail(__('tasks.task_forbidden'));
+            // Resolve the project through the visibility boundary BEFORE creation:
+            // a non-member holding ordinary scoped tasks.create that covers the
+            // project scope must NOT be able to create inside a members_only
+            // project. An invisible project is indistinguishable from a missing
+            // one (scope-safe 404) so hidden projects never leak their existence.
+            if ($project === null || ! $this->visibility->canViewProject($actor, $project)) {
+                throw new NotFoundHttpException(__('tasks.task_forbidden'));
             }
             if (! $this->projects->canCreateProjectTask($actor, $project)) {
                 $this->fail(__('tasks.project_closed_for_tasks'));
@@ -90,6 +99,37 @@ class TaskService
         $status = $this->resolveStatus($data['status_id'] ?? null);
         [$dueType, $dueOn, $dueAt, $dueTz] = $this->normalizeDue($data);
 
+        try {
+            return $this->insertTask($actor, $data, $project, $scopeType ?? null, $scopeId ?? null, $parent, $status, $dueType, $dueOn, $dueAt, $dueTz, $employeeId, $fingerprintFields);
+        } catch (UniqueConstraintViolationException $e) {
+            // A concurrent request with the same client_request_id won the insert
+            // race (the partial-unique idempotency index fired). Re-read and reuse
+            // it if the payload matches; a different payload is a real 409; an
+            // unrelated unique violation re-throws unchanged. Never a raw 500.
+            if (empty($data['client_request_id'])) {
+                throw $e;
+            }
+            $existing = Task::query()
+                ->where('created_by_user_id', (string) $actor->getKey())
+                ->where('client_request_id', $data['client_request_id'])
+                ->first();
+            if ($existing === null) {
+                throw $e;
+            }
+            if ((string) $existing->client_request_hash !== $this->fingerprint($fingerprintFields)) {
+                throw new ConflictHttpException(__('tasks.idempotency_conflict'));
+            }
+
+            return $existing;
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $fingerprintFields
+     */
+    private function insertTask(User $actor, array $data, ?Project $project, ?ScopeType $scopeType, ?string $scopeId, ?Task $parent, TaskStatus $status, DueType $dueType, ?string $dueOn, ?CarbonImmutable $dueAt, ?string $dueTz, ?string $employeeId, array $fingerprintFields): Task
+    {
         return DB::transaction(function () use ($actor, $data, $project, $scopeType, $scopeId, $parent, $status, $dueType, $dueOn, $dueAt, $dueTz, $employeeId, $fingerprintFields) {
             $rank = ($project !== null && $parent === null)
                 ? $this->nextRank($project->getKey(), $status->getKey())

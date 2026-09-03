@@ -13,6 +13,7 @@ use App\Modules\Tasks\Support\TaskActivityRecorder;
 use App\Modules\Tasks\Support\TaskAuthorizer;
 use App\Modules\Tasks\Support\TaskVisibilityResolver;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -55,6 +56,35 @@ class TaskCommentService
 
         $mentionIds = $this->validateMentions($task, $mentionUserIds);
 
+        try {
+            return $this->insertComment($actor, $task, $body, $clientRequestId, $fingerprint, $mentionIds);
+        } catch (UniqueConstraintViolationException $e) {
+            // A concurrent request with the same client_request_id won the insert
+            // race. Re-read and reuse when the payload matches; a different payload
+            // is a real 409; an unrelated unique violation re-throws. Never a 500.
+            if ($clientRequestId === null || $clientRequestId === '') {
+                throw $e;
+            }
+            $existing = TaskComment::query()
+                ->where('user_id', (string) $actor->getKey())
+                ->where('client_request_id', $clientRequestId)
+                ->first();
+            if ($existing === null) {
+                throw $e;
+            }
+            if ((string) $existing->client_request_hash !== $fingerprint) {
+                throw new ConflictHttpException(__('tasks.idempotency_conflict'));
+            }
+
+            return $existing;
+        }
+    }
+
+    /**
+     * @param  array<int, string>  $mentionIds
+     */
+    private function insertComment(User $actor, Task $task, string $body, ?string $clientRequestId, string $fingerprint, array $mentionIds): TaskComment
+    {
         return DB::transaction(function () use ($actor, $task, $body, $clientRequestId, $fingerprint, $mentionIds) {
             $comment = TaskComment::query()->create([
                 'task_id' => $task->getKey(),

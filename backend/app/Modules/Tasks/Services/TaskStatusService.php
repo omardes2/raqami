@@ -7,6 +7,8 @@ use App\Modules\Identity\Models\User;
 use App\Modules\Tasks\Enums\TaskStatusCategory;
 use App\Modules\Tasks\Models\Task;
 use App\Modules\Tasks\Models\TaskStatus;
+use App\Modules\Tasks\Support\TaskStatusLock;
+use App\Modules\Tenancy\Services\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -19,7 +21,10 @@ use Illuminate\Validation\ValidationException;
  */
 class TaskStatusService
 {
-    public function __construct(private readonly AuditLogger $audit) {}
+    public function __construct(
+        private readonly AuditLogger $audit,
+        private readonly TenantContext $context,
+    ) {}
 
     /**
      * @param  array{name:string, code:string, category:string, color?:?string, sort_order?:int, is_default?:bool}  $data
@@ -88,6 +93,12 @@ class TaskStatusService
     public function setDefault(User $actor, TaskStatus $status): TaskStatus
     {
         return DB::transaction(function () use ($actor, $status) {
+            // Serialize concurrent default swaps for this tenant so the "one active
+            // default" partial-unique index can never surface a raw error when two
+            // admins set a default at the same instant (H3): the second waits, then
+            // sees the first's committed default and simply moves it.
+            TaskStatusLock::forDefault((string) $this->context->tenantId());
+
             $status = TaskStatus::query()->lockForUpdate()->findOrFail($status->getKey());
             if (! $status->active) {
                 $this->fail(__('tasks.status_inactive'));
@@ -105,6 +116,10 @@ class TaskStatusService
     public function deactivate(User $actor, TaskStatus $status): TaskStatus
     {
         return DB::transaction(function () use ($actor, $status) {
+            // Same tenant default lock: deactivating the default promotes a
+            // replacement, which must not race a concurrent setDefault (H3).
+            TaskStatusLock::forDefault((string) $this->context->tenantId());
+
             $status = TaskStatus::query()->lockForUpdate()->findOrFail($status->getKey());
             // Cannot remove the sole active default without a replacement.
             if ($status->is_default) {

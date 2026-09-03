@@ -24,10 +24,11 @@ use Illuminate\Support\Collection;
  *
  * Visibility layers (most permissive first):
  *   - company task authority (company-wide tasks/projects view|manage) → all;
- *   - the actor is an assignee of the task;
- *   - the actor created the task (standalone especially);
+ *   - the actor is an assignee of THIS task (narrow: this task only);
  *   - project task → the project is visible (members_only ignores org scope);
- *   - standalone task → the actor's scoped tasks.view grant covers the task scope.
+ *     creator identity is NOT an ACL here and never bypasses members_only;
+ *   - standalone task → the actor created it, OR the actor's scoped tasks.view
+ *     grant covers the task scope.
  */
 class TaskVisibilityResolver
 {
@@ -64,20 +65,29 @@ class TaskVisibilityResolver
             return true;
         }
         $employeeId = $this->actorEmployeeId($user);
+        // Narrow assignee exception: direct assignment to THIS task grants sight of
+        // THIS task only (never the board, membership, or sibling tasks).
         if ($employeeId !== null && $this->isAssignee($task->getKey(), $employeeId)) {
-            return true;
-        }
-        if ((string) $task->created_by_user_id === (string) $user->getKey()) {
             return true;
         }
 
         if ($task->project_id !== null) {
+            // Project task: visibility flows ONLY through the project boundary
+            // (company authority / owner / membership / scoped-and-covered). The
+            // creator's identity is NOT an ACL — it never bypasses the
+            // members_only ceiling. A former member who created a task but is no
+            // longer a member (and not assigned) can no longer see it.
             $project = $task->relationLoaded('project') ? $task->project : Project::query()->find($task->project_id);
 
             return $project !== null && $this->canViewProject($user, $project);
         }
 
-        // Standalone: actor's scoped tasks.view grant must cover the stable scope.
+        // Standalone task: the creator may always see their own task; otherwise the
+        // actor's scoped tasks.view grant must cover the stable scope.
+        if ((string) $task->created_by_user_id === (string) $user->getKey()) {
+            return true;
+        }
+
         return $task->scope_type !== null
             && $this->scopes->actorCoversScope($user, 'tasks.view', $task->scope_type, $task->scope_id);
     }
@@ -101,8 +111,10 @@ class TaskVisibilityResolver
             if ($employeeId !== null) {
                 $w->orWhereIn('id', TaskAssignee::query()->where('employee_id', $employeeId)->select('task_id'));
             }
-            // Created by me.
-            $w->orWhere('created_by_user_id', $user->getKey());
+            // Created by me — standalone tasks ONLY. Creator identity is not an ACL
+            // for project tasks; those flow through project visibility below so a
+            // former member's created task never leaks past the members_only ceiling.
+            $w->orWhere(fn (Builder $c) => $c->where('created_by_user_id', $user->getKey())->whereNull('project_id'));
             // Standalone tasks within my covered scope.
             $w->orWhere(function (Builder $s) use ($viewScopes) {
                 $s->whereNull('project_id')->where(fn (Builder $x) => $this->applyScopePredicate($x, $viewScopes));

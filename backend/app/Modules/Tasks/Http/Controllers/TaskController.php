@@ -19,6 +19,7 @@ use App\Modules\Tasks\Services\TaskAssignmentService;
 use App\Modules\Tasks\Services\TaskBoardService;
 use App\Modules\Tasks\Services\TaskService;
 use App\Modules\Tasks\Services\TaskWatcherService;
+use App\Modules\Tasks\Support\TaskDueQuery;
 use App\Modules\Tasks\Support\TaskVisibilityResolver;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -43,7 +44,7 @@ class TaskController extends Controller
             ->when($request->filled('status_id'), fn ($q) => $q->where('status_id', $request->query('status_id')))
             ->when($request->filled('priority'), fn ($q) => $q->where('priority', $request->query('priority')))
             ->when($request->filled('project_id'), fn ($q) => $q->where('project_id', $request->query('project_id')))
-            ->when($request->boolean('overdue'), fn ($q) => $q->whereRaw("((tasks.due_type = 'datetime' AND tasks.due_at < now()) OR (tasks.due_type = 'date' AND tasks.due_on < current_date))"))
+            ->when($request->boolean('overdue'), fn ($q) => $q->whereRaw(TaskDueQuery::overdue()))
             ->when($request->has('archived'), fn ($q) => $request->boolean('archived') ? $q->whereNotNull('archived_at') : $q->whereNull('archived_at'), fn ($q) => $q->whereNull('archived_at'))
             ->orderByDesc('created_at');
 
@@ -177,7 +178,7 @@ class TaskController extends Controller
     private function applySection($query, string $section)
     {
         return match ($section) {
-            'overdue' => $query->whereRaw("((tasks.due_type = 'datetime' AND tasks.due_at < now()) OR (tasks.due_type = 'date' AND tasks.due_on < current_date))")->whereNull('completed_at')->whereNull('archived_at'),
+            'overdue' => $query->whereRaw(TaskDueQuery::overdue()),
             'completed' => $query->whereNotNull('completed_at'),
             'today' => $query->whereDate('due_on', now()->toDateString())->whereNull('archived_at'),
             'upcoming' => $query->whereNotNull('due_on')->whereDate('due_on', '>', now()->toDateString())->whereNull('completed_at')->whereNull('archived_at'),

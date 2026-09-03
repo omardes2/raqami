@@ -5,6 +5,7 @@ namespace App\Modules\Tasks\Services;
 use App\Modules\Identity\Models\User;
 use App\Modules\Tasks\Models\Project;
 use App\Modules\Tasks\Models\Task;
+use App\Modules\Tasks\Support\TaskDueQuery;
 use App\Modules\Tasks\Support\TaskVisibilityResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -18,9 +19,6 @@ use Illuminate\Support\Facades\DB;
  */
 class TaskReportService
 {
-    /** Pragmatic aggregate-overdue (per-row timezone is applied by Task::isOverdue). */
-    private const OVERDUE_SQL = "((tasks.due_type = 'datetime' AND tasks.due_at < now()) OR (tasks.due_type = 'date' AND tasks.due_on < current_date))";
-
     public function __construct(private readonly TaskVisibilityResolver $visibility) {}
 
     /** @return array<string, int> category => count (non-archived visible tasks) */
@@ -48,7 +46,7 @@ class TaskReportService
 
     public function overdueCount(User $user): int
     {
-        return $this->visibleActive($user)->whereRaw(self::OVERDUE_SQL)->count();
+        return $this->visibleActive($user)->whereRaw(TaskDueQuery::overdue())->count();
     }
 
     /**
@@ -67,9 +65,9 @@ class TaskReportService
             ->selectRaw('task_assignees.employee_id as employee_id')
             ->selectRaw('count(*) as active')
             ->selectRaw("sum(case when tasks.priority in ('high','urgent') then 1 else 0 end) as high_urgent")
-            ->selectRaw('sum(case when '.self::OVERDUE_SQL.' then 1 else 0 end) as overdue')
+            ->selectRaw('sum(case when '.TaskDueQuery::overdue().' then 1 else 0 end) as overdue')
             ->selectRaw('coalesce(sum(tasks.estimated_minutes), 0) as estimated_minutes')
-            ->selectRaw("sum(case when tasks.due_type = 'date' and tasks.due_on <= (current_date + integer '7') then 1 when tasks.due_type = 'datetime' and tasks.due_at <= (now() + interval '7 days') then 1 else 0 end) as due_soon")
+            ->selectRaw('sum(case when '.TaskDueQuery::dueSoon().' then 1 else 0 end) as due_soon')
             ->get()
             ->map(fn ($r) => [
                 'employee_id' => (string) $r->employee_id,
