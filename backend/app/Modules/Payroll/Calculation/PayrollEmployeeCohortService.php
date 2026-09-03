@@ -11,6 +11,11 @@ use Illuminate\Support\Collection;
  * the period (hire_date inclusive, termination_date inclusive). Employees are NOT
  * excluded for missing compensation/schedule/leave/overtime data — those become
  * FAILED entries, still visible in Run Review, never silently dropped.
+ *
+ * Payroll entitlement is the EMPLOYMENT INTERVAL, not current UI visibility, so
+ * soft-deleted employees whose interval overlaps the period are INCLUDED
+ * (withTrashed) — historical recalculation must still resolve them. This does not
+ * restore them or expose them in ordinary organization listings.
  */
 class PayrollEmployeeCohortService
 {
@@ -20,7 +25,7 @@ class PayrollEmployeeCohortService
         $start = $period->period_start->toDateString();
         $end = $period->period_end->toDateString();
 
-        return Employee::query()
+        return Employee::withTrashed()
             ->where(fn ($q) => $q->whereNull('hire_date')->orWhere('hire_date', '<=', $end))
             ->where(fn ($q) => $q->whereNull('termination_date')->orWhere('termination_date', '>=', $start))
             ->orderBy('id')
