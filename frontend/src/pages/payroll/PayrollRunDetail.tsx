@@ -11,13 +11,14 @@ import {
   type RunSummary,
 } from '../../payroll/api'
 
+const emptyForm = { employee_id: '', employee_visible_label: '', direction: 'earning', amount_minor: '', currency: '', internal_reason: '', source_payroll_entry_id: '' }
+
 /**
- * Payroll run calculation, review, and Phase-2B management. Request
- * calculation/recalculation and watch queued progress; manage manual adjustments
- * (authoritative inputs — the run must be recalculated for them to take effect);
- * approve (four-eyes) and finalize (irreversible, closes the period). A finalized
- * run is fully read-only. No payslips, payments, or reports here — those are a
- * later phase. The server decides every result; this UI only sends facts.
+ * Payroll run calculation, review, and Phase-2B management. Manual adjustments are
+ * PERIOD-owned authoritative inputs (a replacement run consumes the same rows; the
+ * run must be recalculated for changes to take effect). Approve (four-eyes) and
+ * finalize (irreversible, closes the period). A finalized run is fully read-only. The
+ * server decides every result; this UI only sends facts.
  */
 export default function PayrollRunDetail() {
   const { t } = useTranslation()
@@ -38,8 +39,8 @@ export default function PayrollRunDetail() {
   const [busy, setBusy] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Adjustment form + finalize-reason state.
-  const [form, setForm] = useState({ employee_id: '', label: '', direction: 'earning', amount_minor: '', currency: '', reason: '' })
+  const [form, setForm] = useState({ ...emptyForm })
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [finalizeReason, setFinalizeReason] = useState('')
   const [showFinalize, setShowFinalize] = useState(false)
 
@@ -52,7 +53,7 @@ export default function PayrollRunDetail() {
         payroll.periods(),
         payroll.runEntries(id),
         payroll.runSummary(id),
-        payroll.adjustments(id).catch(() => [] as PayrollAdjustment[]),
+        payroll.periodAdjustments(r.payroll_period_id).catch(() => [] as PayrollAdjustment[]),
       ])
       setPeriod(periods.find((p) => p.id === r.payroll_period_id) ?? null)
       setEntries(e)
@@ -65,7 +66,6 @@ export default function PayrollRunDetail() {
     }
   }, [id])
 
-  // Poll while the queued calculation is in progress; stop at a terminal state.
   useEffect(() => {
     let active = true
     const tick = async () => {
@@ -82,7 +82,7 @@ export default function PayrollRunDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  async function run_action(fn: () => Promise<unknown>) {
+  async function act(fn: () => Promise<unknown>) {
     setBusy(true)
     setError(null)
     try {
@@ -103,22 +103,46 @@ export default function PayrollRunDetail() {
     }
   }
 
-  async function addAdjustment(ev: React.FormEvent) {
+  function startEdit(a: PayrollAdjustment) {
+    setEditingId(a.id)
+    setForm({
+      employee_id: a.employee_id,
+      employee_visible_label: a.employee_visible_label,
+      direction: a.direction,
+      amount_minor: String(a.amount_minor),
+      currency: a.currency,
+      internal_reason: a.internal_reason,
+      source_payroll_entry_id: a.source_payroll_entry_id ?? '',
+    })
+  }
+
+  function resetForm() {
+    setEditingId(null)
+    setForm({ ...emptyForm })
+  }
+
+  async function submitAdjustment(ev: React.FormEvent) {
     ev.preventDefault()
-    await run_action(async () => {
-      await payroll.createAdjustment(id, form.employee_id, {
-        label: form.label,
-        direction: form.direction,
-        amount_minor: Number(form.amount_minor),
-        currency: (form.currency || defaultCurrency).toUpperCase(),
-        reason: form.reason,
-      })
-      setForm({ employee_id: '', label: '', direction: 'earning', amount_minor: '', currency: '', reason: '' })
+    const body: Record<string, unknown> = {
+      employee_visible_label: form.employee_visible_label,
+      direction: form.direction,
+      amount_minor: Number(form.amount_minor),
+      currency: (form.currency || defaultCurrency).toUpperCase(),
+      internal_reason: form.internal_reason,
+      source_payroll_entry_id: form.source_payroll_entry_id || null,
+    }
+    await act(async () => {
+      if (editingId) {
+        await payroll.updateAdjustment(editingId, body)
+      } else if (period) {
+        await payroll.createAdjustment(period.id, { ...body, employee_id: form.employee_id })
+      }
+      resetForm()
     })
   }
 
   async function finalize() {
-    await run_action(() => payroll.finalizeRun(id, hasNegative ? finalizeReason : undefined))
+    await act(() => payroll.finalizeRun(id, hasNegative ? finalizeReason : undefined))
     setShowFinalize(false)
     setFinalizeReason('')
   }
@@ -149,8 +173,8 @@ export default function PayrollRunDetail() {
         {finalized && <p className="notice" role="status">{t('payroll.finalized_readonly')}</p>}
         {canCalculate && !finalized && (
           <div className="row">
-            {canStart && <button type="button" onClick={() => void run_action(() => payroll.calculateRun(id))} disabled={busy || calculating}>{t('payroll.calculate')}</button>}
-            {canRecalculate && <button type="button" onClick={() => void run_action(() => payroll.recalculateRun(id))} disabled={busy || calculating}>{t('payroll.recalculate')}</button>}
+            {canStart && <button type="button" onClick={() => void act(() => payroll.calculateRun(id))} disabled={busy || calculating}>{t('payroll.calculate')}</button>}
+            {canRecalculate && <button type="button" onClick={() => void act(() => payroll.recalculateRun(id))} disabled={busy || calculating}>{t('payroll.recalculate')}</button>}
           </div>
         )}
       </div>
@@ -159,7 +183,7 @@ export default function PayrollRunDetail() {
         <section className="card">
           <h3>{t('payroll.workflow')}</h3>
           <div className="row">
-            {approvable && <button type="button" onClick={() => void run_action(() => payroll.approveRun(id))} disabled={busy}>{t('payroll.approve')}</button>}
+            {approvable && <button type="button" onClick={() => void act(() => payroll.approveRun(id))} disabled={busy}>{t('payroll.approve')}</button>}
             {finalizable && !showFinalize && <button type="button" onClick={() => setShowFinalize(true)} disabled={busy}>{t('payroll.finalize')}</button>}
           </div>
           {finalizable && showFinalize && (
@@ -234,12 +258,17 @@ export default function PayrollRunDetail() {
               return (
                 <tr key={a.id}>
                   <td>{emp ? `${emp.employee.employee_number} — ${emp.employee.name}` : a.employee_id}</td>
-                  <td>{a.label}</td>
+                  <td>{a.employee_visible_label}</td>
                   <td>{t(`payroll.direction_${a.direction}`)}</td>
                   <td>{a.amount_minor}</td>
                   <td>{a.currency}</td>
-                  <td>{a.reason}</td>
-                  <td>{adjustEditable && <button type="button" className="btn-link" onClick={() => void run_action(() => payroll.deleteAdjustment(a.id))} disabled={busy}>{t('payroll.adjustment_remove')}</button>}</td>
+                  <td>{a.internal_reason}</td>
+                  <td>{adjustEditable && (
+                    <span className="row">
+                      <button type="button" className="btn-link" onClick={() => startEdit(a)} disabled={busy}>{t('common.edit')}</button>
+                      <button type="button" className="btn-link" onClick={() => void act(() => payroll.deleteAdjustment(a.id))} disabled={busy}>{t('payroll.adjustment_remove')}</button>
+                    </span>
+                  )}</td>
                 </tr>
               )
             })}
@@ -248,16 +277,18 @@ export default function PayrollRunDetail() {
         </table>
 
         {adjustEditable && (
-          <form className="stack" onSubmit={(e) => void addAdjustment(e)}>
-            <h4>{t('payroll.adjustment_add')}</h4>
-            <label>{t('payroll.employee')}
-              <select value={form.employee_id} onChange={(e) => setForm({ ...form, employee_id: e.target.value })} required>
-                <option value="">—</option>
-                {entries.map((e) => <option key={e.employee_id} value={e.employee_id}>{e.employee.employee_number} — {e.employee.name}</option>)}
-              </select>
-            </label>
+          <form className="stack" onSubmit={(e) => void submitAdjustment(e)}>
+            <h4>{editingId ? t('payroll.adjustment_edit') : t('payroll.adjustment_add')}</h4>
+            {!editingId && (
+              <label>{t('payroll.employee')}
+                <select value={form.employee_id} onChange={(e) => setForm({ ...form, employee_id: e.target.value })} required>
+                  <option value="">—</option>
+                  {entries.map((e) => <option key={e.employee_id} value={e.employee_id}>{e.employee.employee_number} — {e.employee.name}</option>)}
+                </select>
+              </label>
+            )}
             <label>{t('payroll.adjustment_label')}
-              <input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} required />
+              <input value={form.employee_visible_label} onChange={(e) => setForm({ ...form, employee_visible_label: e.target.value })} required />
             </label>
             <label>{t('payroll.direction')}
               <select value={form.direction} onChange={(e) => setForm({ ...form, direction: e.target.value })}>
@@ -272,9 +303,15 @@ export default function PayrollRunDetail() {
               <input value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} placeholder={defaultCurrency} maxLength={3} />
             </label>
             <label>{t('payroll.adjustment_reason')}
-              <input value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} required />
+              <input value={form.internal_reason} onChange={(e) => setForm({ ...form, internal_reason: e.target.value })} required />
             </label>
-            <button type="submit" disabled={busy}>{t('payroll.adjustment_add')}</button>
+            <label>{t('payroll.adjustment_source')}
+              <input value={form.source_payroll_entry_id} onChange={(e) => setForm({ ...form, source_payroll_entry_id: e.target.value })} placeholder={t('payroll.adjustment_source_hint')} />
+            </label>
+            <div className="row">
+              <button type="submit" disabled={busy}>{editingId ? t('common.save') : t('payroll.adjustment_add')}</button>
+              {editingId && <button type="button" className="btn-ghost" onClick={resetForm}>{t('common.cancel')}</button>}
+            </div>
           </form>
         )}
       </section>

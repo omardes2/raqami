@@ -288,7 +288,8 @@
     "none": "لا يوجد",
     "saved": "تم الحفظ",
     "add": "إضافة",
-    "search": "بحث"
+    "search": "بحث",
+    "edit": "تعديل"
   },
   "billing": {
     "title": "الفوترة",
@@ -912,6 +913,9 @@
     "error_zero_expected_minutes": "لا توجد دقائق عمل متوقعة",
     "error_component_currency_mismatch": "عدم تطابق عملة المكوّن",
     "error_unclassified_leave_type": "نوع إجازة غير مصنّف",
-    "error_overtime_rate_missing": "سعر العمل الإضافي غير محدد"
+    "error_overtime_rate_missing": "سعر العمل الإضافي غير محدد",
+    "adjustment_edit": "تعديل التسوية",
+    "adjustment_source": "القيد المصدر",
+    "adjustment_source_hint": "معرّف قيد مُنهى سابق (اختياري)"
   }
 }

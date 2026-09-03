@@ -288,7 +288,8 @@
     "none": "None",
     "saved": "Saved",
     "add": "Add",
-    "search": "Search"
+    "search": "Search",
+    "edit": "Edit"
   },
   "billing": {
     "title": "Billing",
@@ -912,6 +913,9 @@
     "error_zero_expected_minutes": "No expected working minutes",
     "error_component_currency_mismatch": "Component currency mismatch",
     "error_unclassified_leave_type": "Unclassified leave type",
-    "error_overtime_rate_missing": "Overtime rate missing"
+    "error_overtime_rate_missing": "Overtime rate missing",
+    "adjustment_edit": "Edit adjustment",
+    "adjustment_source": "Source entry",
+    "adjustment_source_hint": "Prior finalized entry id (optional)"
   }
 }

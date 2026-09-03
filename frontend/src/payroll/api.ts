@@ -99,13 +99,15 @@ export interface PayrollEntry {
 
 export interface PayrollAdjustment {
   id: string
-  payroll_run_id: string
+  payroll_period_id: string
   employee_id: string
-  label: string
+  employee_visible_label: string
   direction: string // earning | deduction
   amount_minor: number
   currency: string
-  reason: string
+  internal_reason: string
+  source_payroll_entry_id: string | null
+  version: number
   created_at: string | null
 }
 
@@ -228,14 +230,19 @@ export const payroll = {
     const { data } = await api.post(`/payroll/runs/${id}/cancel`, {})
     return one<PayrollRun>(data)
   },
-  // --- Phase 2B: adjustments, approval, finalization ---
-  async adjustments(runId: string): Promise<PayrollAdjustment[]> {
-    const { data } = await api.get(`/payroll/runs/${runId}/adjustments`)
+  // --- Phase 2B: adjustments (period-owned), approval, finalization ---
+  async periodAdjustments(periodId: string): Promise<PayrollAdjustment[]> {
+    const { data } = await api.get(`/payroll/periods/${periodId}/adjustments`)
     return many<PayrollAdjustment>(data)
   },
-  async createAdjustment(runId: string, employeeId: string, payload: Record<string, unknown>): Promise<PayrollAdjustment> {
+  async createAdjustment(periodId: string, payload: Record<string, unknown>): Promise<PayrollAdjustment> {
     await ensureCsrf()
-    const { data } = await api.post(`/payroll/runs/${runId}/employees/${employeeId}/adjustments`, payload)
+    const { data } = await api.post(`/payroll/periods/${periodId}/adjustments`, payload)
+    return one<PayrollAdjustment>(data)
+  },
+  async updateAdjustment(adjustmentId: string, payload: Record<string, unknown>): Promise<PayrollAdjustment> {
+    await ensureCsrf()
+    const { data } = await api.patch(`/payroll/adjustments/${adjustmentId}`, payload)
     return one<PayrollAdjustment>(data)
   },
   async deleteAdjustment(adjustmentId: string): Promise<void> {
