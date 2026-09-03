@@ -37,6 +37,7 @@ use App\Modules\Employees\Http\Controllers\EmployeeDocumentController;
 use App\Modules\Employees\Http\Controllers\EmployeeHistoryController;
 use App\Modules\Employees\Http\Controllers\EmployeeTransferController;
 use App\Modules\Employees\Http\Controllers\EmployeeUserLinkController;
+use App\Modules\Employees\Http\Controllers\OrganizationReportController;
 use App\Modules\Identity\Http\Controllers\EmailVerificationController;
 use App\Modules\Identity\Http\Controllers\InvitationController;
 use App\Modules\Identity\Http\Controllers\LoginController;
@@ -171,6 +172,11 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->group(function
     Route::post('job-titles/{jobTitle}/archive', [JobTitleController::class, 'archive'])->middleware('permission:job_titles.archive');
 
     // --- Employees ---
+    // Sprint 8A: aggregate organization/workforce reports (registered before the
+    // {employee} routes; gated by the dedicated reporting permission + scope).
+    Route::get('employees/reports/summary', [OrganizationReportController::class, 'summary'])->middleware('permission.any:employees.reports.view');
+    Route::get('employees/reports/turnover', [OrganizationReportController::class, 'turnover'])->middleware('permission.any:employees.reports.view');
+
     Route::get('employees', [EmployeeController::class, 'index'])->middleware('permission.any:employees.view');
     Route::post('employees', [EmployeeController::class, 'store'])->middleware('permission.any:employees.create');
     Route::get('employees/{employee}', [EmployeeController::class, 'show'])->middleware('permission.any:employees.view');
@@ -285,6 +291,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('attend
     Route::get('reports/summary', [AttendanceReportController::class, 'summary'])->middleware('permission.any:attendance.reports.view');
     Route::get('reports/advanced', [AttendanceReportController::class, 'advanced'])->middleware('permission.any:attendance.reports.view');
     Route::get('reports/by-employee', [AttendanceReportController::class, 'byEmployee'])->middleware('permission.any:attendance.reports.view');
+    Route::get('reports/by-unit', [AttendanceReportController::class, 'byUnit'])->middleware('permission.any:attendance.reports.view');
 
     // --- Sprint 4: Holiday calendars (company scope) ---
     Route::get('holidays/calendars', [HolidayCalendarController::class, 'index'])->middleware('permission:attendance.holidays.view');
@@ -352,6 +359,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('leave'
 
     // --- Reports & team calendar (organizational scope) ---
     Route::get('reports/summary', [LeaveReportController::class, 'summary'])->middleware('permission.any:leave.reports.view');
+    Route::get('reports/requests-by-status', [LeaveReportController::class, 'requestsByStatus'])->middleware('permission.any:leave.reports.view');
     Route::get('calendar', [LeaveReportController::class, 'calendar'])->middleware('permission.any:leave.reports.view');
 
     // --- Leave types (company scope) ---

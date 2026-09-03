@@ -58,6 +58,7 @@ class PermissionCatalog
         'employees.transfer' => ['employees', 'Transfer / change employee organization'],
         'employees.link_user' => ['employees', 'Link / unlink an employee to a user account'],
         'employees.view_sensitive' => ['employees', 'View sensitive employee data'],
+        'employees.reports.view' => ['employees', 'View organization / employee reports (aggregate, non-sensitive)'],
 
         // --- Sprint 1: Employee documents ---
         'employee_documents.view' => ['employees', 'View employee documents'],
@@ -283,6 +284,11 @@ class PermissionCatalog
     private const EMPLOYEES_FULL = [
         'employees.view', 'employees.create', 'employees.update', 'employees.archive',
         'employees.transfer', 'employees.link_user', 'employees.view_sensitive',
+        // Sprint 8A: aggregate organization/employee reporting. Included here so it
+        // reaches exactly Admin + HR Manager (both use EMPLOYEES_FULL); Owner holds
+        // it via '*'. Accountant / Department Manager / Team Leader / Employee use
+        // narrower explicit employee grants and therefore do NOT receive it.
+        'employees.reports.view',
         'employee_documents.view', 'employee_documents.upload', 'employee_documents.delete',
         'employee_contracts.view', 'employee_contracts.create', 'employee_contracts.update', 'employee_contracts.archive',
     ];
