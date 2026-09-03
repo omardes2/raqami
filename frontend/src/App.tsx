@@ -47,8 +47,10 @@ import TaskStatuses from './pages/tasks/TaskStatuses'
 import TaskReports from './pages/tasks/TaskReports'
 import PayrollSettings from './pages/payroll/PayrollSettings'
 import PayrollComponents from './pages/payroll/PayrollComponents'
+import EmployeeCompensation from './pages/payroll/EmployeeCompensation'
 import PayrollPeriods from './pages/payroll/PayrollPeriods'
 import PayrollRuns from './pages/payroll/PayrollRuns'
+import PayrollRunDetail from './pages/payroll/PayrollRunDetail'
 import BillingLayout from './pages/billing/BillingLayout'
 import BillingOverview from './pages/billing/BillingOverview'
 import BillingSubscription from './pages/billing/BillingSubscription'
@@ -117,8 +119,10 @@ export default function App() {
           <Route path="/projects" element={<Projects />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
           <Route path="/payroll/runs" element={<PayrollRuns />} />
+          <Route path="/payroll/runs/:id" element={<PayrollRunDetail />} />
           <Route path="/payroll/periods" element={<PayrollPeriods />} />
           <Route path="/payroll/components" element={<PayrollComponents />} />
+          <Route path="/payroll/compensation" element={<EmployeeCompensation />} />
           <Route path="/payroll/settings" element={<PayrollSettings />} />
           <Route path="/billing" element={<BillingLayout />}>
             <Route index element={<BillingOverview />} />

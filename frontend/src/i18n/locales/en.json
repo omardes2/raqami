@@ -47,7 +47,8 @@
     "payroll_runs": "Payroll Runs",
     "payroll_periods": "Payroll Periods",
     "payroll_components": "Payroll Components",
-    "payroll_settings": "Payroll Settings"
+    "payroll_settings": "Payroll Settings",
+    "payroll_compensation": "Employee Compensation"
   },
   "org": {
     "name": "Name",
@@ -286,7 +287,8 @@
     "archive": "Archive",
     "none": "None",
     "saved": "Saved",
-    "add": "Add"
+    "add": "Add",
+    "search": "Search"
   },
   "billing": {
     "title": "Billing",
@@ -835,6 +837,29 @@
     "run_status_calculated": "Calculated",
     "run_status_approved": "Approved",
     "run_status_finalized": "Finalized",
-    "run_status_cancelled": "Cancelled"
+    "run_status_cancelled": "Cancelled",
+    "find_employee": "Find an employee",
+    "compensation_history": "Compensation history",
+    "currency": "Currency",
+    "base_amount_minor": "Base amount (minor units)",
+    "effective_from": "Effective from",
+    "effective_to": "Effective to",
+    "end": "End",
+    "add_compensation": "Add compensation",
+    "component_assignments": "Component assignments",
+    "component": "Component",
+    "value": "Value",
+    "bps": "bps",
+    "select_component": "Select a component",
+    "rate_bps": "Rate (basis points)",
+    "fixed_amount_minor": "Fixed amount (minor units)",
+    "assign_component": "Assign component",
+    "run_detail": "Run detail",
+    "calculation_version": "Calculation version",
+    "calculated_at": "Calculated at",
+    "approved_at": "Approved at",
+    "finalized_at": "Finalized at",
+    "cancelled_at": "Cancelled at",
+    "view_detail": "View"
   }
 }

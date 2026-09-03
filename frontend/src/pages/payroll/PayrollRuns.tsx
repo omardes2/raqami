@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { payroll, type PayrollPeriod, type PayrollRun } from '../../payroll/api'
 
@@ -70,6 +71,7 @@ export default function PayrollRuns() {
               <td>{periods.find((p) => p.id === r.payroll_period_id)?.label ?? r.payroll_period_id}</td>
               <td>{t(`payroll.run_status_${r.status}`)}</td>
               <td>
+                <Link className="btn-link" to={`/payroll/runs/${r.id}`}>{t('payroll.view_detail')}</Link>
                 {!['finalized', 'cancelled'].includes(r.status) && (
                   <button type="button" className="btn-ghost" onClick={() => void cancel(r)}>{t('payroll.cancel_run')}</button>
                 )}

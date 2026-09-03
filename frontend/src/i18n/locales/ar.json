@@ -47,7 +47,8 @@
     "payroll_runs": "دورات الرواتب",
     "payroll_periods": "فترات الرواتب",
     "payroll_components": "مكوّنات الرواتب",
-    "payroll_settings": "إعدادات الرواتب"
+    "payroll_settings": "إعدادات الرواتب",
+    "payroll_compensation": "رواتب الموظفين"
   },
   "org": {
     "name": "الاسم",
@@ -286,7 +287,8 @@
     "archive": "أرشفة",
     "none": "لا يوجد",
     "saved": "تم الحفظ",
-    "add": "إضافة"
+    "add": "إضافة",
+    "search": "بحث"
   },
   "billing": {
     "title": "الفوترة",
@@ -835,6 +837,29 @@
     "run_status_calculated": "تم الحساب",
     "run_status_approved": "مُعتمدة",
     "run_status_finalized": "نهائية",
-    "run_status_cancelled": "ملغاة"
+    "run_status_cancelled": "ملغاة",
+    "find_employee": "ابحث عن موظف",
+    "compensation_history": "سجل الرواتب",
+    "currency": "العملة",
+    "base_amount_minor": "المبلغ الأساسي (وحدات صغرى)",
+    "effective_from": "ساري من",
+    "effective_to": "ساري حتى",
+    "end": "إنهاء",
+    "add_compensation": "إضافة راتب",
+    "component_assignments": "تعيينات المكوّنات",
+    "component": "المكوّن",
+    "value": "القيمة",
+    "bps": "نقطة أساس",
+    "select_component": "اختر مكوّناً",
+    "rate_bps": "النسبة (نقاط أساس)",
+    "fixed_amount_minor": "مبلغ ثابت (وحدات صغرى)",
+    "assign_component": "تعيين مكوّن",
+    "run_detail": "تفاصيل الدورة",
+    "calculation_version": "إصدار الحساب",
+    "calculated_at": "وقت الحساب",
+    "approved_at": "وقت الاعتماد",
+    "finalized_at": "وقت الإنهاء",
+    "cancelled_at": "وقت الإلغاء",
+    "view_detail": "عرض"
   }
 }

@@ -32,6 +32,18 @@ export interface EmployeeCompensation {
   version: number
 }
 
+export interface EmployeeComponentAssignment {
+  id: string
+  employee_id: string
+  payroll_component_id: string
+  fixed_amount_minor: number | null
+  rate_bps: number | null
+  currency: string | null
+  effective_from: string | null
+  effective_to: string | null
+  version: number
+}
+
 export interface PayrollPeriod {
   id: string
   label: string
@@ -91,6 +103,25 @@ export const payroll = {
     const { data } = await api.post(`/payroll/compensations/${employeeId}`, payload)
     return one<EmployeeCompensation>(data)
   },
+  async endCompensation(compensationId: string, effectiveTo: string): Promise<EmployeeCompensation> {
+    await ensureCsrf()
+    const { data } = await api.post(`/payroll/compensations/${compensationId}/end`, { effective_to: effectiveTo })
+    return one<EmployeeCompensation>(data)
+  },
+  async employeeComponents(employeeId: string): Promise<EmployeeComponentAssignment[]> {
+    const { data } = await api.get(`/payroll/employees/${employeeId}/components`)
+    return many<EmployeeComponentAssignment>(data)
+  },
+  async assignComponent(employeeId: string, payload: Record<string, unknown>): Promise<EmployeeComponentAssignment> {
+    await ensureCsrf()
+    const { data } = await api.post(`/payroll/employees/${employeeId}/components`, payload)
+    return one<EmployeeComponentAssignment>(data)
+  },
+  async endComponentAssignment(assignmentId: string, effectiveTo: string): Promise<EmployeeComponentAssignment> {
+    await ensureCsrf()
+    const { data } = await api.post(`/payroll/employee-components/${assignmentId}/end`, { effective_to: effectiveTo })
+    return one<EmployeeComponentAssignment>(data)
+  },
   async periods(): Promise<PayrollPeriod[]> {
     const { data } = await api.get('/payroll/periods')
     return many<PayrollPeriod>(data)
@@ -103,6 +134,10 @@ export const payroll = {
   async runs(params: Record<string, unknown> = {}): Promise<PayrollRun[]> {
     const { data } = await api.get('/payroll/runs', { params })
     return many<PayrollRun>(data)
+  },
+  async run(id: string): Promise<PayrollRun> {
+    const { data } = await api.get(`/payroll/runs/${id}`)
+    return one<PayrollRun>(data)
   },
   async createRun(periodId: string): Promise<PayrollRun> {
     await ensureCsrf()

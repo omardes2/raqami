@@ -56,6 +56,7 @@ export default function AppLayout() {
     { to: '/payroll/runs', label: t('nav.payroll_runs'), show: can('payroll.runs.view') },
     { to: '/payroll/periods', label: t('nav.payroll_periods'), show: can('payroll.runs.view') },
     { to: '/payroll/components', label: t('nav.payroll_components'), show: can('payroll.compensation.view') },
+    { to: '/payroll/compensation', label: t('nav.payroll_compensation'), show: can('payroll.compensation.view') },
     { to: '/payroll/settings', label: t('nav.payroll_settings'), show: can('payroll.settings.manage') },
     { to: '/billing', label: t('nav.billing'), show: can('billing.view') },
     { to: '/company', label: t('nav.company'), show: can('company.view') },
