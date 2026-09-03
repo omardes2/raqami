@@ -48,7 +48,8 @@
     "payroll_periods": "فترات الرواتب",
     "payroll_components": "مكوّنات الرواتب",
     "payroll_settings": "إعدادات الرواتب",
-    "payroll_compensation": "رواتب الموظفين"
+    "payroll_compensation": "رواتب الموظفين",
+    "my_payslips": "قسائم رواتبي"
   },
   "org": {
     "name": "الاسم",
@@ -916,6 +917,20 @@
     "error_overtime_rate_missing": "سعر العمل الإضافي غير محدد",
     "adjustment_edit": "تعديل التسوية",
     "adjustment_source": "القيد المصدر",
-    "adjustment_source_hint": "معرّف قيد مُنهى سابق (اختياري)"
+    "adjustment_source_hint": "معرّف قيد مُنهى سابق (اختياري)",
+    "my_payslips": "قسائم رواتبي",
+    "no_payslips": "لا توجد لديك قسائم رواتب مُنهاة بعد.",
+    "payslip": "قسيمة الراتب",
+    "pay_period": "فترة الراتب",
+    "net_pay": "صافي الراتب",
+    "gross_earnings": "إجمالي الاستحقاقات",
+    "total_deductions": "إجمالي الاستقطاعات",
+    "earnings": "الاستحقاقات",
+    "finalized_on": "تاريخ الإنهاء",
+    "view_payslip": "عرض",
+    "print": "طباعة",
+    "back_to_payslips": "العودة إلى قسائمي",
+    "employee_number": "الرقم الوظيفي",
+    "job_title": "المسمى الوظيفي"
   }
 }

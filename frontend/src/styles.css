@@ -232,3 +232,25 @@ legend { padding-inline: 0.5rem; color: var(--muted); font-size: 0.85rem; font-w
 .board-column { min-width: 220px; background: var(--surface, #f6f7f9); border-radius: 8px; padding: 0.5rem; }
 .board-column h3 { margin: 0.25rem 0 0.5rem; font-size: 0.9rem; }
 .filters { display: flex; gap: 0.5rem; margin: 0.5rem 0; }
+
+/* Sprint 7.5 — Employee payslip self-service (read-only, browser print) */
+.payslip-print { max-inline-size: 820px; }
+.payslip-head { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: flex-start; margin-block-end: 1rem; }
+.payslip-head h1 { margin: 0; }
+.payslip-period { text-align: end; }
+.payslip-period p { margin: 0.15rem 0; }
+.payslip-employee { margin-block-end: 1rem; }
+.payslip-print table { inline-size: 100%; }
+.amount-cell { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.payslip-net { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-block-start: 1rem; padding-block-start: 0.75rem; border-block-start: 2px solid var(--border); font-size: 1.15rem; }
+.payslip-net strong { font-size: 1.3rem; }
+
+@media print {
+  /* Hide the application chrome and any explicitly non-printable elements so a
+     clean payslip prints on its own page (RTL/LTR follow <html dir>). No PDF is
+     produced — this is the browser's native print. */
+  .sidebar, .topbar, .banner, .no-print { display: none !important; }
+  .app-shell, .main-column, .content { display: block; margin: 0; padding: 0; }
+  .payslip-print { border: none; max-inline-size: none; padding: 0; }
+  @page { margin: 1.5cm; }
+}

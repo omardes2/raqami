@@ -111,6 +111,43 @@ export interface PayrollAdjustment {
   created_at: string | null
 }
 
+export interface OwnPayslip {
+  id: string
+  payroll_period_id: string
+  period_label: string | null
+  period_start: string | null
+  period_end: string | null
+  currency: string
+  gross_minor: number
+  deduction_minor: number
+  net_minor: number
+  finalized_at: string | null
+  employee_number: string | null
+  employee_name: string | null
+}
+
+export interface OwnPayslipLine {
+  line_type: string
+  label: string
+  quantity_minutes: number | null
+  rate_minor_per_hour: number | null
+  amount_minor: number
+}
+
+export interface OwnPayslipDetail {
+  id: string
+  currency: string
+  gross_minor: number
+  deduction_minor: number
+  net_minor: number
+  finalized_at: string | null
+  period: { id: string | null; label: string | null; start: string | null; end: string | null }
+  employee: { employee_number: string | null; name: string | null; job_title: string | null }
+  company: { name: string | null }
+  earnings: OwnPayslipLine[]
+  deductions: OwnPayslipLine[]
+}
+
 export interface RunCurrencyGroup {
   currency: string
   gross_minor: number
@@ -259,5 +296,14 @@ export const payroll = {
     const payload = negativeNetReason ? { negative_net_override_reason: negativeNetReason } : {}
     const { data } = await api.post(`/payroll/runs/${id}/finalize`, payload)
     return one<PayrollRun>(data)
+  },
+  // --- Employee self-service: finalized payslips (read-only) ---
+  async myPayslips(): Promise<OwnPayslip[]> {
+    const { data } = await api.get('/payroll/me/payslips')
+    return many<OwnPayslip>(data)
+  },
+  async myPayslip(entryId: string): Promise<OwnPayslipDetail> {
+    const { data } = await api.get(`/payroll/me/payslips/${entryId}`)
+    return one<OwnPayslipDetail>(data)
   },
 }

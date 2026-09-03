@@ -51,6 +51,8 @@ import EmployeeCompensation from './pages/payroll/EmployeeCompensation'
 import PayrollPeriods from './pages/payroll/PayrollPeriods'
 import PayrollRuns from './pages/payroll/PayrollRuns'
 import PayrollRunDetail from './pages/payroll/PayrollRunDetail'
+import MyPayslips from './pages/payroll/MyPayslips'
+import MyPayslipDetail from './pages/payroll/MyPayslipDetail'
 import BillingLayout from './pages/billing/BillingLayout'
 import BillingOverview from './pages/billing/BillingOverview'
 import BillingSubscription from './pages/billing/BillingSubscription'
@@ -124,6 +126,8 @@ export default function App() {
           <Route path="/payroll/components" element={<PayrollComponents />} />
           <Route path="/payroll/compensation" element={<EmployeeCompensation />} />
           <Route path="/payroll/settings" element={<PayrollSettings />} />
+          <Route path="/me/payslips" element={<MyPayslips />} />
+          <Route path="/me/payslips/:id" element={<MyPayslipDetail />} />
           <Route path="/billing" element={<BillingLayout />}>
             <Route index element={<BillingOverview />} />
             <Route path="subscription" element={<BillingSubscription />} />
