@@ -8,6 +8,7 @@ use App\Modules\Employees\Services\EmployeeService;
 use App\Modules\Employees\Services\EmployeeUserLinkService;
 use App\Modules\Identity\Models\User;
 use App\Modules\Tenancy\Models\Tenant;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Concerns\InteractsWithTenancy;
 use Tests\TestCase;
@@ -20,6 +21,30 @@ class AttendanceApiTest extends TestCase
 {
     use InteractsWithTenancy;
     use RefreshDatabase;
+
+    protected function tearDown(): void
+    {
+        // Defensive: never let a frozen clock leak into another test.
+        CarbonImmutable::setTestNow();
+
+        parent::tearDown();
+    }
+
+    /**
+     * Run $fn with the server clock frozen to an explicit instant, always
+     * resetting afterward. Check-in time is server-authoritative (the API injects
+     * no clock), so a fixed instant makes window-sensitive tests deterministic
+     * regardless of the CI runner's wall time.
+     */
+    private function withFrozenClock(string $isoUtc, callable $fn): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse($isoUtc, 'UTC'));
+        try {
+            $fn();
+        } finally {
+            CarbonImmutable::setTestNow();
+        }
+    }
 
     /** A user linked to an employee on a company-wide Mon–Fri 08:00–16:00 schedule. */
     private function linkedEmployee(Tenant $tenant, User $user): Employee
@@ -56,14 +81,35 @@ class AttendanceApiTest extends TestCase
         $user = $this->memberWithRole($tenant, 'employee');
         $this->linkedEmployee($tenant, $user);
 
-        $in = $this->actingAs($user)->withHeaders($this->tenantHeaders($tenant))
-            ->postJson('/api/attendance/check-in', []);
-        $in->assertCreated()->assertJsonPath('status', fn ($s) => in_array($s, ['present', 'late'], true));
+        // Wed 2026-06-17 08:05 UTC: a scheduled working day, five minutes into the
+        // 08:00–16:00 shift (inside the 15-minute grace → 'present'), well clear of
+        // midnight, off-days, and any DST edge (the schedule's timezone is UTC).
+        $this->withFrozenClock('2026-06-17 08:05:00', function () use ($user, $tenant) {
+            $in = $this->actingAs($user)->withHeaders($this->tenantHeaders($tenant))
+                ->postJson('/api/attendance/check-in', []);
+            $in->assertCreated()->assertJsonPath('status', fn ($s) => in_array($s, ['present', 'late'], true));
 
-        $out = $this->actingAs($user)->withHeaders($this->tenantHeaders($tenant))
-            ->postJson('/api/attendance/check-out', []);
-        $out->assertOk()->assertJsonPath('id', $in->json('id'));
-        $this->assertNotNull($out->json('check_out_at'));
+            $out = $this->actingAs($user)->withHeaders($this->tenantHeaders($tenant))
+                ->postJson('/api/attendance/check-out', []);
+            $out->assertOk()->assertJsonPath('id', $in->json('id'));
+            $this->assertNotNull($out->json('check_out_at'));
+        });
+    }
+
+    public function test_check_in_before_window_is_rejected(): void
+    {
+        [, $tenant] = $this->createCompanyWithOwner();
+        $user = $this->memberWithRole($tenant, 'employee');
+        $this->linkedEmployee($tenant, $user);
+
+        // Same working day, 06:00 UTC — before the earliest allowed check-in
+        // (08:00 start minus the 60-minute early window = 07:00). Proves freezing
+        // the clock did not weaken the early-window business rule.
+        $this->withFrozenClock('2026-06-17 06:00:00', function () use ($user, $tenant) {
+            $this->actingAs($user)->withHeaders($this->tenantHeaders($tenant))
+                ->postJson('/api/attendance/check-in', [])
+                ->assertStatus(422)->assertJsonValidationErrors('attendance');
+        });
     }
 
     public function test_user_without_employee_link_cannot_check_in(): void
