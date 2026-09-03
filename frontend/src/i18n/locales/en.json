@@ -48,7 +48,8 @@
     "payroll_periods": "Payroll Periods",
     "payroll_components": "Payroll Components",
     "payroll_settings": "Payroll Settings",
-    "payroll_compensation": "Employee Compensation"
+    "payroll_compensation": "Employee Compensation",
+    "my_payslips": "My Payslips"
   },
   "org": {
     "name": "Name",
@@ -916,6 +917,20 @@
     "error_overtime_rate_missing": "Overtime rate missing",
     "adjustment_edit": "Edit adjustment",
     "adjustment_source": "Source entry",
-    "adjustment_source_hint": "Prior finalized entry id (optional)"
+    "adjustment_source_hint": "Prior finalized entry id (optional)",
+    "my_payslips": "My Payslips",
+    "no_payslips": "You have no finalized payslips yet.",
+    "payslip": "Payslip",
+    "pay_period": "Pay period",
+    "net_pay": "Net pay",
+    "gross_earnings": "Gross earnings",
+    "total_deductions": "Total deductions",
+    "earnings": "Earnings",
+    "finalized_on": "Finalized on",
+    "view_payslip": "View",
+    "print": "Print",
+    "back_to_payslips": "Back to my payslips",
+    "employee_number": "Employee number",
+    "job_title": "Job title"
   }
 }
