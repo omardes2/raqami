@@ -58,6 +58,16 @@ use App\Modules\Organization\Http\Controllers\BranchController;
 use App\Modules\Organization\Http\Controllers\DepartmentController;
 use App\Modules\Organization\Http\Controllers\JobTitleController;
 use App\Modules\Organization\Http\Controllers\TeamController;
+use App\Modules\Payroll\Http\Controllers\EmployeeCompensationComponentController;
+use App\Modules\Payroll\Http\Controllers\EmployeeCompensationController;
+use App\Modules\Payroll\Http\Controllers\PayrollAdjustmentController;
+use App\Modules\Payroll\Http\Controllers\PayrollApprovalController;
+use App\Modules\Payroll\Http\Controllers\PayrollCalculationController;
+use App\Modules\Payroll\Http\Controllers\PayrollComponentController;
+use App\Modules\Payroll\Http\Controllers\PayrollEntryController;
+use App\Modules\Payroll\Http\Controllers\PayrollPeriodController;
+use App\Modules\Payroll\Http\Controllers\PayrollRunController;
+use App\Modules\Payroll\Http\Controllers\PayrollSettingsController;
 use App\Modules\Platform\Http\Controllers\PlatformAuditController;
 use App\Modules\Platform\Http\Controllers\PlatformAuthController;
 use App\Modules\Platform\Http\Controllers\PlatformTenantController;
@@ -486,4 +496,65 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('task-s
     Route::post('{status}/deactivate', [TaskStatusController::class, 'deactivate'])->middleware('permission:tasks.settings.manage');
     Route::post('{status}/reactivate', [TaskStatusController::class, 'reactivate'])->middleware('permission:tasks.settings.manage');
     Route::post('reorder', [TaskStatusController::class, 'reorder'])->middleware('permission:tasks.settings.manage');
+});
+
+/*
+| Payroll (Sprint 7, Phase 1) — company-level financial authority.
+|
+| Route middleware (permission.any) is the coarse gate; every controller then
+| enforces COMPANY-LEVEL authority via PayrollAuthorizationService (a branch/
+| department/team-scoped grant gets a scope-safe 404, never salary). Self-payroll
+| is blocked in-service through the actor's User→Employee mapping. Compensation
+| amounts are only served from these compensation-view-gated endpoints.
+*/
+Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('payroll')->group(function () {
+    // Settings.
+    Route::get('settings', [PayrollSettingsController::class, 'show'])->middleware('permission.any:payroll.settings.manage');
+    Route::patch('settings', [PayrollSettingsController::class, 'update'])->middleware('permission.any:payroll.settings.manage');
+
+    // Component catalog.
+    Route::get('components', [PayrollComponentController::class, 'index'])->middleware('permission.any:payroll.compensation.view');
+    Route::post('components', [PayrollComponentController::class, 'store'])->middleware('permission.any:payroll.components.manage');
+    Route::match(['put', 'patch'], 'components/{component}', [PayrollComponentController::class, 'update'])->middleware('permission.any:payroll.components.manage');
+
+    // Employee compensation (effective-dated, sensitive).
+    Route::get('compensations/{employee}', [EmployeeCompensationController::class, 'index'])->middleware('permission.any:payroll.compensation.view');
+    Route::post('compensations/{employee}', [EmployeeCompensationController::class, 'store'])->middleware('permission.any:payroll.compensation.manage');
+    Route::post('compensations/{compensation}/end', [EmployeeCompensationController::class, 'end'])->middleware('permission.any:payroll.compensation.manage');
+
+    // Employee recurring components (effective-dated, sensitive).
+    Route::get('employees/{employee}/components', [EmployeeCompensationComponentController::class, 'index'])->middleware('permission.any:payroll.compensation.view');
+    Route::post('employees/{employee}/components', [EmployeeCompensationComponentController::class, 'store'])->middleware('permission.any:payroll.compensation.manage');
+    Route::post('employee-components/{assignment}/end', [EmployeeCompensationComponentController::class, 'end'])->middleware('permission.any:payroll.compensation.manage');
+
+    // Periods.
+    Route::get('periods', [PayrollPeriodController::class, 'index'])->middleware('permission.any:payroll.runs.view');
+    Route::post('periods', [PayrollPeriodController::class, 'store'])->middleware('permission.any:payroll.runs.manage');
+    Route::get('periods/{period}', [PayrollPeriodController::class, 'show'])->middleware('permission.any:payroll.runs.view');
+
+    // Runs (Phase-1 skeleton: create / view / cancel; no finalize yet).
+    Route::get('runs', [PayrollRunController::class, 'index'])->middleware('permission.any:payroll.runs.view');
+    Route::post('runs', [PayrollRunController::class, 'store'])->middleware('permission.any:payroll.runs.manage');
+    Route::get('runs/{run}', [PayrollRunController::class, 'show'])->middleware('permission.any:payroll.runs.view');
+    Route::post('runs/{run}/cancel', [PayrollRunController::class, 'cancel'])->middleware('permission.any:payroll.runs.manage');
+
+    // Phase 2A: queued calculation + management review (company-level authority via
+    // PayrollAuthorizationService). No approval/finalization/payslips here.
+    Route::post('runs/{run}/calculate', [PayrollCalculationController::class, 'calculate'])->middleware('permission.any:payroll.calculate');
+    Route::post('runs/{run}/recalculate', [PayrollCalculationController::class, 'recalculate'])->middleware('permission.any:payroll.calculate');
+    Route::get('runs/{run}/entries', [PayrollEntryController::class, 'index'])->middleware('permission.any:payroll.runs.view');
+    Route::get('runs/{run}/summary', [PayrollEntryController::class, 'summary'])->middleware('permission.any:payroll.runs.view');
+    Route::get('entries/{entry}', [PayrollEntryController::class, 'show'])->middleware('permission.any:payroll.runs.view');
+
+    // Phase 2B: manual adjustments are PERIOD-owned authoritative inputs (a replacement
+    // run consumes the same rows; recalc folds changes in), plus approval (four-eyes)
+    // and irreversible finalization (immutable, closes period). Every controller
+    // re-enforces COMPANY-LEVEL authority via PayrollAuthorizationService.
+    Route::get('periods/{period}/adjustments', [PayrollAdjustmentController::class, 'index'])->middleware('permission.any:payroll.runs.view');
+    Route::post('periods/{period}/adjustments', [PayrollAdjustmentController::class, 'store'])->middleware('permission.any:payroll.adjust');
+    Route::match(['put', 'patch'], 'adjustments/{adjustment}', [PayrollAdjustmentController::class, 'update'])->middleware('permission.any:payroll.adjust');
+    Route::delete('adjustments/{adjustment}', [PayrollAdjustmentController::class, 'destroy'])->middleware('permission.any:payroll.adjust');
+
+    Route::post('runs/{run}/approve', [PayrollApprovalController::class, 'approve'])->middleware('permission.any:payroll.approve');
+    Route::post('runs/{run}/finalize', [PayrollApprovalController::class, 'finalize'])->middleware('permission.any:payroll.finalize');
 });

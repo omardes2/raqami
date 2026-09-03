@@ -9,6 +9,7 @@ use App\Modules\Billing\Models\Plan;
 use App\Modules\Billing\Services\SubscriptionManager;
 use App\Modules\Identity\Models\TenantMembership;
 use App\Modules\Identity\Models\User;
+use App\Modules\Payroll\Services\PayrollSettingsService;
 use App\Modules\Tasks\Services\TaskStatusBootstrapService;
 use App\Modules\Tenancy\Models\Tenant;
 use App\Modules\Tenancy\Services\TenantContext;
@@ -60,6 +61,9 @@ class CompanyOnboardingService
 
                 // Sprint 6: seed the default task status catalog (idempotent).
                 app(TaskStatusBootstrapService::class)->seed();
+
+                // Sprint 7: ensure the tenant payroll settings row exists (idempotent).
+                app(PayrollSettingsService::class)->getOrCreate();
 
                 $membership = TenantMembership::query()->create([
                     'user_id' => $owner->getKey(),
