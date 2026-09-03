@@ -248,11 +248,12 @@ class PayrollInputBuilder
             $overtimeItems[] = new OvertimeItem($ot['approval_id'], $ot['work_date'], $ot['approved_minutes'], $rate);
         }
 
-        // 6. Manual adjustments (Phase 2B) for this (run, employee). Authoritative
-        // inputs, re-read every calculation; a fixed non-prorated earning/deduction.
-        // They must be in the entry's resolved currency.
+        // 6. Manual adjustments (Phase 2B) for this (period, employee). Authoritative
+        // inputs, re-read every calculation and OWNED BY THE PERIOD (so a replacement
+        // run consumes the same rows); a fixed non-prorated earning/deduction in the
+        // entry's resolved currency. internal_reason never enters input/snapshot.
         $adjustmentRows = PayrollAdjustment::query()
-            ->where('payroll_run_id', $run->getKey())
+            ->where('payroll_period_id', (string) $period->getKey())
             ->where('employee_id', $employee->getKey())
             ->orderBy('id')
             ->get();
@@ -263,14 +264,15 @@ class PayrollInputBuilder
             if ($adj->currency !== null && CurrencyMetadata::normalize((string) $adj->currency) !== $currency) {
                 throw new PayrollCalculationException(PayrollErrorCode::AdjustmentCurrencyMismatch, ['adjustment_id' => (string) $adj->getKey()]);
             }
-            $adjustmentItems[] = new AdjustmentItem((string) $adj->getKey(), (string) $adj->direction, (int) $adj->amount_minor, (string) $adj->label);
+            $adjustmentItems[] = new AdjustmentItem((string) $adj->getKey(), (string) $adj->direction, (int) $adj->amount_minor, (string) $adj->employee_visible_label);
             $adjustmentsForSnapshot[] = [
                 'id' => (string) $adj->getKey(),
                 'version' => (int) $adj->version,
                 'direction' => (string) $adj->direction,
                 'amount_minor' => (int) $adj->amount_minor,
                 'currency' => $adj->currency,
-                'label' => (string) $adj->label,
+                'employee_visible_label' => (string) $adj->employee_visible_label,
+                'source_payroll_entry_id' => $adj->source_payroll_entry_id !== null ? (string) $adj->source_payroll_entry_id : null,
             ];
         }
 

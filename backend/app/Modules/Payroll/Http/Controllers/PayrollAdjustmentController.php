@@ -3,11 +3,11 @@
 namespace App\Modules\Payroll\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Employees\Models\Employee;
 use App\Modules\Payroll\Http\Requests\StorePayrollAdjustmentRequest;
+use App\Modules\Payroll\Http\Requests\UpdatePayrollAdjustmentRequest;
 use App\Modules\Payroll\Http\Resources\PayrollAdjustmentResource;
 use App\Modules\Payroll\Models\PayrollAdjustment;
-use App\Modules\Payroll\Models\PayrollRun;
+use App\Modules\Payroll\Models\PayrollPeriod;
 use App\Modules\Payroll\Services\PayrollAdjustmentService;
 use App\Modules\Payroll\Support\PayrollAuthorizationService;
 use Illuminate\Http\JsonResponse;
@@ -15,10 +15,10 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 /**
- * Manual payroll adjustments (Phase 2B). Company-level payroll authority only (a
- * branch/dept/team-scoped grant gets a scope-safe 404). Adjustments feed the
- * calculation as authoritative inputs, so they may only change while the run is
- * pre-approval; the service and DB triggers enforce that.
+ * Manual payroll adjustments (Phase 2B), owned by (period, employee). Company-level
+ * payroll authority only (a branch/dept/team-scoped grant gets a scope-safe 404).
+ * Adjustments are authoritative period inputs, mutable only while the period is open
+ * and its active run pre-approval; the service and DB triggers enforce that.
  */
 class PayrollAdjustmentController extends Controller
 {
@@ -27,25 +27,35 @@ class PayrollAdjustmentController extends Controller
         private readonly PayrollAuthorizationService $authz,
     ) {}
 
-    public function index(Request $request, PayrollRun $run): JsonResponse
+    public function index(Request $request, PayrollPeriod $period): JsonResponse
     {
         $this->authz->authorize($request->user(), 'payroll.runs.view');
 
         $rows = PayrollAdjustment::query()
-            ->where('payroll_run_id', $run->getKey())
+            ->where('payroll_period_id', $period->getKey())
             ->orderBy('employee_id')->orderBy('id')
             ->get();
 
         return PayrollAdjustmentResource::collection($rows)->response();
     }
 
-    public function store(StorePayrollAdjustmentRequest $request, PayrollRun $run, Employee $employee): JsonResponse
+    public function store(StorePayrollAdjustmentRequest $request, PayrollPeriod $period): JsonResponse
     {
         $this->authz->authorize($request->user(), 'payroll.adjust');
 
-        $adjustment = $this->adjustments->create($request->user(), $run, (string) $employee->getKey(), $request->validated());
+        $data = $request->validated();
+        $adjustment = $this->adjustments->create($request->user(), $period, (string) $data['employee_id'], $data);
 
         return (new PayrollAdjustmentResource($adjustment))->response()->setStatusCode(201);
+    }
+
+    public function update(UpdatePayrollAdjustmentRequest $request, PayrollAdjustment $adjustment): JsonResponse
+    {
+        $this->authz->authorize($request->user(), 'payroll.adjust');
+
+        $adjustment = $this->adjustments->update($request->user(), $adjustment, $request->validated());
+
+        return (new PayrollAdjustmentResource($adjustment))->response();
     }
 
     public function destroy(Request $request, PayrollAdjustment $adjustment): Response

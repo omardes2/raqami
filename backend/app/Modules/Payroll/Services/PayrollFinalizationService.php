@@ -22,6 +22,7 @@ use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\PayrollSetting;
 use App\Modules\Payroll\Support\PayrollAuthorizationService;
 use App\Modules\Payroll\Support\PayrollFinalizationTransaction;
+use App\Modules\Payroll\Support\PayrollRunExecutionLock;
 use App\Modules\Tenancy\Services\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
@@ -70,147 +71,165 @@ class PayrollFinalizationService
 
         $runId = (string) $run->getKey();
         $periodId = (string) $run->payroll_period_id; // locator only — not authoritative state
+        $tenantId = (string) $this->context->tenantId();
 
-        $finalized = PayrollFinalizationTransaction::run(function () use ($actor, $runId, $periodId, $negativeNetReason, $canOverride) {
-            // B: lock the period FOR UPDATE, then the run FOR UPDATE, inside the snapshot.
-            $period = PayrollPeriod::query()->lockForUpdate()->findOrFail($periodId);
-            $run = PayrollRun::query()->lockForUpdate()->findOrFail($runId);
+        // Serialize finalization against the calculation worker (and any other
+        // finalizer) on the SAME session-level run-execution lock the calculation job
+        // holds. If a calculation is executing, finalization must not begin.
+        if (! PayrollRunExecutionLock::tryAcquire($tenantId, $runId)) {
+            throw ValidationException::withMessages(['run' => [__('payroll.run_calculation_in_progress')]]);
+        }
 
-            // Exactly-once + closed-period guards (authoritative state).
-            if ($run->status === PayrollRunStatus::Finalized) {
-                throw ValidationException::withMessages(['run' => [__('payroll.run_already_finalized')]]);
-            }
-            if ($period->status === PayrollPeriodStatus::Closed) {
-                throw ValidationException::withMessages(['period' => [__('payroll.period_closed')]]);
-            }
+        try {
+            $finalized = PayrollFinalizationTransaction::run(function () use ($actor, $runId, $periodId, $negativeNetReason, $canOverride) {
+                // B: lock the period FOR UPDATE, then the run FOR UPDATE, inside the snapshot.
+                $period = PayrollPeriod::query()->lockForUpdate()->findOrFail($periodId);
+                $run = PayrollRun::query()->lockForUpdate()->findOrFail($runId);
 
-            // Authoritative settings read inside the snapshot.
-            $settings = PayrollSetting::query()->where('tenant_id', $this->context->tenantId())->firstOrFail();
-            $fourEyes = (bool) $settings->require_four_eyes;
-
-            // Legal state: four-eyes forces an explicit prior approval.
-            $legalFrom = $fourEyes
-                ? [PayrollRunStatus::Approved]
-                : [PayrollRunStatus::Calculated, PayrollRunStatus::Approved];
-            if (! in_array($run->status, $legalFrom, true)) {
-                throw ValidationException::withMessages(['run' => [__('payroll.run_not_finalizable')]]);
-            }
-
-            // Four-eyes: the finalizer must differ from the approver.
-            if ($fourEyes && (string) $run->approved_by_user_id === (string) $actor->getKey()) {
-                throw ValidationException::withMessages(['run' => [__('payroll.four_eyes_finalizer')]]);
-            }
-
-            // Self-payroll (authoritative, inside the snapshot).
-            $this->authz->assertNotSelfPayrollRun($actor, $runId);
-
-            // Authoritative current cohort + persisted entries, all inside the snapshot.
-            $cohort = $this->cohort->forPeriod($period);
-            $cohortIds = $cohort->map(fn (Employee $e) => (string) $e->getKey())->sort()->values()->all();
-
-            $entries = PayrollEntry::query()->where('payroll_run_id', $runId)->lockForUpdate()->get();
-            $entryByEmployee = $entries->keyBy(fn (PayrollEntry $e) => (string) $e->employee_id);
-            $entryIds = $entries->map(fn (PayrollEntry $e) => (string) $e->employee_id)->sort()->values()->all();
-
-            if ($entries->isEmpty()) {
-                throw ValidationException::withMessages(['run' => [__('payroll.run_has_no_entries')]]);
-            }
-            if ($cohortIds !== $entryIds) {
-                throw ValidationException::withMessages(['run' => [__('payroll.run_cohort_stale')]]);
-            }
-
-            // PASS 1 — validate every employee authoritatively. No writes yet.
-            $needsOverride = [];
-            foreach ($cohort as $employee) {
-                /** @var PayrollEntry $entry */
-                $entry = $entryByEmployee->get((string) $employee->getKey());
-
-                if ($entry->status !== PayrollEntryStatus::Calculated) {
-                    throw ValidationException::withMessages(['run' => [__('payroll.run_has_unresolved_entries')]]);
+                // Exactly-once + closed-period guards (authoritative state).
+                if ($run->status === PayrollRunStatus::Finalized) {
+                    throw ValidationException::withMessages(['run' => [__('payroll.run_already_finalized')]]);
                 }
-                if ((string) $entry->calculation_version !== PayrollCalculationEngine::VERSION) {
-                    throw ValidationException::withMessages(['run' => [__('payroll.calculation_version_mismatch')]]);
-                }
-                if ($entry->input_snapshot === null || $entry->input_fingerprint === null
-                    || $this->fingerprints->fingerprint($entry->input_snapshot) !== $entry->input_fingerprint) {
-                    throw ValidationException::withMessages(['run' => [__('payroll.stored_snapshot_tampered')]]);
+                if ($period->status === PayrollPeriodStatus::Closed) {
+                    throw ValidationException::withMessages(['period' => [__('payroll.period_closed')]]);
                 }
 
-                try {
-                    $prepared = $this->builder->build($employee, $period, $settings, $run);
-                } catch (PayrollCalculationException) {
-                    // Inputs no longer produce a valid calculation → drifted since calc.
-                    throw ValidationException::withMessages(['run' => [__('payroll.run_inputs_stale')]]);
+                // Authoritative settings read inside the snapshot.
+                $settings = PayrollSetting::query()->where('tenant_id', $this->context->tenantId())->firstOrFail();
+                $fourEyes = (bool) $settings->require_four_eyes;
+
+                // Legal state: four-eyes forces an explicit prior approval.
+                $legalFrom = $fourEyes
+                    ? [PayrollRunStatus::Approved]
+                    : [PayrollRunStatus::Calculated, PayrollRunStatus::Approved];
+                if (! in_array($run->status, $legalFrom, true)) {
+                    throw ValidationException::withMessages(['run' => [__('payroll.run_not_finalizable')]]);
                 }
 
-                if ($this->fingerprints->fingerprint($prepared->snapshot) !== $entry->input_fingerprint) {
-                    throw ValidationException::withMessages(['run' => [__('payroll.run_inputs_stale')]]);
+                // Four-eyes is separation of the calculation requester and the approver
+                // (enforced at approval). The approver MAY also finalize if they hold
+                // payroll.finalize — no third person is required — so there is no
+                // finalizer/approver distinction check here.
+
+                // Self-payroll (authoritative, inside the snapshot).
+                $this->authz->assertNotSelfPayrollRun($actor, $runId);
+
+                // Authoritative current cohort + persisted entries, all inside the snapshot.
+                $cohort = $this->cohort->forPeriod($period);
+                $cohortIds = $cohort->map(fn (Employee $e) => (string) $e->getKey())->sort()->values()->all();
+
+                $entries = PayrollEntry::query()->where('payroll_run_id', $runId)->lockForUpdate()->get();
+                $entryByEmployee = $entries->keyBy(fn (PayrollEntry $e) => (string) $e->employee_id);
+                $entryIds = $entries->map(fn (PayrollEntry $e) => (string) $e->employee_id)->sort()->values()->all();
+
+                if ($entries->isEmpty()) {
+                    throw ValidationException::withMessages(['run' => [__('payroll.run_has_no_entries')]]);
+                }
+                if ($cohortIds !== $entryIds) {
+                    throw ValidationException::withMessages(['run' => [__('payroll.run_cohort_stale')]]);
                 }
 
-                $result = $this->engine->calculate($prepared->input);
-                if ($result->currency !== $entry->currency
-                    || $result->grossMinor !== (int) $entry->gross_minor
-                    || $result->deductionMinor !== (int) $entry->deduction_minor
-                    || $result->netMinor !== (int) $entry->net_minor) {
-                    throw ValidationException::withMessages(['run' => [__('payroll.result_revalidation_failed')]]);
-                }
+                // PASS 1 — validate every employee authoritatively. No writes yet.
+                $needsOverride = [];
+                foreach ($cohort as $employee) {
+                    /** @var PayrollEntry $entry */
+                    $entry = $entryByEmployee->get((string) $employee->getKey());
 
-                $this->assertPersistedLinesConsistent($entry, $result);
-
-                if ((int) $entry->net_minor < 0) {
-                    if (! $canOverride || $negativeNetReason === null || $negativeNetReason === '') {
-                        throw ValidationException::withMessages(['run' => [__('payroll.negative_net_requires_override')]]);
+                    if ($entry->status !== PayrollEntryStatus::Calculated) {
+                        throw ValidationException::withMessages(['run' => [__('payroll.run_has_unresolved_entries')]]);
                     }
-                    $needsOverride[(string) $entry->getKey()] = true;
+                    if ((string) $entry->calculation_version !== PayrollCalculationEngine::VERSION) {
+                        throw ValidationException::withMessages(['run' => [__('payroll.calculation_version_mismatch')]]);
+                    }
+                    if ($entry->input_snapshot === null || $entry->input_fingerprint === null
+                        || $this->fingerprints->fingerprint($entry->input_snapshot) !== $entry->input_fingerprint) {
+                        throw ValidationException::withMessages(['run' => [__('payroll.stored_snapshot_tampered')]]);
+                    }
+
+                    try {
+                        $prepared = $this->builder->build($employee, $period, $settings, $run);
+                    } catch (PayrollCalculationException) {
+                        // Inputs no longer produce a valid calculation → drifted since calc.
+                        throw ValidationException::withMessages(['run' => [__('payroll.run_inputs_stale')]]);
+                    }
+
+                    if ($this->fingerprints->fingerprint($prepared->snapshot) !== $entry->input_fingerprint) {
+                        throw ValidationException::withMessages(['run' => [__('payroll.run_inputs_stale')]]);
+                    }
+
+                    $result = $this->engine->calculate($prepared->input);
+                    if ($result->currency !== $entry->currency
+                        || $result->grossMinor !== (int) $entry->gross_minor
+                        || $result->deductionMinor !== (int) $entry->deduction_minor
+                        || $result->netMinor !== (int) $entry->net_minor) {
+                        throw ValidationException::withMessages(['run' => [__('payroll.result_revalidation_failed')]]);
+                    }
+
+                    $this->assertPersistedLinesConsistent($entry, $result);
+
+                    if ((int) $entry->net_minor < 0) {
+                        if (! $canOverride || $negativeNetReason === null || $negativeNetReason === '') {
+                            throw ValidationException::withMessages(['run' => [__('payroll.negative_net_requires_override')]]);
+                        }
+                        $needsOverride[(string) $entry->getKey()] = true;
+                    }
                 }
-            }
 
-            // PASS 2 — commit: finalize entries → finalize run → close period.
-            $now = CarbonImmutable::now()->utc();
+                // PASS 2 — commit: finalize entries → finalize run → close period.
+                $now = CarbonImmutable::now()->utc();
 
-            foreach ($entries as $entry) {
-                $override = isset($needsOverride[(string) $entry->getKey()]);
-                $entry->forceFill(array_merge([
-                    'status' => PayrollEntryStatus::Finalized,
+                foreach ($entries as $entry) {
+                    $override = isset($needsOverride[(string) $entry->getKey()]);
+                    $entry->forceFill(array_merge([
+                        'status' => PayrollEntryStatus::Finalized,
+                        'finalized_at' => $now,
+                        'version' => (int) $entry->version + 1,
+                    ], $override ? [
+                        'negative_net_override_by_user_id' => (string) $actor->getKey(),
+                        'negative_net_override_reason' => $negativeNetReason,
+                    ] : []))->save();
+                }
+
+                $run->forceFill([
+                    'status' => PayrollRunStatus::Finalized,
+                    'finalized_by_user_id' => (string) $actor->getKey(),
                     'finalized_at' => $now,
-                    'version' => (int) $entry->version + 1,
-                ], $override ? [
-                    'negative_net_override_by_user_id' => (string) $actor->getKey(),
-                    'negative_net_override_reason' => $negativeNetReason,
-                ] : []))->save();
-            }
+                    'version' => (int) $run->version + 1,
+                ])->save();
 
-            $run->forceFill([
-                'status' => PayrollRunStatus::Finalized,
-                'finalized_by_user_id' => (string) $actor->getKey(),
-                'finalized_at' => $now,
-                'version' => (int) $run->version + 1,
-            ])->save();
+                $period->forceFill(['status' => PayrollPeriodStatus::Closed])->save();
 
-            $period->forceFill(['status' => PayrollPeriodStatus::Closed])->save();
+                return $run->fresh();
+            });
 
-            return $run->fresh();
-        });
+            $this->audit->log('payroll.run_finalized', [
+                'actor' => $actor, 'subject' => $finalized,
+                'metadata' => [
+                    'payroll_period_id' => $finalized->payroll_period_id,
+                    'negative_net_override' => $negativeNetReason !== null && $negativeNetReason !== '',
+                ],
+            ]);
 
-        $this->audit->log('payroll.run_finalized', [
-            'actor' => $actor, 'subject' => $finalized,
-            'metadata' => [
-                'payroll_period_id' => $finalized->payroll_period_id,
-                'negative_net_override' => $negativeNetReason !== null && $negativeNetReason !== '',
-            ],
-        ]);
-
-        return $finalized;
+            return $finalized;
+        } finally {
+            PayrollRunExecutionLock::release($tenantId, $runId);
+        }
     }
 
     /**
-     * The persisted lines must reproduce the entry totals AND match the freshly
-     * re-run engine result line-for-line (as a multiset of type|direction|amount) —
-     * so a tampered, added, or removed line is caught even if totals coincide.
+     * Defense-in-depth line/total integrity: the persisted lines must reproduce the
+     * entry totals AND match the freshly re-run engine result on EVERY engine-owned
+     * field — not just amount — in canonical order. Any tampered, added, removed, or
+     * reordered line (source, quantity, rate, bps, label, metadata, code/type, or a
+     * line_code that disagrees with its line_type) is rejected even when totals
+     * coincide. DB-only identity (line ULID) and created_at are intentionally excluded.
      */
     private function assertPersistedLinesConsistent(PayrollEntry $entry, CalculationResult $result): void
     {
-        $lines = PayrollEntryLine::query()->where('payroll_entry_id', $entry->getKey())->get();
+        $lines = PayrollEntryLine::query()
+            ->where('payroll_entry_id', $entry->getKey())
+            ->orderBy('sort_order')->orderBy('id')
+            ->get();
 
         $gross = 0;
         $deduction = 0;
@@ -221,21 +240,76 @@ class PayrollFinalizationService
             } else {
                 $deduction += (int) $line->amount_minor;
             }
-            $persisted[] = $line->line_type->value.'|'.$line->direction->value.'|'.(int) $line->amount_minor;
+            // A persisted line_code that disagrees with its own line_type is tampering.
+            if ($line->line_code !== $line->line_type->value) {
+                throw ValidationException::withMessages(['run' => [__('payroll.persisted_lines_tampered')]]);
+            }
+            $persisted[] = $this->lineSignature(
+                $line->line_type->value,
+                $line->direction->value,
+                $line->source_type,
+                $line->source_id,
+                $line->label_snapshot,
+                $line->quantity_minutes,
+                $line->rate_minor_per_hour,
+                $line->rate_bps,
+                (int) $line->amount_minor,
+                $line->metadata,
+            );
         }
 
         $engine = [];
         foreach ($result->lines as $line) {
-            $engine[] = $line->type->value.'|'.$line->direction->value.'|'.$line->amountMinor;
+            $engine[] = $this->lineSignature(
+                $line->type->value,
+                $line->direction->value,
+                $line->sourceType,
+                $line->sourceId,
+                $line->label,
+                $line->quantityMinutes,
+                $line->rateMinorPerHour,
+                $line->rateBps,
+                $line->amountMinor,
+                $line->metadata !== [] ? $line->metadata : null,
+            );
         }
 
-        sort($persisted);
-        sort($engine);
-
+        // Persisted lines are ordered by sort_order (the engine's emission order), so
+        // compare positionally: multiplicity and order both matter, and two distinct
+        // identical-valued lines are never collapsed.
         if ($gross !== (int) $entry->gross_minor
             || $deduction !== (int) $entry->deduction_minor
             || $persisted !== $engine) {
             throw ValidationException::withMessages(['run' => [__('payroll.persisted_lines_tampered')]]);
         }
+    }
+
+    /** Canonical, deterministic signature of one engine-owned line's semantics. */
+    private function lineSignature(
+        string $code,
+        string $direction,
+        ?string $sourceType,
+        ?string $sourceId,
+        string $label,
+        ?int $quantityMinutes,
+        ?int $rateMinorPerHour,
+        ?int $rateBps,
+        int $amountMinor,
+        ?array $metadata,
+    ): string {
+        $canonicalMetadata = $this->fingerprints->fingerprint($metadata ?? []);
+
+        return implode('|', [
+            $code,
+            $direction,
+            $sourceType ?? '∅',
+            $sourceId ?? '∅',
+            $label,
+            $quantityMinutes ?? '∅',
+            $rateMinorPerHour ?? '∅',
+            $rateBps ?? '∅',
+            $amountMinor,
+            $canonicalMetadata,
+        ]);
     }
 }

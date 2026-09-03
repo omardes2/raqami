@@ -45,9 +45,14 @@ class PayrollApprovalService
                 throw ValidationException::withMessages(['run' => [__('payroll.run_not_approvable')]]);
             }
 
+            // Approval only exists to satisfy four-eyes. When four-eyes is off, a
+            // calculated run finalizes directly — approving it is meaningless.
+            if (! $settings->require_four_eyes) {
+                throw ValidationException::withMessages(['run' => [__('payroll.approval_not_required')]]);
+            }
+
             // Four-eyes: the approver may not be the calculation requester.
-            if ($settings->require_four_eyes
-                && (string) $run->calculation_requested_by_user_id === (string) $actor->getKey()) {
+            if ((string) $run->calculation_requested_by_user_id === (string) $actor->getKey()) {
                 throw ValidationException::withMessages(['run' => [__('payroll.four_eyes_approver')]]);
             }
 

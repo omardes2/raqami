@@ -546,11 +546,13 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('payrol
     Route::get('runs/{run}/summary', [PayrollEntryController::class, 'summary'])->middleware('permission.any:payroll.runs.view');
     Route::get('entries/{entry}', [PayrollEntryController::class, 'show'])->middleware('permission.any:payroll.runs.view');
 
-    // Phase 2B: manual adjustments (authoritative inputs; recalc folds them in),
-    // approval (four-eyes) and irreversible finalization (immutable, closes period).
-    // Every controller re-enforces COMPANY-LEVEL authority via PayrollAuthorizationService.
-    Route::get('runs/{run}/adjustments', [PayrollAdjustmentController::class, 'index'])->middleware('permission.any:payroll.runs.view');
-    Route::post('runs/{run}/employees/{employee}/adjustments', [PayrollAdjustmentController::class, 'store'])->middleware('permission.any:payroll.adjust');
+    // Phase 2B: manual adjustments are PERIOD-owned authoritative inputs (a replacement
+    // run consumes the same rows; recalc folds changes in), plus approval (four-eyes)
+    // and irreversible finalization (immutable, closes period). Every controller
+    // re-enforces COMPANY-LEVEL authority via PayrollAuthorizationService.
+    Route::get('periods/{period}/adjustments', [PayrollAdjustmentController::class, 'index'])->middleware('permission.any:payroll.runs.view');
+    Route::post('periods/{period}/adjustments', [PayrollAdjustmentController::class, 'store'])->middleware('permission.any:payroll.adjust');
+    Route::match(['put', 'patch'], 'adjustments/{adjustment}', [PayrollAdjustmentController::class, 'update'])->middleware('permission.any:payroll.adjust');
     Route::delete('adjustments/{adjustment}', [PayrollAdjustmentController::class, 'destroy'])->middleware('permission.any:payroll.adjust');
 
     Route::post('runs/{run}/approve', [PayrollApprovalController::class, 'approve'])->middleware('permission.any:payroll.approve');

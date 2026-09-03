@@ -30,9 +30,12 @@ return [
 
     // Adjustments (Phase 2B)
     'adjustment_run_locked' => 'Adjustments can only be changed before the run is approved or finalized.',
+    'adjustment_employee_not_in_period' => 'This employee does not belong to the payroll period.',
+    'adjustment_invalid_source' => 'The source payroll entry must be the same employee’s finalized entry from an earlier period.',
 
     // Approval (Phase 2B)
     'run_not_approvable' => 'Only a calculated payroll run can be approved.',
+    'approval_not_required' => 'Approval is not required: four-eyes control is disabled, so a calculated run can be finalized directly.',
     'four_eyes_approver' => 'Four-eyes control: the approver must be different from the person who requested the calculation.',
     'run_has_no_entries' => 'This payroll run has no entries to approve or finalize.',
     'run_has_unresolved_entries' => 'This payroll run has entries that are not cleanly calculated; recalculate it first.',
