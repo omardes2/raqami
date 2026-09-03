@@ -9,6 +9,7 @@ use App\Modules\Billing\Models\Plan;
 use App\Modules\Billing\Services\SubscriptionManager;
 use App\Modules\Identity\Models\TenantMembership;
 use App\Modules\Identity\Models\User;
+use App\Modules\Tasks\Services\TaskStatusBootstrapService;
 use App\Modules\Tenancy\Models\Tenant;
 use App\Modules\Tenancy\Services\TenantContext;
 use Illuminate\Support\Facades\DB;
@@ -56,6 +57,9 @@ class CompanyOnboardingService
             // 2. Everything below is tenant-owned — run inside tenant context.
             return $this->context->runAs($tenant, function () use ($tenant, $owner) {
                 $roles = $this->roleProvisioner->provisionDefaults($tenant);
+
+                // Sprint 6: seed the default task status catalog (idempotent).
+                app(TaskStatusBootstrapService::class)->seed();
 
                 $membership = TenantMembership::query()->create([
                     'user_id' => $owner->getKey(),

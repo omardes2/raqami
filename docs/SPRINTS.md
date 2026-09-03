@@ -304,4 +304,4 @@ UTC, FORCE RLS, org scopes).
 - **Out of scope (unchanged):** payroll/money, country statutory rules, arbitrary
   hourly leave, notification delivery (Sprint 8 — audit + hooks only).
 
-Sprint 5 is complete on its branch; Sprint 6 has **not** started.
+Sprint 5 is merged into main. Sprint 6 (Tasks & Teams, ADR-022) is complete on its branch; Sprint 7 has **not** started.

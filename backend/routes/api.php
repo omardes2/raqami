@@ -61,6 +61,13 @@ use App\Modules\Organization\Http\Controllers\TeamController;
 use App\Modules\Platform\Http\Controllers\PlatformAuditController;
 use App\Modules\Platform\Http\Controllers\PlatformAuthController;
 use App\Modules\Platform\Http\Controllers\PlatformTenantController;
+use App\Modules\Tasks\Http\Controllers\ProjectController;
+use App\Modules\Tasks\Http\Controllers\TaskAttachmentController;
+use App\Modules\Tasks\Http\Controllers\TaskChecklistController;
+use App\Modules\Tasks\Http\Controllers\TaskCommentController;
+use App\Modules\Tasks\Http\Controllers\TaskController;
+use App\Modules\Tasks\Http\Controllers\TaskReportController;
+use App\Modules\Tasks\Http\Controllers\TaskStatusController;
 use App\Modules\Tenancy\Http\Controllers\CompanyController;
 use Illuminate\Support\Facades\Route;
 
@@ -404,4 +411,79 @@ Route::prefix('platform')->group(function () {
         Route::post('bank-transfers/{submission}/reject', [PlatformBankTransferController::class, 'reject']);
         Route::get('bank-transfers/{submission}/proof', [PlatformBankTransferController::class, 'downloadProof']);
     });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Sprint 6 — Tasks & Teams
+|--------------------------------------------------------------------------
+| Employee self-service is auth + visibility gated (no permission): a task is
+| reachable only through TaskVisibilityResolver, and participation (status,
+| checklist, watch) is capability-checked in-service. Management config uses
+| `permission:` (company scope) or `permission.any:` (scoped); task/project
+| mutations are additionally bounded by project-local authority in-service, so
+| they are not hard-gated at the route where a project-local manager must pass.
+*/
+Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('tasks')->group(function () {
+    // Employee self-service.
+    Route::get('me', [TaskController::class, 'me']);
+    Route::get('reports/summary', [TaskReportController::class, 'summary'])->middleware('permission.any:tasks.reports.view');
+    Route::get('reports/workload', [TaskReportController::class, 'workload'])->middleware('permission.any:tasks.reports.view');
+
+    // Management list/create.
+    Route::get('/', [TaskController::class, 'index'])->middleware('permission.any:tasks.view');
+    Route::post('/', [TaskController::class, 'store'])->middleware('permission.any:tasks.create');
+
+    // Single task (visibility 404 + in-service capability).
+    Route::get('{task}', [TaskController::class, 'show']);
+    Route::match(['put', 'patch'], '{task}', [TaskController::class, 'update']);
+    Route::post('{task}/status', [TaskController::class, 'status']);
+    Route::post('{task}/assign', [TaskController::class, 'assign']);
+    Route::delete('{task}/assignees/{employee}', [TaskController::class, 'unassign']);
+    Route::post('{task}/archive', [TaskController::class, 'archive']);
+    Route::post('{task}/unarchive', [TaskController::class, 'unarchive']);
+    Route::post('{task}/rank', [TaskController::class, 'rank']);
+    Route::post('{task}/watch', [TaskController::class, 'watch']);
+    Route::delete('{task}/watch', [TaskController::class, 'unwatch']);
+    Route::get('{task}/activity', [TaskController::class, 'activity']);
+
+    // Comments.
+    Route::get('{task}/comments', [TaskCommentController::class, 'index']);
+    Route::post('{task}/comments', [TaskCommentController::class, 'store'])->middleware('permission.any:tasks.comment');
+    Route::match(['put', 'patch'], '{task}/comments/{comment}', [TaskCommentController::class, 'update']);
+    Route::delete('{task}/comments/{comment}', [TaskCommentController::class, 'destroy']);
+
+    // Checklist.
+    Route::post('{task}/checklist', [TaskChecklistController::class, 'store']);
+    Route::match(['put', 'patch'], '{task}/checklist/{item}', [TaskChecklistController::class, 'update']);
+    Route::delete('{task}/checklist/{item}', [TaskChecklistController::class, 'destroy']);
+
+    // Attachments.
+    Route::post('{task}/attachments', [TaskAttachmentController::class, 'store'])->middleware('permission.any:tasks.attach');
+    Route::get('{task}/attachments/{attachment}/download', [TaskAttachmentController::class, 'download']);
+    Route::delete('{task}/attachments/{attachment}', [TaskAttachmentController::class, 'destroy']);
+});
+
+Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('projects')->group(function () {
+    Route::get('/', [ProjectController::class, 'index'])->middleware('permission.any:projects.view');
+    Route::post('/', [ProjectController::class, 'store'])->middleware('permission.any:projects.create');
+    Route::get('{project}', [ProjectController::class, 'show']);
+    Route::match(['put', 'patch'], '{project}', [ProjectController::class, 'update']);
+    Route::post('{project}/archive', [ProjectController::class, 'archive']);
+    Route::post('{project}/unarchive', [ProjectController::class, 'unarchive']);
+    Route::get('{project}/board', [ProjectController::class, 'board']);
+    Route::get('{project}/members', [ProjectController::class, 'members']);
+    Route::post('{project}/members', [ProjectController::class, 'addMember']);
+    Route::match(['put', 'patch'], '{project}/members/{employee}', [ProjectController::class, 'updateMemberRole']);
+    Route::delete('{project}/members/{employee}', [ProjectController::class, 'removeMember']);
+});
+
+Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('task-statuses')->group(function () {
+    Route::get('/', [TaskStatusController::class, 'index'])->middleware('permission.any:tasks.view');
+    Route::post('/', [TaskStatusController::class, 'store'])->middleware('permission:tasks.settings.manage');
+    Route::match(['put', 'patch'], '{status}', [TaskStatusController::class, 'update'])->middleware('permission:tasks.settings.manage');
+    Route::post('{status}/default', [TaskStatusController::class, 'setDefault'])->middleware('permission:tasks.settings.manage');
+    Route::post('{status}/deactivate', [TaskStatusController::class, 'deactivate'])->middleware('permission:tasks.settings.manage');
+    Route::post('{status}/reactivate', [TaskStatusController::class, 'reactivate'])->middleware('permission:tasks.settings.manage');
+    Route::post('reorder', [TaskStatusController::class, 'reorder'])->middleware('permission:tasks.settings.manage');
 });

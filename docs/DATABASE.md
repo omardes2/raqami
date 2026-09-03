@@ -484,3 +484,17 @@ record index moved to `attendance_sessions`. `work_schedules` gained
 Sprint 4 policy columns. All Sprint 4 migrations are **additive** with idempotent
 backfills (a default segment per working day; a session per existing record) —
 no Sprint 3 data is dropped or transformed destructively.
+
+## Sprint 6 — Tasks & Teams (ADR-022)
+
+Eleven additive tenant-owned tables (all ULID PKs, `tenant_id`, FORCE RLS):
+`projects`, `project_memberships`, `task_statuses`, `tasks`, `task_assignees`,
+`task_checklist_items`, `task_comments`, `task_comment_mentions`, `task_watchers`,
+`task_attachments`, `task_activity_events` (append-only). Bounded semantic values
+are `string` + CHECK (no native ENUM). Key invariants are DB-enforced: project
+scope (`company` ⇒ null / else required), task scope-source exclusivity (project
+XOR standalone scope), due-field shape per `due_type`, `board_rank` only on project
+tasks, one active default status per tenant (partial unique), one primary assignee
+per task (partial unique), creator-scoped idempotency on tasks/comments (partial
+unique), and one system status per `bootstrap_key`. No Organization/Attendance/
+Leave schema was modified; there is no `attendance_records` change.

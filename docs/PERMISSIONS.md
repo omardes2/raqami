@@ -316,3 +316,19 @@ settings) uses `permission:<key>` (company scope); per-employee actions (review,
 cancel, balances, reports) use `permission.any:<key>` and are further constrained
 by `EmployeeScopeResolver` (scope-safe 404). Self-approval is impossible
 regardless of role.
+
+## Sprint 6 — Tasks & Teams (ADR-022)
+
+New permissions: `tasks.view_own`, `tasks.create`, `tasks.view`, `tasks.manage`,
+`tasks.assign`, `tasks.comment`, `tasks.attach`, `tasks.reports.view`,
+`tasks.settings.manage`; `projects.view`, `projects.create`, `projects.manage`.
+Status change and checklist toggles are **assignee-inherent participation**, not
+permissions. Defaults: Owner `*`; Admin full tasks/projects; **HR Manager
+`tasks.reports.view` only** (HR does not own tasks/projects by default);
+Department Manager scoped `tasks.view/manage/assign` + `projects.view/create/
+manage` + reports; **Team Leader** scoped `tasks.view` + `tasks.assign` that take
+effect only with the matching team-scoped grant (the team-lead relation alone is
+never sufficient); **Employee** participation only (`tasks.view_own`,
+`tasks.comment`, `tasks.attach` — no `tasks.create` by default); Accountant none.
+**Project-local authority** (owner / manager membership) is a bounded ACL that
+authorizes work inside one project only and never substitutes for these grants.
