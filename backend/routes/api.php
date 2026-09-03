@@ -60,6 +60,8 @@ use App\Modules\Organization\Http\Controllers\JobTitleController;
 use App\Modules\Organization\Http\Controllers\TeamController;
 use App\Modules\Payroll\Http\Controllers\EmployeeCompensationComponentController;
 use App\Modules\Payroll\Http\Controllers\EmployeeCompensationController;
+use App\Modules\Payroll\Http\Controllers\PayrollAdjustmentController;
+use App\Modules\Payroll\Http\Controllers\PayrollApprovalController;
 use App\Modules\Payroll\Http\Controllers\PayrollCalculationController;
 use App\Modules\Payroll\Http\Controllers\PayrollComponentController;
 use App\Modules\Payroll\Http\Controllers\PayrollEntryController;
@@ -543,4 +545,14 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('payrol
     Route::get('runs/{run}/entries', [PayrollEntryController::class, 'index'])->middleware('permission.any:payroll.runs.view');
     Route::get('runs/{run}/summary', [PayrollEntryController::class, 'summary'])->middleware('permission.any:payroll.runs.view');
     Route::get('entries/{entry}', [PayrollEntryController::class, 'show'])->middleware('permission.any:payroll.runs.view');
+
+    // Phase 2B: manual adjustments (authoritative inputs; recalc folds them in),
+    // approval (four-eyes) and irreversible finalization (immutable, closes period).
+    // Every controller re-enforces COMPANY-LEVEL authority via PayrollAuthorizationService.
+    Route::get('runs/{run}/adjustments', [PayrollAdjustmentController::class, 'index'])->middleware('permission.any:payroll.runs.view');
+    Route::post('runs/{run}/employees/{employee}/adjustments', [PayrollAdjustmentController::class, 'store'])->middleware('permission.any:payroll.adjust');
+    Route::delete('adjustments/{adjustment}', [PayrollAdjustmentController::class, 'destroy'])->middleware('permission.any:payroll.adjust');
+
+    Route::post('runs/{run}/approve', [PayrollApprovalController::class, 'approve'])->middleware('permission.any:payroll.approve');
+    Route::post('runs/{run}/finalize', [PayrollApprovalController::class, 'finalize'])->middleware('permission.any:payroll.finalize');
 });

@@ -27,4 +27,25 @@ return [
     // Calculation
     'run_not_calculable' => 'This payroll run cannot be calculated from its current state.',
     'run_calculation_in_progress' => 'A calculation for this run is already in progress.',
+
+    // Adjustments (Phase 2B)
+    'adjustment_run_locked' => 'Adjustments can only be changed before the run is approved or finalized.',
+
+    // Approval (Phase 2B)
+    'run_not_approvable' => 'Only a calculated payroll run can be approved.',
+    'four_eyes_approver' => 'Four-eyes control: the approver must be different from the person who requested the calculation.',
+    'run_has_no_entries' => 'This payroll run has no entries to approve or finalize.',
+    'run_has_unresolved_entries' => 'This payroll run has entries that are not cleanly calculated; recalculate it first.',
+    'run_cohort_stale' => 'The set of employees changed since calculation; recalculate the run first.',
+    'run_inputs_stale' => 'Some payroll inputs changed since calculation; recalculate the run first.',
+
+    // Finalization (Phase 2B)
+    'run_not_finalizable' => 'This payroll run cannot be finalized from its current state.',
+    'four_eyes_finalizer' => 'Four-eyes control: the finalizer must be different from the approver.',
+    'run_already_finalized' => 'This payroll run is already finalized.',
+    'calculation_version_mismatch' => 'This run was calculated with a different engine version; recalculate it first.',
+    'stored_snapshot_tampered' => 'The stored calculation snapshot failed its integrity check; recalculate the run.',
+    'result_revalidation_failed' => 'Revalidation of the payroll result failed; recalculate the run.',
+    'persisted_lines_tampered' => 'The stored payroll lines failed their integrity check; recalculate the run.',
+    'negative_net_requires_override' => 'This run has a negative net; finalizing it requires the negative-net override permission and a reason.',
 ];

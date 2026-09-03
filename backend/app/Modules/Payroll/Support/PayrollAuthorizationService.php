@@ -5,6 +5,7 @@ namespace App\Modules\Payroll\Support;
 use App\Modules\Authorization\Services\AccessService;
 use App\Modules\Employees\Models\Employee;
 use App\Modules\Identity\Models\User;
+use App\Modules\Payroll\Models\PayrollEntry;
 use App\Modules\Payroll\Models\PayrollSetting;
 use App\Modules\Tenancy\Services\TenantContext;
 
@@ -73,6 +74,29 @@ class PayrollAuthorizationService
             return;
         }
         if ($this->actorEmployeeId($actor) === (string) $employeeId) {
+            abort(403, __('payroll.self_payroll_forbidden'));
+        }
+    }
+
+    /**
+     * Block an actor from approving/finalizing a run that contains THEIR OWN
+     * payroll entry, unless the tenant enables allow_self_payroll (Correction W).
+     * A user with no linked Employee can never be in the cohort.
+     */
+    public function assertNotSelfPayrollRun(User $actor, string $runId): void
+    {
+        if ($this->selfPayrollAllowed()) {
+            return;
+        }
+        $employeeId = $this->actorEmployeeId($actor);
+        if ($employeeId === null) {
+            return;
+        }
+        $inCohort = PayrollEntry::query()
+            ->where('payroll_run_id', $runId)
+            ->where('employee_id', $employeeId)
+            ->exists();
+        if ($inCohort) {
             abort(403, __('payroll.self_payroll_forbidden'));
         }
     }
