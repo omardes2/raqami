@@ -210,6 +210,9 @@ class TaskMembersOnlyWriteTest extends TestCase
             $this->assertSame([], $reports->summaryByStatus($viewer));
             $this->assertSame(0, array_sum($reports->summaryByStatus($viewer)));
             $this->assertSame([], $reports->workload($viewer));
+            // Sprint 8A: completion rate is built on the same visibility base, so a
+            // hidden members_only project must leave it null (no visible tasks).
+            $this->assertNull($reports->completionRate($viewer));
         });
     }
 }
