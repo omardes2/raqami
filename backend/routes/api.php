@@ -60,7 +60,9 @@ use App\Modules\Organization\Http\Controllers\JobTitleController;
 use App\Modules\Organization\Http\Controllers\TeamController;
 use App\Modules\Payroll\Http\Controllers\EmployeeCompensationComponentController;
 use App\Modules\Payroll\Http\Controllers\EmployeeCompensationController;
+use App\Modules\Payroll\Http\Controllers\PayrollCalculationController;
 use App\Modules\Payroll\Http\Controllers\PayrollComponentController;
+use App\Modules\Payroll\Http\Controllers\PayrollEntryController;
 use App\Modules\Payroll\Http\Controllers\PayrollPeriodController;
 use App\Modules\Payroll\Http\Controllers\PayrollRunController;
 use App\Modules\Payroll\Http\Controllers\PayrollSettingsController;
@@ -528,9 +530,17 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('payrol
     Route::post('periods', [PayrollPeriodController::class, 'store'])->middleware('permission.any:payroll.runs.manage');
     Route::get('periods/{period}', [PayrollPeriodController::class, 'show'])->middleware('permission.any:payroll.runs.view');
 
-    // Runs (Phase-1 skeleton: create / view / cancel; no calculate/finalize yet).
+    // Runs (Phase-1 skeleton: create / view / cancel; no finalize yet).
     Route::get('runs', [PayrollRunController::class, 'index'])->middleware('permission.any:payroll.runs.view');
     Route::post('runs', [PayrollRunController::class, 'store'])->middleware('permission.any:payroll.runs.manage');
     Route::get('runs/{run}', [PayrollRunController::class, 'show'])->middleware('permission.any:payroll.runs.view');
     Route::post('runs/{run}/cancel', [PayrollRunController::class, 'cancel'])->middleware('permission.any:payroll.runs.manage');
+
+    // Phase 2A: queued calculation + management review (company-level authority via
+    // PayrollAuthorizationService). No approval/finalization/payslips here.
+    Route::post('runs/{run}/calculate', [PayrollCalculationController::class, 'calculate'])->middleware('permission.any:payroll.calculate');
+    Route::post('runs/{run}/recalculate', [PayrollCalculationController::class, 'recalculate'])->middleware('permission.any:payroll.calculate');
+    Route::get('runs/{run}/entries', [PayrollEntryController::class, 'index'])->middleware('permission.any:payroll.runs.view');
+    Route::get('runs/{run}/summary', [PayrollEntryController::class, 'summary'])->middleware('permission.any:payroll.runs.view');
+    Route::get('entries/{entry}', [PayrollEntryController::class, 'show'])->middleware('permission.any:payroll.runs.view');
 });

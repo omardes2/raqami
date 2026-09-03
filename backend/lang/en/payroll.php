@@ -23,4 +23,8 @@ return [
     // Runs
     'run_exists' => 'An active payroll run already exists for this period.',
     'run_not_cancellable' => 'This payroll run can no longer be cancelled.',
+
+    // Calculation
+    'run_not_calculable' => 'This payroll run cannot be calculated from its current state.',
+    'run_calculation_in_progress' => 'A calculation for this run is already in progress.',
 ];

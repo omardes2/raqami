@@ -23,4 +23,8 @@ return [
     // Runs
     'run_exists' => 'توجد دورة رواتب نشطة مسبقًا لهذه الفترة.',
     'run_not_cancellable' => 'لم يعد بالإمكان إلغاء دورة الرواتب هذه.',
+
+    // Calculation
+    'run_not_calculable' => 'لا يمكن احتساب دورة الرواتب هذه من حالتها الحالية.',
+    'run_calculation_in_progress' => 'يجري بالفعل احتساب لهذه الدورة.',
 ];
