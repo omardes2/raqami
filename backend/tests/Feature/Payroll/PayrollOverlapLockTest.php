@@ -122,7 +122,7 @@ class PayrollOverlapLockTest extends TestCase
         $c = $this->newConnection();
         $this->useTenant($c, $this->tenantId);
         $c->prepare('INSERT INTO payroll_components (id, tenant_id, code, name, type, calculation_mode, active, sort_order, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?, now(), now())')
-            ->execute([$componentId, $this->tenantId, 'HOUSING', 'Housing', 'earning', 'fixed', 'true', 0]);
+            ->execute([$componentId, $this->tenantId, 'C'.substr($componentId, -8), 'Component', 'earning', 'fixed', 'true', 0]);
 
         return $componentId;
     }
@@ -257,6 +257,29 @@ class PayrollOverlapLockTest extends TestCase
         $state = $this->sqlstateOf(fn () => $this->insertComponentAssignment($b, $emp, $component, '2026-03-01', null));
         $this->assertSame(self::SQLSTATE_LOCK_NOT_AVAILABLE, $state, 'B must block on the component advisory lock');
         $b->rollBack();
+        $a->rollBack();
+    }
+
+    public function test_different_components_for_same_employee_do_not_serialize(): void
+    {
+        $emp = $this->seedTenantAndEmployee('E-CC-D');
+        $componentA = $this->seedComponent();
+        $componentB = $this->seedComponent();
+
+        // A holds the lock for (employee, component A).
+        $a = $this->newConnection();
+        $this->useTenant($a, $this->tenantId);
+        $a->beginTransaction();
+        $this->insertComponentAssignment($a, $emp, $componentA, '2026-01-01', null);
+
+        // B writes for the SAME employee but component B — a different key, no block.
+        $b = $this->newConnection();
+        $this->useTenant($b, $this->tenantId);
+        $b->beginTransaction();
+        $b->exec(self::LOCK_TIMEOUT);
+        $state = $this->sqlstateOf(fn () => $this->insertComponentAssignment($b, $emp, $componentB, '2026-01-01', null));
+        $this->assertNull($state, 'a different component must not serialize on the same lock');
+        $b->commit();
         $a->rollBack();
     }
 
