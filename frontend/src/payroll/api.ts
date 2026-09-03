@@ -97,6 +97,18 @@ export interface PayrollEntry {
   lines?: PayrollEntryLine[]
 }
 
+export interface PayrollAdjustment {
+  id: string
+  payroll_run_id: string
+  employee_id: string
+  label: string
+  direction: string // earning | deduction
+  amount_minor: number
+  currency: string
+  reason: string
+  created_at: string | null
+}
+
 export interface RunCurrencyGroup {
   currency: string
   gross_minor: number
@@ -214,6 +226,31 @@ export const payroll = {
   async cancelRun(id: string): Promise<PayrollRun> {
     await ensureCsrf()
     const { data } = await api.post(`/payroll/runs/${id}/cancel`, {})
+    return one<PayrollRun>(data)
+  },
+  // --- Phase 2B: adjustments, approval, finalization ---
+  async adjustments(runId: string): Promise<PayrollAdjustment[]> {
+    const { data } = await api.get(`/payroll/runs/${runId}/adjustments`)
+    return many<PayrollAdjustment>(data)
+  },
+  async createAdjustment(runId: string, employeeId: string, payload: Record<string, unknown>): Promise<PayrollAdjustment> {
+    await ensureCsrf()
+    const { data } = await api.post(`/payroll/runs/${runId}/employees/${employeeId}/adjustments`, payload)
+    return one<PayrollAdjustment>(data)
+  },
+  async deleteAdjustment(adjustmentId: string): Promise<void> {
+    await ensureCsrf()
+    await api.delete(`/payroll/adjustments/${adjustmentId}`)
+  },
+  async approveRun(id: string): Promise<PayrollRun> {
+    await ensureCsrf()
+    const { data } = await api.post(`/payroll/runs/${id}/approve`, {})
+    return one<PayrollRun>(data)
+  },
+  async finalizeRun(id: string, negativeNetReason?: string): Promise<PayrollRun> {
+    await ensureCsrf()
+    const payload = negativeNetReason ? { negative_net_override_reason: negativeNetReason } : {}
+    const { data } = await api.post(`/payroll/runs/${id}/finalize`, payload)
     return one<PayrollRun>(data)
   },
 }
