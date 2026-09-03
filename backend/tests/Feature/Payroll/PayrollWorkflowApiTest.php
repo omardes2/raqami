@@ -7,11 +7,14 @@ use App\Modules\Authorization\Services\RoleAssignmentService;
 use App\Modules\Employees\Models\Employee;
 use App\Modules\Employees\Services\EmployeeService;
 use App\Modules\Identity\Models\TenantMembership;
+use App\Modules\Payroll\Models\PayrollAdjustment;
+use App\Modules\Payroll\Models\PayrollPeriod;
 use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Services\EmployeeCompensationService;
 use App\Modules\Payroll\Services\PayrollCalculationService;
 use App\Modules\Payroll\Services\PayrollPeriodService;
 use App\Modules\Payroll\Services\PayrollRunService;
+use App\Modules\Payroll\Services\PayrollSettingsService;
 use App\Modules\Tenancy\Models\Tenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -19,15 +22,15 @@ use Tests\Concerns\InteractsWithTenancy;
 use Tests\TestCase;
 
 /**
- * HTTP wire-up + gating for the Phase-2B management endpoints (adjustments,
- * approval). Finalization is exercised end-to-end at the service level in
- * PayrollFinalizationTest, since its top-level transaction cannot run under the
- * RefreshDatabase wrapper these HTTP tests rely on.
+ * HTTP wire-up + gating for the Phase-2B period-owned adjustment endpoints and
+ * four-eyes approval. Finalization is exercised at the service level (top-level tx).
  */
 class PayrollWorkflowApiTest extends TestCase
 {
     use InteractsWithTenancy;
     use RefreshDatabase;
+
+    private ?PayrollPeriod $period = null;
 
     private function seedEmployee(Tenant $tenant, $owner): Employee
     {
@@ -45,11 +48,14 @@ class PayrollWorkflowApiTest extends TestCase
         });
     }
 
-    private function calculatedRun(Tenant $tenant, $owner): PayrollRun
+    private function calculatedRun(Tenant $tenant, $owner, bool $fourEyes = false): PayrollRun
     {
-        return $this->withinTenant($tenant, function () use ($owner) {
-            $period = app(PayrollPeriodService::class)->create($owner, ['period_start' => '2026-09-01']);
-            $run = app(PayrollRunService::class)->create($owner, $period);
+        return $this->withinTenant($tenant, function () use ($owner, $fourEyes) {
+            if ($fourEyes) {
+                app(PayrollSettingsService::class)->update($owner, ['require_four_eyes' => true]);
+            }
+            $this->period = app(PayrollPeriodService::class)->create($owner, ['period_start' => '2026-09-01']);
+            $run = app(PayrollRunService::class)->create($owner, $this->period);
             Queue::fake();
             app(PayrollCalculationService::class)->calculate($owner, $run->fresh());
             app(PayrollCalculationService::class)->execute((string) $run->getKey());
@@ -58,43 +64,58 @@ class PayrollWorkflowApiTest extends TestCase
         });
     }
 
+    private function payload(Employee $emp, array $over = []): array
+    {
+        return array_merge([
+            'employee_id' => (string) $emp->getKey(), 'employee_visible_label' => 'Bonus',
+            'direction' => 'earning', 'amount_minor' => 5000, 'currency' => 'USD', 'internal_reason' => 'Spot bonus',
+        ], $over);
+    }
+
     public function test_adjustment_requires_a_reason(): void
     {
         [$owner, $tenant] = $this->createCompanyWithOwner();
         $emp = $this->seedEmployee($tenant, $owner);
-        $run = $this->calculatedRun($tenant, $owner);
+        $this->calculatedRun($tenant, $owner);
 
         $this->actingAs($owner)->withHeaders($this->tenantHeaders($tenant))
-            ->postJson("/api/payroll/runs/{$run->getKey()}/employees/{$emp->getKey()}/adjustments", [
-                'label' => 'Bonus', 'direction' => 'earning', 'amount_minor' => 5000, 'currency' => 'USD',
-            ])
-            ->assertStatus(422)->assertJsonValidationErrors('reason');
+            ->postJson("/api/payroll/periods/{$this->period->getKey()}/adjustments", $this->payload($emp, ['internal_reason' => '']))
+            ->assertStatus(422)->assertJsonValidationErrors('internal_reason');
     }
 
-    public function test_adjustment_create_and_list_roundtrip(): void
+    public function test_adjustment_create_list_patch_delete_roundtrip(): void
     {
         [$owner, $tenant] = $this->createCompanyWithOwner();
         $emp = $this->seedEmployee($tenant, $owner);
-        $run = $this->calculatedRun($tenant, $owner);
+        $this->calculatedRun($tenant, $owner);
+        $periodId = (string) $this->period->getKey();
+
+        $created = $this->actingAs($owner)->withHeaders($this->tenantHeaders($tenant))
+            ->postJson("/api/payroll/periods/{$periodId}/adjustments", $this->payload($emp))
+            ->assertStatus(201)->assertJsonPath('amount_minor', 5000)->assertJsonPath('payroll_period_id', $periodId)->json();
 
         $this->actingAs($owner)->withHeaders($this->tenantHeaders($tenant))
-            ->postJson("/api/payroll/runs/{$run->getKey()}/employees/{$emp->getKey()}/adjustments", [
-                'label' => 'Bonus', 'direction' => 'earning', 'amount_minor' => 5000, 'currency' => 'USD', 'reason' => 'Spot bonus',
-            ])
-            ->assertStatus(201)->assertJsonPath('amount_minor', 5000)->assertJsonPath('direction', 'earning');
+            ->getJson("/api/payroll/periods/{$periodId}/adjustments")
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.internal_reason', 'Spot bonus');
 
         $this->actingAs($owner)->withHeaders($this->tenantHeaders($tenant))
-            ->getJson("/api/payroll/runs/{$run->getKey()}/adjustments")
-            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.reason', 'Spot bonus');
+            ->patchJson("/api/payroll/adjustments/{$created['id']}", ['amount_minor' => 7000])
+            ->assertOk()->assertJsonPath('amount_minor', 7000)->assertJsonPath('version', 2);
+
+        $this->actingAs($owner)->withHeaders($this->tenantHeaders($tenant))
+            ->deleteJson("/api/payroll/adjustments/{$created['id']}")
+            ->assertNoContent();
+        $this->withinTenant($tenant, fn () => $this->assertSame(0, PayrollAdjustment::query()->count()));
     }
 
-    public function test_approve_endpoint_transitions_run(): void
+    public function test_approve_endpoint_transitions_run_under_four_eyes(): void
     {
         [$owner, $tenant] = $this->createCompanyWithOwner();
         $this->seedEmployee($tenant, $owner);
-        $run = $this->calculatedRun($tenant, $owner);
+        $run = $this->calculatedRun($tenant, $owner, fourEyes: true);
+        $approver = $this->memberWithRole($tenant, 'admin');
 
-        $this->actingAs($owner)->withHeaders($this->tenantHeaders($tenant))
+        $this->actingAs($approver)->withHeaders($this->tenantHeaders($tenant))
             ->postJson("/api/payroll/runs/{$run->getKey()}/approve")
             ->assertOk()->assertJsonPath('status', 'approved');
     }
@@ -107,11 +128,9 @@ class PayrollWorkflowApiTest extends TestCase
         $accountant = $this->memberWithRole($tenant, 'accountant');
 
         $this->actingAs($accountant)->withHeaders($this->tenantHeaders($tenant))
-            ->postJson("/api/payroll/runs/{$run->getKey()}/employees/{$emp->getKey()}/adjustments", [
-                'label' => 'Bonus', 'direction' => 'earning', 'amount_minor' => 5000, 'currency' => 'USD', 'reason' => 'x',
-            ])->assertStatus(201);
+            ->postJson("/api/payroll/periods/{$this->period->getKey()}/adjustments", $this->payload($emp))
+            ->assertStatus(201);
 
-        // Accountant holds no payroll.approve grant at all → route permission gate 403s.
         $this->actingAs($accountant)->withHeaders($this->tenantHeaders($tenant))
             ->postJson("/api/payroll/runs/{$run->getKey()}/approve")
             ->assertStatus(403);

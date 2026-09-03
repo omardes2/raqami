@@ -6,6 +6,7 @@ use App\Modules\Attendance\Services\WorkScheduleService;
 use App\Modules\Employees\Models\Employee;
 use App\Modules\Employees\Services\EmployeeService;
 use App\Modules\Payroll\Enums\PayrollRunStatus;
+use App\Modules\Payroll\Models\PayrollPeriod;
 use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Services\EmployeeCompensationService;
 use App\Modules\Payroll\Services\PayrollAdjustmentService;
@@ -23,14 +24,16 @@ use Tests\Concerns\InteractsWithTenancy;
 use Tests\TestCase;
 
 /**
- * Approval takes a cleanly calculated, current, non-stale run to `approved`. Under
- * four-eyes, the approver must differ from the calculation requester. Self-payroll,
- * staleness, and cohort drift all block approval.
+ * Approval exists only to satisfy four-eyes: when four-eyes is off, approval is
+ * rejected (a calculated run finalizes directly); when on, the approver must differ
+ * from the calculation requester and the run must be current, complete, and not stale.
  */
 class PayrollApprovalTest extends TestCase
 {
     use InteractsWithTenancy;
     use RefreshDatabase;
+
+    private ?PayrollPeriod $period = null;
 
     private function employee(Tenant $tenant, $owner): Employee
     {
@@ -48,11 +51,14 @@ class PayrollApprovalTest extends TestCase
         });
     }
 
-    private function calculatedRun(Tenant $tenant, $owner): PayrollRun
+    private function calculatedRun(Tenant $tenant, $owner, bool $fourEyes = true): PayrollRun
     {
-        return $this->withinTenant($tenant, function () use ($owner) {
-            $period = app(PayrollPeriodService::class)->create($owner, ['period_start' => '2026-09-01']);
-            $run = app(PayrollRunService::class)->create($owner, $period);
+        return $this->withinTenant($tenant, function () use ($owner, $fourEyes) {
+            if ($fourEyes) {
+                app(PayrollSettingsService::class)->update($owner, ['require_four_eyes' => true]);
+            }
+            $this->period = app(PayrollPeriodService::class)->create($owner, ['period_start' => '2026-09-01']);
+            $run = app(PayrollRunService::class)->create($owner, $this->period);
             Queue::fake();
             app(PayrollCalculationService::class)->calculate($owner, $run->fresh());
             app(PayrollCalculationService::class)->execute((string) $run->getKey());
@@ -61,51 +67,20 @@ class PayrollApprovalTest extends TestCase
         });
     }
 
-    private function fourEyes(Tenant $tenant, $owner): void
-    {
-        $this->withinTenant($tenant, fn () => app(PayrollSettingsService::class)->update($owner, ['require_four_eyes' => true]));
-    }
-
-    public function test_approve_transitions_calculated_to_approved(): void
+    public function test_approval_rejected_when_four_eyes_off(): void
     {
         [$owner, $tenant] = $this->createCompanyWithOwner();
         $this->employee($tenant, $owner);
-        $run = $this->calculatedRun($tenant, $owner);
+        $run = $this->calculatedRun($tenant, $owner, fourEyes: false);
 
-        $approved = $this->withinTenant($tenant, fn () => app(PayrollApprovalService::class)->approve($owner, $run));
-        $this->assertSame(PayrollRunStatus::Approved, $approved->status);
-        $this->assertSame((string) $owner->getKey(), (string) $approved->approved_by_user_id);
+        $this->expectException(ValidationException::class); // approval_not_required
+        $this->withinTenant($tenant, fn () => app(PayrollApprovalService::class)->approve($this->makeUser(), $run));
     }
 
-    public function test_approve_rejects_a_draft_run(): void
-    {
-        [$owner, $tenant] = $this->createCompanyWithOwner();
-        $run = $this->withinTenant($tenant, function () use ($owner) {
-            $period = app(PayrollPeriodService::class)->create($owner, ['period_start' => '2026-09-01']);
-
-            return app(PayrollRunService::class)->create($owner, $period);
-        });
-
-        $this->expectException(ValidationException::class);
-        $this->withinTenant($tenant, fn () => app(PayrollApprovalService::class)->approve($owner, $run->fresh()));
-    }
-
-    public function test_four_eyes_blocks_the_calculation_requester_from_approving(): void
+    public function test_four_eyes_distinct_approver_transitions_to_approved(): void
     {
         [$owner, $tenant] = $this->createCompanyWithOwner();
         $this->employee($tenant, $owner);
-        $this->fourEyes($tenant, $owner);
-        $run = $this->calculatedRun($tenant, $owner);
-
-        $this->expectException(ValidationException::class);
-        $this->withinTenant($tenant, fn () => app(PayrollApprovalService::class)->approve($owner, $run));
-    }
-
-    public function test_four_eyes_allows_a_distinct_approver(): void
-    {
-        [$owner, $tenant] = $this->createCompanyWithOwner();
-        $this->employee($tenant, $owner);
-        $this->fourEyes($tenant, $owner);
         $run = $this->calculatedRun($tenant, $owner);
         $approver = $this->makeUser();
 
@@ -114,18 +89,42 @@ class PayrollApprovalTest extends TestCase
         $this->assertSame((string) $approver->getKey(), (string) $approved->approved_by_user_id);
     }
 
+    public function test_four_eyes_blocks_the_calculation_requester(): void
+    {
+        [$owner, $tenant] = $this->createCompanyWithOwner();
+        $this->employee($tenant, $owner);
+        $run = $this->calculatedRun($tenant, $owner);
+
+        $this->expectException(ValidationException::class);
+        $this->withinTenant($tenant, fn () => app(PayrollApprovalService::class)->approve($owner, $run));
+    }
+
+    public function test_approve_rejects_a_draft_run(): void
+    {
+        [$owner, $tenant] = $this->createCompanyWithOwner();
+        $run = $this->withinTenant($tenant, function () use ($owner) {
+            app(PayrollSettingsService::class)->update($owner, ['require_four_eyes' => true]);
+            $period = app(PayrollPeriodService::class)->create($owner, ['period_start' => '2026-09-01']);
+
+            return app(PayrollRunService::class)->create($owner, $period);
+        });
+
+        $this->expectException(ValidationException::class);
+        $this->withinTenant($tenant, fn () => app(PayrollApprovalService::class)->approve($this->makeUser(), $run->fresh()));
+    }
+
     public function test_approve_blocks_a_stale_run(): void
     {
         [$owner, $tenant] = $this->createCompanyWithOwner();
         $emp = $this->employee($tenant, $owner);
         $run = $this->calculatedRun($tenant, $owner);
 
-        $this->withinTenant($tenant, fn () => app(PayrollAdjustmentService::class)->create($owner, $run, (string) $emp->getKey(), [
-            'label' => 'Bonus', 'direction' => 'earning', 'amount_minor' => 50000, 'currency' => 'USD', 'reason' => 'x',
+        $this->withinTenant($tenant, fn () => app(PayrollAdjustmentService::class)->create($owner, $this->period->fresh(), (string) $emp->getKey(), [
+            'employee_visible_label' => 'Bonus', 'direction' => 'earning', 'amount_minor' => 50000, 'currency' => 'USD', 'internal_reason' => 'x',
         ]));
 
         $this->expectException(ValidationException::class);
-        $this->withinTenant($tenant, fn () => app(PayrollApprovalService::class)->approve($owner, $run->fresh()));
+        $this->withinTenant($tenant, fn () => app(PayrollApprovalService::class)->approve($this->makeUser(), $run->fresh()));
     }
 
     public function test_approve_blocks_a_cohort_drift(): void
@@ -133,22 +132,22 @@ class PayrollApprovalTest extends TestCase
         [$owner, $tenant] = $this->createCompanyWithOwner();
         $this->employee($tenant, $owner);
         $run = $this->calculatedRun($tenant, $owner);
-
-        // A new employee now overlaps the period → cohort no longer matches entries.
-        $this->employee($tenant, $owner);
+        $this->employee($tenant, $owner); // new overlapping employee → cohort drift
 
         $this->expectException(ValidationException::class);
-        $this->withinTenant($tenant, fn () => app(PayrollApprovalService::class)->approve($owner, $run->fresh()));
+        $this->withinTenant($tenant, fn () => app(PayrollApprovalService::class)->approve($this->makeUser(), $run->fresh()));
     }
 
     public function test_self_payroll_approval_is_blocked(): void
     {
         [$owner, $tenant] = $this->createCompanyWithOwner();
         $emp = $this->employee($tenant, $owner);
-        $this->withinTenant($tenant, fn () => $emp->forceFill(['user_id' => (string) $owner->getKey()])->save());
         $run = $this->calculatedRun($tenant, $owner);
+        // Link the approver to an employee in the cohort.
+        $approver = $this->makeUser();
+        $this->withinTenant($tenant, fn () => $emp->forceFill(['user_id' => (string) $approver->getKey()])->save());
 
         $this->expectException(HttpException::class);
-        $this->withinTenant($tenant, fn () => app(PayrollApprovalService::class)->approve($owner, $run));
+        $this->withinTenant($tenant, fn () => app(PayrollApprovalService::class)->approve($approver, $run));
     }
 }
