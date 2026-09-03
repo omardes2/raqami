@@ -4,6 +4,7 @@ namespace Tests\Feature\Employees;
 
 use App\Modules\Employees\Models\Employee;
 use App\Modules\Organization\Models\Branch;
+use App\Modules\Organization\Models\TeamMembership;
 use App\Modules\Tenancy\Models\Tenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -69,6 +70,44 @@ class OrganizationReportTest extends TestCase
             ->getJson('/api/employees/reports/summary')->assertOk();
 
         $res->assertJsonPath('data.total', 4)->assertJsonPath('data.active', 3);
+    }
+
+    public function test_scope_confines_population_to_granted_department(): void
+    {
+        [$owner, $tenant] = $this->createCompanyWithOwner();
+        $deptA = $this->makeDepartment($tenant);
+        $deptB = $this->makeDepartment($tenant);
+        $this->emp($tenant, ['department_id' => $deptA->id, 'employment_status' => 'active']);
+        $this->emp($tenant, ['department_id' => $deptA->id, 'employment_status' => 'active']);
+        $this->emp($tenant, ['department_id' => $deptB->id, 'employment_status' => 'active']);
+
+        $scopedHr = $this->memberWithRole($tenant, 'hr-manager', 'department', (string) $deptA->id);
+
+        $res = $this->actingAs($scopedHr)->withHeaders($this->tenantHeaders($tenant))
+            ->getJson('/api/employees/reports/summary')->assertOk();
+
+        // Only department A's two employees; department B never contributes.
+        $res->assertJsonPath('data.total', 2);
+        $deptKeys = collect($res->json('data.by_department'))->pluck('key');
+        $this->assertTrue($deptKeys->contains((string) $deptA->id));
+        $this->assertFalse($deptKeys->contains((string) $deptB->id));
+    }
+
+    public function test_scope_confines_population_to_granted_team(): void
+    {
+        [$owner, $tenant] = $this->createCompanyWithOwner();
+        $teamA = $this->makeTeam($tenant);
+        $inTeam = $this->emp($tenant, ['employment_status' => 'active']);
+        $this->emp($tenant, ['employment_status' => 'active']); // not in team A
+        $this->withinTenant($tenant, fn () => TeamMembership::create(['team_id' => $teamA->id, 'employee_id' => $inTeam->id]));
+
+        $scopedHr = $this->memberWithRole($tenant, 'hr-manager', 'team', (string) $teamA->id);
+
+        $res = $this->actingAs($scopedHr)->withHeaders($this->tenantHeaders($tenant))
+            ->getJson('/api/employees/reports/summary')->assertOk();
+
+        // Team scope IS supported by EmployeeScopeResolver: only the team member counts.
+        $res->assertJsonPath('data.total', 1);
     }
 
     public function test_cross_tenant_employees_never_counted(): void
