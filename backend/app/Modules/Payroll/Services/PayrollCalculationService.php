@@ -208,7 +208,7 @@ class PayrollCalculationService
                 // Reload the employee (incl. soft-deleted historical rows) and settings
                 // INSIDE the snapshot so every fact is read at the same moment.
                 $fresh = Employee::withTrashed()->findOrFail($employee->getKey());
-                $prepared = $this->builder->build($fresh, $run->period, $this->settings->getOrCreate());
+                $prepared = $this->builder->build($fresh, $run->period, $this->settings->getOrCreate(), $run);
                 $result = $this->engine->calculate($prepared->input);
                 $fingerprint = $this->fingerprints->fingerprint($prepared->snapshot);
                 $this->persistence->writeSuccess($locked, $prepared, $result, $fingerprint);

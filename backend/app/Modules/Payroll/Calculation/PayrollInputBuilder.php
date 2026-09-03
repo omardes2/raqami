@@ -3,6 +3,7 @@
 namespace App\Modules\Payroll\Calculation;
 
 use App\Modules\Employees\Models\Employee;
+use App\Modules\Payroll\Calculation\Input\AdjustmentItem;
 use App\Modules\Payroll\Calculation\Input\BaseSegment;
 use App\Modules\Payroll\Calculation\Input\CalculationInput;
 use App\Modules\Payroll\Calculation\Input\ComponentSegment;
@@ -15,8 +16,10 @@ use App\Modules\Payroll\Enums\PayrollComponentMode;
 use App\Modules\Payroll\Enums\PayrollErrorCode;
 use App\Modules\Payroll\Models\EmployeeCompensation;
 use App\Modules\Payroll\Models\EmployeeCompensationComponent;
+use App\Modules\Payroll\Models\PayrollAdjustment;
 use App\Modules\Payroll\Models\PayrollComponent;
 use App\Modules\Payroll\Models\PayrollPeriod;
+use App\Modules\Payroll\Models\PayrollRun;
 use App\Modules\Payroll\Models\PayrollSetting;
 use App\Support\Money\CurrencyMetadata;
 use Illuminate\Support\Collection;
@@ -37,7 +40,7 @@ class PayrollInputBuilder
         private readonly PayrollOvertimeInputResolver $overtime,
     ) {}
 
-    public function build(Employee $employee, PayrollPeriod $period, PayrollSetting $settings): PreparedCalculation
+    public function build(Employee $employee, PayrollPeriod $period, PayrollSetting $settings, PayrollRun $run): PreparedCalculation
     {
         $periodStart = $period->period_start->toDateString();
         $periodEnd = $period->period_end->toDateString();
@@ -245,6 +248,32 @@ class PayrollInputBuilder
             $overtimeItems[] = new OvertimeItem($ot['approval_id'], $ot['work_date'], $ot['approved_minutes'], $rate);
         }
 
+        // 6. Manual adjustments (Phase 2B) for this (run, employee). Authoritative
+        // inputs, re-read every calculation; a fixed non-prorated earning/deduction.
+        // They must be in the entry's resolved currency.
+        $adjustmentRows = PayrollAdjustment::query()
+            ->where('payroll_run_id', $run->getKey())
+            ->where('employee_id', $employee->getKey())
+            ->orderBy('id')
+            ->get();
+
+        $adjustmentItems = [];
+        $adjustmentsForSnapshot = [];
+        foreach ($adjustmentRows as $adj) {
+            if ($adj->currency !== null && CurrencyMetadata::normalize((string) $adj->currency) !== $currency) {
+                throw new PayrollCalculationException(PayrollErrorCode::AdjustmentCurrencyMismatch, ['adjustment_id' => (string) $adj->getKey()]);
+            }
+            $adjustmentItems[] = new AdjustmentItem((string) $adj->getKey(), (string) $adj->direction, (int) $adj->amount_minor, (string) $adj->label);
+            $adjustmentsForSnapshot[] = [
+                'id' => (string) $adj->getKey(),
+                'version' => (int) $adj->version,
+                'direction' => (string) $adj->direction,
+                'amount_minor' => (int) $adj->amount_minor,
+                'currency' => $adj->currency,
+                'label' => (string) $adj->label,
+            ];
+        }
+
         $input = new CalculationInput(
             currency: $currency,
             periodExpectedMinutes: $periodExpected,
@@ -253,6 +282,7 @@ class PayrollInputBuilder
             unpaidLeaveSegments: $unpaidSegments,
             overtimeItems: $overtimeItems,
             overtimeEnabled: $overtimeEnabled,
+            adjustments: $adjustmentItems,
         );
 
         $scheduleDaysForSnapshot = [];
@@ -270,6 +300,7 @@ class PayrollInputBuilder
         usort($componentRowsForSnapshot, fn ($a, $b) => [$a['effective_from'], $a['component_id'], $a['assignment_id']] <=> [$b['effective_from'], $b['component_id'], $b['assignment_id']]);
         usort($leaveForSnapshot, fn ($a, $b) => [$a['work_date'], $a['leave_request_id'], (string) $a['leave_type_id']] <=> [$b['work_date'], $b['leave_request_id'], (string) $b['leave_type_id']]);
         usort($overtimeForSnapshot, fn ($a, $b) => [$a['work_date'], $a['approval_id']] <=> [$b['work_date'], $b['approval_id']]);
+        usort($adjustmentsForSnapshot, fn ($a, $b) => $a['id'] <=> $b['id']);
 
         $snapshot = [
             'schema_version' => 1,
@@ -282,6 +313,7 @@ class PayrollInputBuilder
             'components' => $componentRowsForSnapshot,
             'leave' => $leaveForSnapshot,
             'overtime' => $overtimeForSnapshot,
+            'adjustments' => $adjustmentsForSnapshot,
         ];
 
         $employeeSnapshot = [

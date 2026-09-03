@@ -106,6 +106,25 @@ class PayrollCalculationEngine
             );
         }
 
+        // 5. Manual adjustments (Phase 2B) — a fixed, NON-prorated earning or
+        // deduction at its full magnitude. Empty by default, so a run with no
+        // adjustments is byte-identical to the frozen Phase-2A result.
+        foreach ($input->adjustments as $adjustment) {
+            if ($adjustment->amountMinor === 0) {
+                continue;
+            }
+            $isEarning = $adjustment->direction === PayrollLineDirection::Earning->value;
+            $lines[] = new CalculatedLine(
+                type: $isEarning ? PayrollLineType::AdjustmentEarning : PayrollLineType::AdjustmentDeduction,
+                direction: $isEarning ? PayrollLineDirection::Earning : PayrollLineDirection::Deduction,
+                sourceType: 'payroll_adjustment',
+                sourceId: $adjustment->id,
+                label: $adjustment->label,
+                amountMinor: $adjustment->amountMinor,
+                metadata: ['direction' => $adjustment->direction],
+            );
+        }
+
         $gross = 0;
         $deduction = 0;
         foreach ($lines as $line) {

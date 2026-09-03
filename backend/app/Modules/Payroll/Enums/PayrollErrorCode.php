@@ -18,6 +18,7 @@ enum PayrollErrorCode: string
     case ComponentCurrencyMismatch = 'component_currency_mismatch';
     case UnclassifiedLeaveType = 'unclassified_leave_type';
     case OvertimeRateMissing = 'overtime_rate_missing';
+    case AdjustmentCurrencyMismatch = 'adjustment_currency_mismatch';
 
     /** @return array<int, string> */
     public static function values(): array

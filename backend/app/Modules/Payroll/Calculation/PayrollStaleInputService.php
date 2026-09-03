@@ -23,13 +23,14 @@ class PayrollStaleInputService
     {
         $entry->loadMissing(['employee', 'run.period']);
         $employee = $entry->employee;
-        $period = $entry->run?->period;
-        if ($employee === null || $period === null) {
+        $run = $entry->run;
+        $period = $run?->period;
+        if ($employee === null || $run === null || $period === null) {
             return null;
         }
 
         try {
-            $prepared = $this->builder->build($employee, $period, $this->settings->getOrCreate());
+            $prepared = $this->builder->build($employee, $period, $this->settings->getOrCreate(), $run);
 
             return $this->fingerprints->fingerprint($prepared->snapshot);
         } catch (PayrollCalculationException) {

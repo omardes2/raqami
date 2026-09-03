@@ -14,6 +14,7 @@ final class CalculationInput
      * @param  array<int, ComponentSegment>  $componentSegments
      * @param  array<int, UnpaidLeaveSegment>  $unpaidLeaveSegments
      * @param  array<int, OvertimeItem>  $overtimeItems
+     * @param  array<int, AdjustmentItem>  $adjustments
      */
     public function __construct(
         public readonly string $currency,
@@ -23,5 +24,6 @@ final class CalculationInput
         public readonly array $unpaidLeaveSegments,
         public readonly array $overtimeItems,
         public readonly bool $overtimeEnabled,
+        public readonly array $adjustments = [],
     ) {}
 }
