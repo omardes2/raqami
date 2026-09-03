@@ -261,6 +261,15 @@ class PayrollInputBuilder
                 $scheduleDaysForSnapshot[$d] = $info['minutes'];
             }
         }
+        ksort($scheduleDaysForSnapshot);
+
+        // Explicit canonical ordering of the unordered snapshot collections, so the
+        // fingerprint depends only on content (the fingerprint service preserves list
+        // order rather than blindly sorting arbitrary lists).
+        usort($compRowsForSnapshot, fn ($a, $b) => [$a['effective_from'], $a['id']] <=> [$b['effective_from'], $b['id']]);
+        usort($componentRowsForSnapshot, fn ($a, $b) => [$a['effective_from'], $a['component_id'], $a['assignment_id']] <=> [$b['effective_from'], $b['component_id'], $b['assignment_id']]);
+        usort($leaveForSnapshot, fn ($a, $b) => [$a['work_date'], $a['leave_request_id'], (string) $a['leave_type_id']] <=> [$b['work_date'], $b['leave_request_id'], (string) $b['leave_type_id']]);
+        usort($overtimeForSnapshot, fn ($a, $b) => [$a['work_date'], $a['approval_id']] <=> [$b['work_date'], $b['approval_id']]);
 
         $snapshot = [
             'schema_version' => 1,

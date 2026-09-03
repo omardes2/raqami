@@ -33,17 +33,43 @@ class PayrollInputFingerprintServiceTest extends TestCase
         $this->assertSame($s->fingerprint($this->snapshot()), $s->fingerprint($this->snapshot()));
     }
 
-    public function test_key_and_list_ordering_are_stable(): void
+    public function test_object_key_ordering_is_stable(): void
     {
         $s = $this->service();
         $a = $this->snapshot();
 
-        $b = $this->snapshot();
-        // Reverse the compensation list and reorder top-level keys.
-        $b['compensations'] = array_reverse($b['compensations']);
-        $b = array_reverse($b, true);
+        // Reordering OBJECT keys (recursively sorted) must not change the hash.
+        $b = array_reverse($this->snapshot(), true);
+        $b['period'] = array_reverse($b['period'], true);
+        $b['compensations'][0] = array_reverse($b['compensations'][0], true);
 
         $this->assertSame($s->fingerprint($a), $s->fingerprint($b));
+    }
+
+    public function test_list_order_is_semantically_preserved(): void
+    {
+        $s = $this->service();
+        $a = $this->snapshot();
+
+        // Lists are canonically ordered by the BUILDER; the fingerprint PRESERVES
+        // list order, so a genuinely reordered list is a different input (it must not
+        // silently collapse to the same hash).
+        $b = $this->snapshot();
+        $b['compensations'] = array_reverse($b['compensations']);
+
+        $this->assertNotSame($s->fingerprint($a), $s->fingerprint($b));
+    }
+
+    public function test_duplicates_and_numeric_string_distinction_preserved(): void
+    {
+        $s = $this->service();
+        $dup = ['xs' => [1, 1, 2]];
+        $single = ['xs' => [1, 2]];
+        $this->assertNotSame($s->fingerprint($dup), $s->fingerprint($single), 'duplicates must be preserved');
+
+        $intVal = ['v' => 1];
+        $strVal = ['v' => '1'];
+        $this->assertNotSame($s->fingerprint($intVal), $s->fingerprint($strVal), 'int 1 must differ from string "1"');
     }
 
     public function test_relevant_salary_change_flips_fingerprint(): void

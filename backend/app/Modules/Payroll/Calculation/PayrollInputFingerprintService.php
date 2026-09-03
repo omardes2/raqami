@@ -4,11 +4,12 @@ namespace App\Modules\Payroll\Calculation;
 
 /**
  * Deterministic SHA-256 fingerprint of the canonical calculation input snapshot.
- * Canonicalization sorts object keys recursively and orders every list by the
- * canonical JSON of its elements, so the hash depends only on the SET of
- * calculation-relevant facts — never on key order, list order, or volatile
- * timestamps (the snapshot deliberately carries none). Equivalent inputs hash
- * identically; any relevant change flips the hash. Consumed by Phase-2B staleness.
+ * Canonicalization recursively sorts OBJECT/MAP keys but PRESERVES list order —
+ * the input builder already imposes an explicit, stable order on the (unordered)
+ * snapshot collections, so meaningful list order is never distorted and a genuinely
+ * ordered list keeps its semantics. The snapshot carries no volatile timestamps, so
+ * equivalent inputs hash identically and any relevant change flips the hash.
+ * Consumed by Phase-2B staleness.
  */
 class PayrollInputFingerprintService
 {
@@ -27,10 +28,8 @@ class PayrollInputFingerprintService
         }
 
         if (array_is_list($value)) {
-            $items = array_map(fn ($v) => $this->canonicalize($v), $value);
-            usort($items, fn ($a, $b) => json_encode($a) <=> json_encode($b));
-
-            return $items;
+            // Preserve order (builder-canonicalized); only canonicalize each element.
+            return array_map(fn ($v) => $this->canonicalize($v), $value);
         }
 
         ksort($value);
