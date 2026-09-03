@@ -199,4 +199,38 @@ class PayrollLeaveOvertimeTest extends TestCase
         $this->assertSame(PayrollEntryStatus::Failed, $entry->status);
         $this->assertSame('overtime_rate_missing', $entry->error_code);
     }
+
+    public function test_failure_after_success_clears_prior_financial_state(): void
+    {
+        [$owner, $tenant] = $this->createCompanyWithOwner();
+        $emp = $this->employeeWithBase($tenant, $owner, null); // OT disabled by default → success
+        $run = $this->calcRun($tenant, $owner);
+        $entry = $this->entry($tenant, $run, $emp);
+        $this->assertSame(PayrollEntryStatus::Calculated, $entry->status);
+        $this->withinTenant($tenant, fn () => $this->assertSame(1, DB::table('payroll_entry_lines')->where('payroll_entry_id', $entry->getKey())->count()));
+
+        // Turn the successful entry into a controlled failure: enable OT with an
+        // approved shift but no rate, then recalculate.
+        $this->withinTenant($tenant, fn () => app(PayrollSettingsService::class)->update($owner, ['overtime_pay_enabled' => true]));
+        $this->approvedOvertime($tenant, $emp, '2026-09-10', 120);
+        $this->withinTenant($tenant, function () use ($owner, $run) {
+            Queue::fake();
+            app(PayrollCalculationService::class)->recalculate($owner, $run->fresh());
+            app(PayrollCalculationService::class)->execute((string) $run->getKey());
+        });
+
+        $this->withinTenant($tenant, function () use ($entry) {
+            $fresh = $entry->fresh();
+            $this->assertSame(PayrollEntryStatus::Failed, $fresh->status);
+            $this->assertSame('overtime_rate_missing', $fresh->error_code);
+            $this->assertNull($fresh->currency);
+            $this->assertNull($fresh->gross_minor);
+            $this->assertNull($fresh->deduction_minor);
+            $this->assertNull($fresh->net_minor);
+            $this->assertNull($fresh->input_snapshot);
+            $this->assertNull($fresh->input_fingerprint);
+            $this->assertNull($fresh->calculated_at);
+            $this->assertSame(0, DB::table('payroll_entry_lines')->where('payroll_entry_id', $fresh->getKey())->count());
+        });
+    }
 }
