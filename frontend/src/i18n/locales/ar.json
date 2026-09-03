@@ -49,7 +49,8 @@
     "payroll_components": "مكوّنات الرواتب",
     "payroll_settings": "إعدادات الرواتب",
     "payroll_compensation": "رواتب الموظفين",
-    "my_payslips": "قسائم رواتبي"
+    "my_payslips": "قسائم رواتبي",
+    "org_reports": "تقارير المؤسسة"
   },
   "org": {
     "name": "الاسم",
@@ -932,5 +933,37 @@
     "back_to_payslips": "العودة إلى قسائمي",
     "employee_number": "الرقم الوظيفي",
     "job_title": "المسمى الوظيفي"
+  },
+  "reports": {
+    "org": {
+      "title": "تقارير المؤسسة",
+      "total": "إجمالي الموظفين",
+      "active": "نشط",
+      "inactive": "غير نشط",
+      "by_status": "حسب حالة التوظيف",
+      "status": "الحالة",
+      "count": "العدد",
+      "by_branch": "حسب الفرع",
+      "branch": "الفرع",
+      "by_department": "حسب القسم",
+      "department": "القسم",
+      "unassigned": "غير محدد",
+      "turnover": "الدوران (الملتحقون / المغادرون)",
+      "joiners": "الملتحقون",
+      "leavers": "المغادرون",
+      "month": "الشهر"
+    },
+    "filters": {
+      "from": "من",
+      "to": "إلى"
+    },
+    "employment_status": {
+      "active": "نشط",
+      "on_leave": "في إجازة",
+      "probation": "تحت التجربة",
+      "suspended": "موقوف",
+      "terminated": "منتهي الخدمة",
+      "archived": "مؤرشف"
+    }
   }
 }

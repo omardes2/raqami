@@ -59,6 +59,7 @@ export default function AppLayout() {
     { to: '/payroll/compensation', label: t('nav.payroll_compensation'), show: can('payroll.compensation.view') },
     { to: '/payroll/settings', label: t('nav.payroll_settings'), show: can('payroll.settings.manage') },
     { to: '/me/payslips', label: t('nav.my_payslips'), show: can('payroll.view_own'), end: true },
+    { to: '/reports/employees', label: t('nav.org_reports'), show: can('employees.reports.view') },
     { to: '/billing', label: t('nav.billing'), show: can('billing.view') },
     { to: '/company', label: t('nav.company'), show: can('company.view') },
     { to: '/users', label: t('nav.users'), show: can('user.view') },

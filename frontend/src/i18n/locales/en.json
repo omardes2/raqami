@@ -49,7 +49,8 @@
     "payroll_components": "Payroll Components",
     "payroll_settings": "Payroll Settings",
     "payroll_compensation": "Employee Compensation",
-    "my_payslips": "My Payslips"
+    "my_payslips": "My Payslips",
+    "org_reports": "Organization Reports"
   },
   "org": {
     "name": "Name",
@@ -932,5 +933,37 @@
     "back_to_payslips": "Back to my payslips",
     "employee_number": "Employee number",
     "job_title": "Job title"
+  },
+  "reports": {
+    "org": {
+      "title": "Organization Reports",
+      "total": "Total employees",
+      "active": "Active",
+      "inactive": "Inactive",
+      "by_status": "By employment status",
+      "status": "Status",
+      "count": "Count",
+      "by_branch": "By branch",
+      "branch": "Branch",
+      "by_department": "By department",
+      "department": "Department",
+      "unassigned": "Unassigned",
+      "turnover": "Turnover (joiners / leavers)",
+      "joiners": "Joiners",
+      "leavers": "Leavers",
+      "month": "Month"
+    },
+    "filters": {
+      "from": "From",
+      "to": "To"
+    },
+    "employment_status": {
+      "active": "Active",
+      "on_leave": "On leave",
+      "probation": "Probation",
+      "suspended": "Suspended",
+      "terminated": "Terminated",
+      "archived": "Archived"
+    }
   }
 }
