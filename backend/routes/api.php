@@ -30,6 +30,7 @@ use App\Modules\Billing\Http\Controllers\Platform\PlatformPaymentController;
 use App\Modules\Billing\Http\Controllers\Platform\PlatformPlanController;
 use App\Modules\Billing\Http\Controllers\Platform\PlatformSubscriptionController;
 use App\Modules\Billing\Http\Controllers\SubscriptionController;
+use App\Modules\Dashboard\Http\Controllers\DashboardController;
 use App\Modules\Employees\Http\Controllers\EmergencyContactController;
 use App\Modules\Employees\Http\Controllers\EmployeeContractController;
 use App\Modules\Employees\Http\Controllers\EmployeeController;
@@ -68,6 +69,7 @@ use App\Modules\Payroll\Http\Controllers\PayrollCalculationController;
 use App\Modules\Payroll\Http\Controllers\PayrollComponentController;
 use App\Modules\Payroll\Http\Controllers\PayrollEntryController;
 use App\Modules\Payroll\Http\Controllers\PayrollPeriodController;
+use App\Modules\Payroll\Http\Controllers\PayrollReportController;
 use App\Modules\Payroll\Http\Controllers\PayrollRunController;
 use App\Modules\Payroll\Http\Controllers\PayrollSettingsController;
 use App\Modules\Platform\Http\Controllers\PlatformAuditController;
@@ -144,6 +146,11 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->group(function () {
+    // --- Company dashboard (Sprint 8A Phase 2) ---
+    // No blanket permission: DashboardService composes only the KPI cards the caller
+    // is independently authorized and scoped to see; unauthorized cards are omitted.
+    Route::get('dashboard/company', [DashboardController::class, 'company']);
+
     // --- Organization structure ---
     Route::get('branches', [BranchController::class, 'index'])->middleware('permission.any:branches.view');
     Route::post('branches', [BranchController::class, 'store'])->middleware('permission:branches.create');
@@ -522,6 +529,15 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->prefix('payrol
     // other/cross-tenant/non-finalized entries are scope-safe 404s. No mutation.
     Route::get('me/payslips', [MePayslipController::class, 'index'])->middleware('permission:payroll.view_own');
     Route::get('me/payslips/{entry}', [MePayslipController::class, 'show'])->middleware('permission:payroll.view_own');
+
+    // Sprint 8A Phase 2: company-wide payroll reports (finalized, currency-grouped).
+    // permission.any is the coarse gate; the controller additionally enforces
+    // COMPANY-scope via PayrollAuthorizationService (scoped grants get a safe 404).
+    Route::get('reports/summary', [PayrollReportController::class, 'summary'])->middleware('permission.any:payroll.reports.view');
+    Route::get('reports/by-period', [PayrollReportController::class, 'byPeriod'])->middleware('permission.any:payroll.reports.view');
+    Route::get('reports/by-employee', [PayrollReportController::class, 'byEmployee'])->middleware('permission.any:payroll.reports.view');
+    Route::get('reports/components', [PayrollReportController::class, 'components'])->middleware('permission.any:payroll.reports.view');
+    Route::get('reports/run-status', [PayrollReportController::class, 'runStatus'])->middleware('permission.any:payroll.reports.view');
 
     // Settings.
     Route::get('settings', [PayrollSettingsController::class, 'show'])->middleware('permission.any:payroll.settings.manage');
