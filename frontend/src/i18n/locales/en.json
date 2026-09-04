@@ -50,7 +50,8 @@
     "payroll_settings": "Payroll Settings",
     "payroll_compensation": "Employee Compensation",
     "my_payslips": "My Payslips",
-    "org_reports": "Organization Reports"
+    "org_reports": "Organization Reports",
+    "payroll_reports": "Payroll Reports"
   },
   "org": {
     "name": "Name",
@@ -966,6 +967,56 @@
       "suspended": "Suspended",
       "terminated": "Terminated",
       "archived": "Archived"
+    },
+    "payroll": {
+      "title": "Payroll Reports",
+      "basis": "Based on finalized payroll only (finalized entries in a finalized run and a closed period). Totals are shown per currency and are never combined across currencies.",
+      "period": "Period",
+      "all_periods": "All periods",
+      "currency": "Currency",
+      "all_currencies": "All currencies",
+      "no_finalized": "No finalized payroll to report yet.",
+      "by_currency": "By currency",
+      "by_period": "By period",
+      "components": "Components",
+      "component": "Component",
+      "direction": "Direction",
+      "gross": "Gross",
+      "deductions": "Deductions",
+      "net": "Net",
+      "employees": "Employees",
+      "entries": "Entries",
+      "count": "Count",
+      "amount": "Amount",
+      "dir": {
+        "earning": "Earning",
+        "deduction": "Deduction"
+      },
+      "period_status": {
+        "open": "Open",
+        "closed": "Closed"
+      },
+      "run_status": {
+        "draft": "Draft",
+        "calculating": "Calculating",
+        "calculation_failed": "Calculation failed",
+        "calculated": "Calculated",
+        "approved": "Approved",
+        "finalized": "Finalized",
+        "cancelled": "Cancelled"
+      }
     }
+  },
+  "dashboard": {
+    "active_employees": "Active employees",
+    "attendance_today": "Present today",
+    "present": "Present",
+    "absent": "Absent",
+    "on_leave": "On leave",
+    "pending_leave": "Pending leave requests",
+    "overdue_tasks": "Overdue tasks",
+    "latest_payroll": "Latest payroll period",
+    "period_status": "Period status",
+    "run_status": "Run status"
   }
 }

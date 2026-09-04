@@ -50,7 +50,8 @@
     "payroll_settings": "إعدادات الرواتب",
     "payroll_compensation": "رواتب الموظفين",
     "my_payslips": "قسائم رواتبي",
-    "org_reports": "تقارير المؤسسة"
+    "org_reports": "تقارير المؤسسة",
+    "payroll_reports": "تقارير الرواتب"
   },
   "org": {
     "name": "الاسم",
@@ -966,6 +967,56 @@
       "suspended": "موقوف",
       "terminated": "منتهي الخدمة",
       "archived": "مؤرشف"
+    },
+    "payroll": {
+      "title": "تقارير الرواتب",
+      "basis": "تعتمد على الرواتب المعتمدة نهائيًا فقط (قيود نهائية ضمن مسير نهائي وفترة مغلقة). تُعرض الإجماليات لكل عملة ولا تُجمع أبدًا عبر عملات مختلفة.",
+      "period": "الفترة",
+      "all_periods": "كل الفترات",
+      "currency": "العملة",
+      "all_currencies": "كل العملات",
+      "no_finalized": "لا توجد رواتب معتمدة نهائيًا لعرضها بعد.",
+      "by_currency": "حسب العملة",
+      "by_period": "حسب الفترة",
+      "components": "المكوّنات",
+      "component": "المكوّن",
+      "direction": "النوع",
+      "gross": "الإجمالي",
+      "deductions": "الاستقطاعات",
+      "net": "الصافي",
+      "employees": "الموظفون",
+      "entries": "القيود",
+      "count": "العدد",
+      "amount": "المبلغ",
+      "dir": {
+        "earning": "استحقاق",
+        "deduction": "استقطاع"
+      },
+      "period_status": {
+        "open": "مفتوحة",
+        "closed": "مغلقة"
+      },
+      "run_status": {
+        "draft": "مسودة",
+        "calculating": "قيد الاحتساب",
+        "calculation_failed": "فشل الاحتساب",
+        "calculated": "محتسب",
+        "approved": "معتمد",
+        "finalized": "نهائي",
+        "cancelled": "ملغى"
+      }
     }
+  },
+  "dashboard": {
+    "active_employees": "الموظفون النشطون",
+    "attendance_today": "الحضور اليوم",
+    "present": "حاضر",
+    "absent": "غائب",
+    "on_leave": "في إجازة",
+    "pending_leave": "طلبات إجازة معلّقة",
+    "overdue_tasks": "مهام متأخرة",
+    "latest_payroll": "أحدث فترة رواتب",
+    "period_status": "حالة الفترة",
+    "run_status": "حالة المسير"
   }
 }
