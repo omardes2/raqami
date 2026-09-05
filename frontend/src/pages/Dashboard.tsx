@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { reports, type DashboardData } from '../reports/api'
+import AiInsightPanel from '../ai/AiInsightPanel'
 
 /**
  * Sprint 8A Phase 2: company dashboard. Renders ONLY the KPI cards the backend
@@ -10,7 +11,7 @@ import { reports, type DashboardData } from '../reports/api'
  */
 export default function Dashboard() {
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const { user, can } = useAuth()
   const [kpi, setKpi] = useState<DashboardData | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -94,6 +95,8 @@ export default function Dashboard() {
           )}
         </div>
       )}
+
+      {can('ai.use') && <AiInsightPanel feature="dashboard_summary" />}
     </div>
   )
 }

@@ -1048,5 +1048,20 @@
     "payroll": {
       "payslip_available": "Your payslip for {{period}} is available"
     }
+  },
+  "ai": {
+    "title": "AI insights",
+    "summarize": "Summarize",
+    "generating": "Generating…",
+    "hint": "Get a read-only AI summary of the metrics you can see.",
+    "error": "Couldn't generate a summary. Please try again.",
+    "reason": {
+      "disabled": "The AI assistant is not enabled for this workspace.",
+      "not_entitled": "Your plan does not include the AI assistant.",
+      "rate_limited": "The daily AI limit has been reached. Try again later.",
+      "forbidden": "You don't have access to the data for this summary.",
+      "provider_error": "The AI service is temporarily unavailable.",
+      "unavailable": "AI summaries are unavailable right now."
+    }
   }
 }
