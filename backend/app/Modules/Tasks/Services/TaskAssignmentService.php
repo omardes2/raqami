@@ -33,6 +33,7 @@ class TaskAssignmentService
         private readonly TaskWatcherService $watchers,
         private readonly TaskActivityRecorder $activity,
         private readonly AuditLogger $audit,
+        private readonly TaskNotifier $notifier,
     ) {}
 
     public function assign(User $actor, Task $task, string $employeeId, bool $isPrimary = false): TaskAssignee
@@ -73,9 +74,20 @@ class TaskAssignmentService
                 'actor' => $actor, 'subject' => $locked,
                 'metadata' => ['employee_id' => $employee->getKey(), 'is_primary' => $isPrimary],
             ]);
-            $this->activity->record(TaskActivityType::TaskAssigned, $actor, $locked->getKey(), $locked->project_id, [
+            $event = $this->activity->record(TaskActivityType::TaskAssigned, $actor, $locked->getKey(), $locked->project_id, [
                 'employee_id' => $employee->getKey(), 'is_primary' => $isPrimary,
             ]);
+
+            // Post-commit: notify the just-assigned employee's User. A brand-new
+            // assignee row is a fresh assignment; re-touching an existing one (e.g.
+            // promotion to primary) is a reassignment. The activity-event id keeps
+            // A → B → A distinct.
+            $this->notifier->assigned(
+                (string) $locked->getKey(),
+                (string) $employee->getKey(),
+                (string) $event->getKey(),
+                ! $assignee->wasRecentlyCreated,
+            );
 
             return $assignee->fresh();
         });

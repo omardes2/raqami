@@ -1018,5 +1018,35 @@
     "latest_payroll": "Latest payroll period",
     "period_status": "Period status",
     "run_status": "Run status"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "all": "All",
+    "unread": "Unread",
+    "mark_all_read": "Mark all as read",
+    "view_all": "View all notifications",
+    "empty": "No notifications yet.",
+    "empty_unread": "No unread notifications.",
+    "generic": "Notification",
+    "unread_count": "{{count}} unread notifications",
+    "loading": "Loading…",
+    "error": "Couldn't load notifications. Please try again.",
+    "leave": {
+      "request_submitted": "{{employee_name}} submitted a leave request for your approval",
+      "request_approved": "Your leave request was approved",
+      "request_rejected": "Your leave request was rejected"
+    },
+    "task": {
+      "assigned": "You were assigned a task",
+      "reassigned": "A task was reassigned to you",
+      "due_soon": "A task assigned to you is due on {{due_on}}",
+      "overdue": "A task assigned to you is overdue (was due {{due_on}})"
+    },
+    "attendance": {
+      "correction_reviewed": "Your attendance correction was reviewed: {{result}}"
+    },
+    "payroll": {
+      "payslip_available": "Your payslip for {{period}} is available"
+    }
   }
 }

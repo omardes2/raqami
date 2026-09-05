@@ -26,6 +26,7 @@ class LeaveApprovalService
     public function __construct(
         private readonly LeaveBalanceService $balances,
         private readonly AuditLogger $audit,
+        private readonly LeaveNotifier $notifier,
     ) {}
 
     /**
@@ -116,6 +117,8 @@ class LeaveApprovalService
                 'metadata' => ['employee_id' => (string) $request->employee_id],
             ]);
 
+            $this->notifier->rejected($request);
+
             return $request->fresh();
         });
     }
@@ -157,6 +160,8 @@ class LeaveApprovalService
                 'consumption_minutes' => $minutes,
             ],
         ]);
+
+        $this->notifier->approved($request);
     }
 
     /** The lowest-order pending ORIGINAL-approval step (locked), or null. */

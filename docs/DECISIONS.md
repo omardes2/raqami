@@ -588,3 +588,48 @@ the schedule, the geofence membership, lateness, worked time, and status.
   dependencies, no Leave/Attendance/Payroll coupling, no AI, no notification
   transport (Sprint 8) — domain events only.
 - **Approved by:** Project Owner (2026-09-02, D1–D9 + Corrections A–H)
+
+## ADR-023: In-app notifications — recipient-scoped RLS, post-commit producers, retention
+
+- **Status:** Accepted (Sprint 8B).
+- **Context:** The platform needs in-app notifications spanning Leave, Tasks,
+  Attendance, and Payroll without a message broker beyond the existing Redis
+  queue, without any transport channel yet (email/SMS/push/websockets are
+  deferred), and without weakening tenant isolation or leaking sensitive data.
+- **Decision:**
+  1. **Storage & isolation.** One `notifications` row per recipient User, FORCE
+     RLS with a DELIBERATELY different policy set from other tenant tables:
+     SELECT/UPDATE are recipient-scoped (`recipient_user_id = app.user_id`),
+     INSERT requires the internal writer context, DELETE requires the maintenance
+     context; there is intentionally **no platform policy** (no super-admin inbox).
+  2. **Writer context is transaction-local.** `NotificationService` is the only
+     writer; it sets `app.notification_writer` via `set_config(..., true)` inside
+     the insert transaction, so PostgreSQL discards it on commit/rollback — the
+     flag can never leak onto a pooled or long-lived queued-worker connection.
+  3. **Whitelisted payloads.** Producers build notifications only through
+     `NotificationPayloadFactory` (stable translation key + explicit safe params);
+     `NotificationPayload` rejects non-scalar params and any key naming a sensitive
+     concept. No salary/ids/bank/medical/private-reason/snapshot ever persists; no
+     server-side message rendering (the frontend translates via `title_key`).
+  4. **Post-commit, non-fatal delivery.** Domain producers notify from
+     `DB::afterCommit` and swallow+log delivery failures, so a committed
+     business action never becomes an HTTP 500. Recipients come from real domain
+     architecture (leave approver steps, task assignee, correction requester,
+     payroll entry→employee→User); employees without a User and non-members are
+     skipped. Payroll uses ONE TenantAware fan-out job per finalized run,
+     dispatched post-commit with the enqueue isolated (a broker outage never
+     fails finalization); missed runs recover via `notifications:reconcile-payslips`.
+  5. **Retention (12 months).** `notifications:prune` hard-deletes past-horizon
+     rows across tenants under a **cutoff-bounded maintenance context**: a
+     transaction-local `app.notification_prune_before` GUC bounds a maintenance
+     SELECT and the maintenance DELETE to `created_at < cutoff` (NULLIF-guarded).
+     The maintenance context can therefore read/delete ONLY rows older than the
+     cutoff, only in its own tenant, and nothing at all without an explicit cutoff
+     — it never gains general read access. Task reminders (`notifications:remind-tasks`)
+     re-check each assignee's current visibility before notifying (the cron is not
+     globally authorized). External cron model; no scheduler wired.
+  6. **Deferred:** email/SMS/WhatsApp/push/websocket transport, notification
+     preferences, rich templates, broadcast/marketing, super-admin inbox.
+- **Approved by:** Project Owner (2026-09-05, Sprint 8B Phases 1–3; the
+  cutoff-bounded maintenance SELECT/DELETE prune RLS explicitly approved as a
+  narrow evolution to implement the 12-month retention feature).

@@ -45,6 +45,7 @@ class AttendanceCorrectionService
         private readonly AttendanceSettingsService $settings,
         private readonly TenantContext $context,
         private readonly AuditLogger $audit,
+        private readonly AttendanceCorrectionNotifier $notifier,
     ) {}
 
     /**
@@ -188,6 +189,8 @@ class AttendanceCorrectionService
                 ],
             ]);
 
+            $this->notifier->reviewed($correction, 'approved');
+
             return $correction;
         });
     }
@@ -209,6 +212,8 @@ class AttendanceCorrectionService
                 'subject' => $correction,
                 'metadata' => ['attendance_record_id' => (string) $correction->attendance_record_id],
             ]);
+
+            $this->notifier->reviewed($correction, 'rejected');
 
             return $correction;
         });

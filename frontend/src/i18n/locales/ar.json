@@ -1018,5 +1018,35 @@
     "latest_payroll": "أحدث فترة رواتب",
     "period_status": "حالة الفترة",
     "run_status": "حالة المسير"
+  },
+  "notifications": {
+    "title": "الإشعارات",
+    "all": "الكل",
+    "unread": "غير المقروءة",
+    "mark_all_read": "تعليم الكل كمقروء",
+    "view_all": "عرض كل الإشعارات",
+    "empty": "لا توجد إشعارات بعد.",
+    "empty_unread": "لا توجد إشعارات غير مقروءة.",
+    "generic": "إشعار",
+    "unread_count": "{{count}} إشعارات غير مقروءة",
+    "loading": "جارٍ التحميل…",
+    "error": "تعذّر تحميل الإشعارات. حاول مرة أخرى.",
+    "leave": {
+      "request_submitted": "قدّم {{employee_name}} طلب إجازة لاعتمادك",
+      "request_approved": "تمت الموافقة على طلب إجازتك",
+      "request_rejected": "تم رفض طلب إجازتك"
+    },
+    "task": {
+      "assigned": "تم إسناد مهمة إليك",
+      "reassigned": "تمت إعادة إسناد مهمة إليك",
+      "due_soon": "مهمة مسندة إليك تستحق بتاريخ {{due_on}}",
+      "overdue": "مهمة مسندة إليك متأخرة (كان موعدها {{due_on}})"
+    },
+    "attendance": {
+      "correction_reviewed": "تمت مراجعة تصحيح حضورك: {{result}}"
+    },
+    "payroll": {
+      "payslip_available": "قسيمة راتبك لفترة {{period}} متاحة"
+    }
   }
 }

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../auth/AuthContext'
 import { api, ensureCsrf } from '../lib/api'
 import LanguageSwitcher from './LanguageSwitcher'
+import NotificationBell from './NotificationBell'
 
 export default function AppLayout() {
   const { t } = useTranslation()
@@ -86,6 +87,7 @@ export default function AppLayout() {
         <header className="topbar">
           <div className="company-name">{user?.active_tenant?.name}</div>
           <div className="topbar-right">
+            <NotificationBell />
             <LanguageSwitcher />
             <span className="user-email">{user?.email}</span>
             <button type="button" className="btn-ghost" onClick={handleLogout}>
