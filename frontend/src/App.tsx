@@ -64,6 +64,7 @@ import BillingDetails from './pages/billing/BillingDetails'
 import PlatformLogin from './pages/platform/PlatformLogin'
 import PlatformLayout from './pages/platform/PlatformLayout'
 import PlatformDashboard from './pages/platform/PlatformDashboard'
+import NotificationsPage from './pages/notifications/NotificationsPage'
 import PlatformAudit from './pages/platform/PlatformAudit'
 import PlatformBilling from './pages/platform/PlatformBilling'
 import PlatformPlans from './pages/platform/PlatformPlans'
@@ -88,6 +89,7 @@ export default function App() {
       <Route element={<ProtectedRoute requireTenant />}>
         <Route element={<AppLayout />}>
           <Route index element={<Dashboard />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/employees" element={<Employees />} />
           <Route path="/employees/new" element={<EmployeeForm />} />
           <Route path="/employees/:id" element={<EmployeeDetail />} />

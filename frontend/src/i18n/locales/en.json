@@ -1018,5 +1018,18 @@
     "latest_payroll": "Latest payroll period",
     "period_status": "Period status",
     "run_status": "Run status"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "all": "All",
+    "unread": "Unread",
+    "mark_all_read": "Mark all as read",
+    "view_all": "View all notifications",
+    "empty": "No notifications yet.",
+    "empty_unread": "No unread notifications.",
+    "generic": "Notification",
+    "unread_count": "{{count}} unread notifications",
+    "loading": "Loading…",
+    "error": "Couldn't load notifications. Please try again."
   }
 }

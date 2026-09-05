@@ -254,3 +254,46 @@ legend { padding-inline: 0.5rem; color: var(--muted); font-size: 0.85rem; font-w
   .payslip-print { border: none; max-inline-size: none; padding: 0; }
   @page { margin: 1.5cm; }
 }
+
+/* --- Notifications (Sprint 8B Phase 2): bell, badge, dropdown, inbox --- */
+.notif { position: relative; display: inline-flex; }
+.notif-bell {
+  position: relative; display: inline-flex; align-items: center; justify-content: center;
+  inline-size: 2.25rem; block-size: 2.25rem; border: 1px solid var(--border);
+  border-radius: 8px; background: var(--surface); color: inherit; cursor: pointer;
+}
+.notif-bell:hover { background: var(--bg, #f5f5f5); }
+.notif-badge {
+  position: absolute; inset-block-start: -6px; inset-inline-end: -6px;
+  min-inline-size: 1.1rem; block-size: 1.1rem; padding: 0 0.25rem;
+  border-radius: 999px; background: #d33; color: #fff; font-size: 0.7rem;
+  line-height: 1.1rem; text-align: center; font-weight: 700;
+}
+.notif-panel {
+  position: absolute; inset-block-start: calc(100% + 8px); inset-inline-end: 0;
+  inline-size: min(20rem, 92vw); max-block-size: 70vh; overflow-y: auto;
+  background: var(--surface, #fff); border: 1px solid var(--border);
+  border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 50;
+}
+.notif-panel-head, .notif-panel-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.6rem 0.8rem; border-block-end: 1px solid var(--border);
+}
+.notif-panel-foot { border-block-end: none; border-block-start: 1px solid var(--border); }
+.notif-msg { padding: 1rem 0.8rem; margin: 0; }
+.notif-list { list-style: none; margin: 0; padding: 0; }
+.notif-item { border-block-end: 1px solid var(--border); }
+.notif-item:last-child { border-block-end: none; }
+.notif-item.is-unread { background: #eef4ff; }
+.notif-item-btn {
+  display: flex; align-items: center; gap: 0.5rem; inline-size: 100%;
+  padding: 0.6rem 0.8rem; background: none; border: none; cursor: pointer;
+  text-align: start; color: inherit;
+}
+.notif-item-title { flex: 1; font-size: 0.9rem; }
+.notif-item.is-unread .notif-item-title { font-weight: 700; }
+.notif-item-time { font-size: 0.75rem; white-space: nowrap; }
+.notif-dot { inline-size: 0.5rem; block-size: 0.5rem; border-radius: 999px; background: #2563eb; flex: none; }
+.notif-tabs { display: inline-flex; gap: 0.4rem; }
+.notif-tabs .is-active { border-color: var(--accent, #2563eb); font-weight: 700; }
+.notif-list-page .notif-item-btn { padding: 0.8rem 1rem; }
