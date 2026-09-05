@@ -50,4 +50,19 @@ class AttendanceReportController extends Controller
             'employees' => $this->reports->byEmployee($request->user(), $filters),
         ]);
     }
+
+    /**
+     * Organization rollup grouped by branch or department (Sprint 8A gap).
+     * group_by is whitelisted to branch|department (defaults to branch).
+     */
+    public function byUnit(AttendanceFilterRequest $request): JsonResponse
+    {
+        $filters = $request->filters();
+        $groupBy = $request->query('group_by') === 'department' ? 'department' : 'branch';
+
+        return response()->json([
+            'filters' => $filters + ['group_by' => $groupBy],
+            'units' => $this->reports->byUnit($request->user(), $filters, $groupBy),
+        ]);
+    }
 }

@@ -19,6 +19,7 @@ class TaskReportController extends Controller
             'by_status' => $this->reports->summaryByStatus($user),
             'by_priority' => $this->reports->summaryByPriority($user),
             'overdue' => $this->reports->overdueCount($user),
+            'completion_rate' => $this->reports->completionRate($user),
         ]]);
     }
 

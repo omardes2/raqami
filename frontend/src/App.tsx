@@ -53,6 +53,8 @@ import PayrollRuns from './pages/payroll/PayrollRuns'
 import PayrollRunDetail from './pages/payroll/PayrollRunDetail'
 import MyPayslips from './pages/payroll/MyPayslips'
 import MyPayslipDetail from './pages/payroll/MyPayslipDetail'
+import OrgReports from './pages/reports/OrgReports'
+import PayrollReports from './pages/reports/PayrollReports'
 import BillingLayout from './pages/billing/BillingLayout'
 import BillingOverview from './pages/billing/BillingOverview'
 import BillingSubscription from './pages/billing/BillingSubscription'
@@ -128,6 +130,8 @@ export default function App() {
           <Route path="/payroll/settings" element={<PayrollSettings />} />
           <Route path="/me/payslips" element={<MyPayslips />} />
           <Route path="/me/payslips/:id" element={<MyPayslipDetail />} />
+          <Route path="/reports/employees" element={<OrgReports />} />
+          <Route path="/reports/payroll" element={<PayrollReports />} />
           <Route path="/billing" element={<BillingLayout />}>
             <Route index element={<BillingOverview />} />
             <Route path="subscription" element={<BillingSubscription />} />

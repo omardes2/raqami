@@ -30,6 +30,15 @@ class LeaveReportController extends Controller
         return response()->json(['data' => $this->reports->summary($scoped, $from, $to)]);
     }
 
+    public function requestsByStatus(Request $request): JsonResponse
+    {
+        [$from, $to] = $this->range($request);
+        $scoped = Employee::query();
+        $this->scope->applyScope($scoped, $request->user(), 'leave.reports.view');
+
+        return response()->json(['data' => $this->reports->requestsByStatus($scoped, $from, $to)]);
+    }
+
     public function calendar(Request $request): JsonResponse
     {
         [$from, $to] = $this->range($request);

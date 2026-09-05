@@ -9,6 +9,7 @@ use App\Modules\Identity\Models\TenantMembership;
 use App\Modules\Identity\Models\User;
 use App\Modules\Tasks\Enums\ProjectMembershipRole;
 use App\Modules\Tasks\Models\Project;
+use App\Modules\Tasks\Models\TaskStatus;
 use App\Modules\Tasks\Services\ProjectMembershipService;
 use App\Modules\Tasks\Services\ProjectService;
 use App\Modules\Tasks\Services\TaskAssignmentService;
@@ -210,6 +211,42 @@ class TaskMembersOnlyWriteTest extends TestCase
             $this->assertSame([], $reports->summaryByStatus($viewer));
             $this->assertSame(0, array_sum($reports->summaryByStatus($viewer)));
             $this->assertSame([], $reports->workload($viewer));
+            // Sprint 8A: completion rate is built on the same visibility base, so a
+            // hidden members_only project must leave it null (no visible tasks).
+            $this->assertNull($reports->completionRate($viewer));
+        });
+    }
+
+    public function test_completion_rate_denominator_excludes_hidden_tasks(): void
+    {
+        [$owner, $tenant] = $this->createCompanyWithOwner();
+        $dept = $this->makeDepartment($tenant);
+        // Viewer: dept-scoped reports viewer, NOT a member of the members_only project.
+        $viewer = $this->memberWithRole($tenant, 'department-manager', 'department', $dept->getKey());
+
+        $this->withinTenant($tenant, function () use ($owner, $dept, $viewer) {
+            $svc = app(TaskService::class);
+            $doneId = TaskStatus::query()->where('bootstrap_key', 'done')->value('id');
+
+            // 5 VISIBLE dept-scoped standalone tasks; mark 2 done, leave 3 open.
+            $visible = [];
+            for ($i = 0; $i < 5; $i++) {
+                $visible[] = $svc->create($owner, ['title' => "V{$i}", 'scope_type' => 'department', 'scope_id' => $dept->getKey()]);
+            }
+            $svc->changeStatus($owner, $visible[0]->fresh(), $doneId, $visible[0]->version);
+            $svc->changeStatus($owner, $visible[1]->fresh(), $doneId, $visible[1]->version);
+
+            // 3 HIDDEN tasks inside a members_only project the viewer cannot see.
+            $project = app(ProjectService::class)->create($owner, [
+                'name' => 'Secret', 'scope_type' => 'department', 'scope_id' => $dept->getKey(), 'visibility' => 'members_only',
+            ]);
+            for ($i = 0; $i < 3; $i++) {
+                $svc->create($owner, ['title' => "H{$i}", 'project_id' => $project->getKey()]);
+            }
+
+            // Denominator is the 5 VISIBLE tasks only (2 done) → 0.4; the 3 hidden
+            // tasks must not enter numerator or denominator.
+            $this->assertSame(0.4, app(TaskReportService::class)->completionRate($viewer));
         });
     }
 }

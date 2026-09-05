@@ -49,7 +49,9 @@
     "payroll_components": "مكوّنات الرواتب",
     "payroll_settings": "إعدادات الرواتب",
     "payroll_compensation": "رواتب الموظفين",
-    "my_payslips": "قسائم رواتبي"
+    "my_payslips": "قسائم رواتبي",
+    "org_reports": "تقارير المؤسسة",
+    "payroll_reports": "تقارير الرواتب"
   },
   "org": {
     "name": "الاسم",
@@ -932,5 +934,89 @@
     "back_to_payslips": "العودة إلى قسائمي",
     "employee_number": "الرقم الوظيفي",
     "job_title": "المسمى الوظيفي"
+  },
+  "reports": {
+    "org": {
+      "title": "تقارير المؤسسة",
+      "total": "إجمالي الموظفين",
+      "active": "نشط",
+      "inactive": "غير نشط",
+      "by_status": "حسب حالة التوظيف",
+      "status": "الحالة",
+      "count": "العدد",
+      "by_branch": "حسب الفرع",
+      "branch": "الفرع",
+      "by_department": "حسب القسم",
+      "department": "القسم",
+      "unassigned": "غير محدد",
+      "turnover": "الدوران (الملتحقون / المغادرون)",
+      "joiners": "الملتحقون المسجّلون",
+      "leavers": "المغادرون المسجّلون",
+      "month": "الشهر",
+      "turnover_basis": "يعتمد على الموظفين الذين لديهم تاريخ مباشرة أو تاريخ إنهاء خدمة مسجّل ضمن الفترة المحددة؛ ولا تُحتسب عمليات الأرشفة الإدارية دون تاريخ إنهاء خدمة.",
+      "missing_hire_date": "{{count}} موظف/موظفين ضمن النطاق دون تاريخ مباشرة مسجّل ولا يُدرجون ضمن الملتحقين."
+    },
+    "filters": {
+      "from": "من",
+      "to": "إلى"
+    },
+    "employment_status": {
+      "active": "نشط",
+      "on_leave": "في إجازة",
+      "probation": "تحت التجربة",
+      "suspended": "موقوف",
+      "terminated": "منتهي الخدمة",
+      "archived": "مؤرشف"
+    },
+    "payroll": {
+      "title": "تقارير الرواتب",
+      "basis": "تعتمد على الرواتب المعتمدة نهائيًا فقط (قيود نهائية ضمن مسير نهائي وفترة مغلقة). تُعرض الإجماليات لكل عملة ولا تُجمع أبدًا عبر عملات مختلفة.",
+      "period": "الفترة",
+      "all_periods": "كل الفترات",
+      "currency": "العملة",
+      "all_currencies": "كل العملات",
+      "no_finalized": "لا توجد رواتب معتمدة نهائيًا لعرضها بعد.",
+      "by_currency": "حسب العملة",
+      "by_period": "حسب الفترة",
+      "components": "المكوّنات",
+      "component": "المكوّن",
+      "direction": "النوع",
+      "gross": "الإجمالي",
+      "deductions": "الاستقطاعات",
+      "net": "الصافي",
+      "employees": "الموظفون",
+      "entries": "القيود",
+      "count": "العدد",
+      "amount": "المبلغ",
+      "dir": {
+        "earning": "استحقاق",
+        "deduction": "استقطاع"
+      },
+      "period_status": {
+        "open": "مفتوحة",
+        "closed": "مغلقة"
+      },
+      "run_status": {
+        "draft": "مسودة",
+        "calculating": "قيد الاحتساب",
+        "calculation_failed": "فشل الاحتساب",
+        "calculated": "محتسب",
+        "approved": "معتمد",
+        "finalized": "نهائي",
+        "cancelled": "ملغى"
+      }
+    }
+  },
+  "dashboard": {
+    "active_employees": "الموظفون النشطون",
+    "attendance_today": "الحضور اليوم",
+    "present": "حاضر",
+    "absent": "غائب",
+    "on_leave": "في إجازة",
+    "pending_leave": "طلبات إجازة معلّقة",
+    "overdue_tasks": "مهام متأخرة",
+    "latest_payroll": "أحدث فترة رواتب",
+    "period_status": "حالة الفترة",
+    "run_status": "حالة المسير"
   }
 }

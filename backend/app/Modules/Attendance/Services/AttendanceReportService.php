@@ -4,6 +4,7 @@ namespace App\Modules\Attendance\Services;
 
 use App\Modules\Attendance\Models\AttendanceRecord;
 use App\Modules\Attendance\Models\OvertimeApproval;
+use App\Modules\Employees\Models\Employee;
 use App\Modules\Employees\Support\EmployeeScopeResolver;
 use App\Modules\Identity\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -150,6 +151,63 @@ class AttendanceReportService
             'calculated_minutes' => (int) (clone $base)->sum('calculated_minutes'),
             'approved_minutes' => (int) (clone $base)->sum('approved_minutes'),
         ];
+    }
+
+    /**
+     * Organization rollup: scoped records grouped by the employee's branch or
+     * department (Sprint 8A gap). Same authoritative source as the other reports
+     * (attendance_records — never sessions), counts + minutes only, no GPS. A null
+     * unit (unassigned) is preserved as null so gaps are visible without leaking.
+     *
+     * @param  array{from?:?string, to?:?string, employee_id?:?string, status?:?string}  $filters
+     * @param  'branch'|'department'  $groupBy
+     * @return array<int, array<string, mixed>>
+     */
+    public function byUnit(User $user, array $filters, string $groupBy): array
+    {
+        $column = $groupBy === 'department' ? 'employees.department_id' : 'employees.branch_id';
+
+        // Scope via a scoped employee-id subquery (not whereHas) so the join to
+        // `employees` below cannot collide with a correlated relation subquery.
+        $scopedIds = $this->scope->applyScope(Employee::query(), $user, 'attendance.view')->select('id');
+
+        $query = AttendanceRecord::query()
+            ->whereIn('attendance_records.employee_id', $scopedIds);
+
+        if (! empty($filters['employee_id'])) {
+            $query->where('attendance_records.employee_id', $filters['employee_id']);
+        }
+        if (! empty($filters['status'])) {
+            $query->where('attendance_records.status', $filters['status']);
+        }
+        if (! empty($filters['from'])) {
+            $query->whereDate('attendance_records.work_date', '>=', $filters['from']);
+        }
+        if (! empty($filters['to'])) {
+            $query->whereDate('attendance_records.work_date', '<=', $filters['to']);
+        }
+
+        return $query
+            ->join('employees', 'employees.id', '=', 'attendance_records.employee_id')
+            ->selectRaw("{$column} as unit_id")
+            ->selectRaw("count(*) filter (where attendance_records.status = 'present') as present")
+            ->selectRaw("count(*) filter (where attendance_records.status = 'late') as late")
+            ->selectRaw("count(*) filter (where attendance_records.status = 'absent') as absent")
+            ->selectRaw('count(*) as records')
+            ->selectRaw('coalesce(sum(attendance_records.worked_minutes),0) as worked_minutes')
+            ->selectRaw('coalesce(sum(attendance_records.overtime_minutes),0) as overtime_minutes')
+            ->groupBy($column)
+            ->get()
+            ->map(fn ($row) => [
+                'unit_id' => $row->unit_id !== null ? (string) $row->unit_id : null,
+                'records' => (int) $row->records,
+                'present' => (int) $row->present,
+                'late' => (int) $row->late,
+                'absent' => (int) $row->absent,
+                'worked_minutes' => (int) $row->worked_minutes,
+                'overtime_minutes' => (int) $row->overtime_minutes,
+            ])
+            ->all();
     }
 
     /**

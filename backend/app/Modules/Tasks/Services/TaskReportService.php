@@ -50,6 +50,26 @@ class TaskReportService
     }
 
     /**
+     * Completion rate over the caller's VISIBLE, non-archived tasks: done ÷
+     * (done + open), matching projectProgress semantics. Terminal category is the
+     * sole "done" signal (never a status name). Built on visibleTaskQuery so a
+     * members_only task the caller cannot see never affects the rate. Empty
+     * visible set → null (documented; the client renders "—", not a fake 0).
+     */
+    public function completionRate(User $user): ?float
+    {
+        $base = fn () => $this->visibility->visibleTaskQuery($user)
+            ->whereNull('tasks.archived_at')
+            ->join('task_statuses', 'tasks.status_id', '=', 'task_statuses.id');
+
+        $done = (clone $base())->where('task_statuses.category', 'done')->count();
+        $open = (clone $base())->whereIn('task_statuses.category', ['backlog', 'todo', 'in_progress', 'blocked'])->count();
+        $denominator = $done + $open;
+
+        return $denominator === 0 ? null : round($done / $denominator, 4);
+    }
+
+    /**
      * Transparent per-employee workload over visible open tasks.
      *
      * @return array<int, array{employee_id:string, active:int, high_urgent:int, overdue:int, estimated_minutes:int, due_soon:int}>
