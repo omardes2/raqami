@@ -55,6 +55,7 @@ use App\Modules\Leave\Http\Controllers\LeaveRequestController;
 use App\Modules\Leave\Http\Controllers\LeaveSettingsController;
 use App\Modules\Leave\Http\Controllers\LeaveTypeController;
 use App\Modules\Localization\Http\Controllers\LocaleController;
+use App\Modules\Notifications\Http\Controllers\NotificationController;
 use App\Modules\Onboarding\Http\Controllers\CompanyOnboardingController;
 use App\Modules\Organization\Http\Controllers\BranchController;
 use App\Modules\Organization\Http\Controllers\DepartmentController;
@@ -150,6 +151,14 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->group(function
     // No blanket permission: DashboardService composes only the KPI cards the caller
     // is independently authorized and scoped to see; unauthorized cards are omitted.
     Route::get('dashboard/company', [DashboardController::class, 'company']);
+
+    // --- Personal notification inbox (Sprint 8B Phase 1) ---
+    // No permission gate: a user reads only their own notifications (recipient-aware
+    // RLS + explicit recipient filter). No create/delete endpoints exist.
+    Route::get('me/notifications', [NotificationController::class, 'index']);
+    Route::get('me/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::patch('me/notifications/{id}/read', [NotificationController::class, 'read']);
+    Route::post('me/notifications/read-all', [NotificationController::class, 'readAll']);
 
     // --- Organization structure ---
     Route::get('branches', [BranchController::class, 'index'])->middleware('permission.any:branches.view');
