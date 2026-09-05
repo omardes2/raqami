@@ -45,6 +45,7 @@ use App\Modules\Identity\Http\Controllers\InvitationController;
 use App\Modules\Identity\Http\Controllers\LoginController;
 use App\Modules\Identity\Http\Controllers\MeController;
 use App\Modules\Identity\Http\Controllers\MembershipController;
+use App\Modules\Identity\Http\Controllers\Mobile\MobileAuthController;
 use App\Modules\Identity\Http\Controllers\PasswordResetController;
 use App\Modules\Identity\Http\Controllers\RegisterController;
 use App\Modules\Identity\Http\Controllers\UserController;
@@ -110,6 +111,26 @@ Route::get('email/verify/{id}/{hash}', [EmailVerificationController::class, 'ver
 
 /*
 |--------------------------------------------------------------------------
+| Mobile API (ADR-004, Sprint 10) — versioned Bearer-token auth surface
+|--------------------------------------------------------------------------
+| The mobile client authenticates here to obtain a stateless Sanctum personal
+| access token, then consumes the SAME tenant application API as the SPA by
+| sending `Authorization: Bearer <token>` + `X-Tenant-Id`. Tenancy, RLS, and
+| permission checks are identical — only the identity carrier differs.
+*/
+Route::prefix('mobile/v1')->group(function () {
+    Route::post('auth/login', [MobileAuthController::class, 'login'])->middleware('throttle:10,1');
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('auth/logout', [MobileAuthController::class, 'logout']);
+        // Session resolves the active tenant (X-Tenant-Id) so it can return the
+        // caller's permissions/roles for the selected company.
+        Route::get('auth/session', [MobileAuthController::class, 'session'])->middleware('tenant');
+    });
+});
+
+/*
+|--------------------------------------------------------------------------
 | Authenticated tenant application (tenant context resolved per request)
 |--------------------------------------------------------------------------
 */
@@ -119,7 +140,8 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         ->middleware('throttle:6,1');
 
     Route::get('me', [MeController::class, 'show']);
-    Route::patch('me', [MeController::class, 'update']);
+    // Throttled: this path can change the password (Sprint 10 hardening).
+    Route::patch('me', [MeController::class, 'update'])->middleware('throttle:20,1');
 
     // Onboarding does NOT require an existing tenant (it creates one).
     Route::post('onboarding/company', [CompanyOnboardingController::class, 'store']);
@@ -156,7 +178,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->group(function
     // --- AI assistant (Sprint 9) — read-only, assistive summaries ---
     // Gated by ai.use; each feature also checks its report permission and gathers
     // only already-authorized aggregates. AI never mutates business state.
-    Route::middleware('permission.any:ai.use')->prefix('ai')->group(function () {
+    Route::middleware(['permission.any:ai.use', 'throttle:30,1'])->prefix('ai')->group(function () {
         Route::get('availability', [AiController::class, 'availability']);
         Route::post('insights', [AiController::class, 'insight']);
     });
