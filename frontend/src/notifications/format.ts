@@ -43,12 +43,26 @@ export function relativeTime(iso: string, locale: string): string {
 }
 
 /**
- * Deep-link resolver: maps ONLY known, verified notification types to in-app
- * routes. Phase 2 has no live domain producers, so it returns null for all
- * types (no unsafe URL is ever built from subject_type). Phase 3/4 will add
- * explicit mappings as the event catalog becomes real. A resolved link is
- * navigation only — the target page/API performs its own authorization.
+ * Deep-link resolver: an explicit WHITELIST mapping a notification's
+ * subject_type to a verified in-app route. Any unknown/unmapped type yields no
+ * link. Only the stable subject_id is interpolated (into a known route shape),
+ * never a free-form param, so no arbitrary URL can be built. A resolved link is
+ * navigation only — possessing a notification never grants access; the target
+ * page and its API re-authorize the viewer.
  */
-export function notificationAction(_item: NotificationItem): string | null {
-  return null
+export function notificationAction(item: NotificationItem): string | null {
+  const id = item.subject_id
+  switch (item.subject_type) {
+    case 'task':
+      // Task detail re-authorizes via TaskVisibilityResolver.
+      return id ? `/tasks/${encodeURIComponent(id)}` : '/tasks'
+    case 'leave_request':
+      return '/leave/requests'
+    case 'attendance_correction':
+      return '/attendance/corrections'
+    case 'payroll_entry':
+      return '/me/payslips'
+    default:
+      return null
+  }
 }

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { notifications, type NotificationItem } from '../notifications/api'
 import { emitNotificationsChanged, useUnreadCount } from '../notifications/useNotifications'
-import { notificationTitle, relativeTime, unreadBadge } from '../notifications/format'
+import { notificationAction, notificationTitle, relativeTime, unreadBadge } from '../notifications/format'
 
 const PREVIEW_SIZE = 5
 
@@ -59,7 +59,7 @@ export default function NotificationBell() {
     }
   }, [open])
 
-  async function markOne(item: NotificationItem) {
+  async function openItem(item: NotificationItem) {
     if (item.read_at === null) {
       try {
         await notifications.markRead(item.id)
@@ -68,6 +68,11 @@ export default function NotificationBell() {
       } catch {
         setError(true)
       }
+    }
+    const to = notificationAction(item)
+    if (to) {
+      setOpen(false)
+      navigate(to)
     }
   }
 
@@ -121,7 +126,7 @@ export default function NotificationBell() {
             <ul className="notif-list">
               {items.map((item) => (
                 <li key={item.id} className={item.read_at ? 'notif-item' : 'notif-item is-unread'}>
-                  <button type="button" className="notif-item-btn" onClick={() => markOne(item)}>
+                  <button type="button" className="notif-item-btn" onClick={() => openItem(item)}>
                     {item.read_at === null && <span className="notif-dot" aria-hidden="true" />}
                     <span className="notif-item-title">{notificationTitle(t, item)}</span>
                     <span className="notif-item-time muted">{relativeTime(item.created_at, i18n.language)}</span>

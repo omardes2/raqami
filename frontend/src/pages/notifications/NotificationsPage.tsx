@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useNavigate } from 'react-router-dom'
 import { notifications, type NotificationItem } from '../../notifications/api'
 import { emitNotificationsChanged } from '../../notifications/useNotifications'
-import { notificationTitle, relativeTime } from '../../notifications/format'
+import { notificationAction, notificationTitle, relativeTime } from '../../notifications/format'
 
 /**
  * Full notification inbox (Sprint 8B Phase 2). All/Unread filter, paginated,
@@ -11,6 +12,7 @@ import { notificationTitle, relativeTime } from '../../notifications/format'
  */
 export default function NotificationsPage() {
   const { t, i18n } = useTranslation()
+  const navigate = useNavigate()
   const [rows, setRows] = useState<NotificationItem[]>([])
   const [meta, setMeta] = useState<{ current_page: number; last_page: number }>({ current_page: 1, last_page: 1 })
   const [page, setPage] = useState(1)
@@ -44,15 +46,19 @@ export default function NotificationsPage() {
     setPage(1) // never leave a page number that won't exist in the filtered result
   }
 
-  async function markOne(item: NotificationItem) {
-    if (item.read_at !== null) return
-    try {
-      await notifications.markRead(item.id)
-      emitNotificationsChanged()
-      await load()
-    } catch {
-      setError(true)
+  async function openItem(item: NotificationItem) {
+    if (item.read_at === null) {
+      try {
+        await notifications.markRead(item.id)
+        emitNotificationsChanged()
+        await load()
+      } catch {
+        setError(true)
+      }
     }
+    // Follow the whitelisted deep-link, if any; the target re-authorizes.
+    const to = notificationAction(item)
+    if (to) navigate(to)
   }
 
   async function markAll() {
@@ -94,7 +100,7 @@ export default function NotificationsPage() {
           <ul className="notif-list notif-list-page">
             {rows.map((item) => (
               <li key={item.id} className={item.read_at ? 'notif-item' : 'notif-item is-unread'}>
-                <button type="button" className="notif-item-btn" onClick={() => markOne(item)}>
+                <button type="button" className="notif-item-btn" onClick={() => openItem(item)}>
                   {item.read_at === null && <span className="notif-dot" aria-hidden="true" />}
                   <span className="notif-item-title">{notificationTitle(t, item)}</span>
                   <span className="notif-item-time muted">{relativeTime(item.created_at, i18n.language)}</span>
