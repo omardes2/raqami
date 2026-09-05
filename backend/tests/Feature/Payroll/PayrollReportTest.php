@@ -235,4 +235,65 @@ class PayrollReportTest extends TestCase
     {
         return [['hr-manager'], ['department-manager'], ['team-leader'], ['employee']];
     }
+
+    public function test_branch_scoped_payroll_grant_is_denied_company_report(): void
+    {
+        // An accountant granted payroll.reports.view ONLY at a branch scope passes
+        // the coarse permission.any middleware but must be refused the company-wide
+        // report with a scope-safe 404 (PayrollAuthorizationService): a scoped grant
+        // never becomes salary visibility.
+        [$owner, $tenant] = $this->createCompanyWithOwner();
+        $branch = $this->makeBranch($tenant);
+        $branchAccountant = $this->memberWithRole($tenant, 'accountant', 'branch', $branch->getKey());
+
+        $this->actingAs($branchAccountant)->withHeaders($this->tenantHeaders($tenant))
+            ->getJson('/api/payroll/reports/summary')->assertStatus(404);
+    }
+
+    public function test_by_employee_report_is_sql_bounded_to_max_distinct_employees(): void
+    {
+        [$owner, $tenant] = $this->createCompanyWithOwner();
+        $max = (new \ReflectionClassConstant(PayrollReportService::class, 'MAX_EMPLOYEES'))->getValue();
+
+        // One finalized run with MAX+1 distinct employees (one JOD entry each).
+        $ids = [];
+        $specs = [];
+        for ($i = 0; $i <= $max; $i++) {
+            $e = $this->emp($tenant, sprintf('B%05d', $i));
+            $ids[] = (string) $e->getKey();
+            $specs[] = ['emp' => $e, 'currency' => 'JOD', 'gross' => 1000, 'ded' => 0, 'net' => 1000];
+        }
+        $this->seedRun($tenant, '2026-06-01', $specs);
+
+        $out = $this->withinTenant($tenant, fn () => app(PayrollReportService::class)->byEmployee([]));
+
+        // Exactly MAX distinct employees — the population is capped in SQL, not by a
+        // post-fetch PHP slice of the whole company-wide aggregate.
+        $this->assertCount($max, $out);
+
+        // Deterministic set: the lexicographically-smallest MAX employee ids
+        // (ORDER BY employee_id ASC LIMIT MAX), regardless of display order.
+        sort($ids);
+        $expected = array_slice($ids, 0, $max);
+        $returned = collect($out)->pluck('employee_id')->sort()->values()->all();
+        $this->assertSame($expected, $returned);
+    }
+
+    public function test_by_employee_multi_currency_counts_as_one_employee(): void
+    {
+        // Same employee paid JOD in one finalized period and USD in another. The
+        // report lists the employee ONCE with a per-currency row for each — a
+        // multi-currency employee is a single selected employee, never two.
+        [$owner, $tenant] = $this->createCompanyWithOwner();
+        $e = $this->emp($tenant, 'MC1');
+        $this->seedRun($tenant, '2026-04-01', [['emp' => $e, 'currency' => 'JOD', 'gross' => 1000, 'ded' => 0, 'net' => 1000]]);
+        $this->seedRun($tenant, '2026-05-01', [['emp' => $e, 'currency' => 'USD', 'gross' => 2000, 'ded' => 0, 'net' => 2000]]);
+
+        $out = $this->withinTenant($tenant, fn () => app(PayrollReportService::class)->byEmployee([]));
+
+        $this->assertCount(1, $out);
+        $this->assertSame((string) $e->getKey(), $out[0]['employee_id']);
+        $currencies = collect($out[0]['by_currency'])->pluck('currency')->sort()->values()->all();
+        $this->assertSame(['JOD', 'USD'], $currencies);
+    }
 }
