@@ -15,6 +15,7 @@ use App\Modules\Tenancy\Services\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\Concerns\InteractsWithTenancy;
 use Tests\TestCase;
 
@@ -26,6 +27,43 @@ class NotificationCommandsTest extends TestCase
 {
     use InteractsWithTenancy;
     use RefreshDatabase;
+
+    private function seedNotification(Tenant $tenant, string $userId, CarbonImmutable $createdAt): void
+    {
+        DB::statement("select set_config('app.tenant_id', ?, false)", [(string) $tenant->getKey()]);
+        DB::statement("select set_config('app.notification_writer', '1', false)");
+        try {
+            DB::table('notifications')->insert([
+                'id' => (string) Str::ulid(),
+                'tenant_id' => (string) $tenant->getKey(),
+                'recipient_user_id' => $userId,
+                'type' => 'test.event',
+                'data' => json_encode(['key' => 'notifications.test.title', 'params' => []]),
+                'created_at' => $createdAt,
+            ]);
+        } finally {
+            DB::statement("select set_config('app.notification_writer', '', false)");
+            app(TenantContext::class)->clear();
+        }
+    }
+
+    public function test_prune_deletes_old_and_keeps_recent(): void
+    {
+        [$owner, $tenant] = $this->createCompanyWithOwner();
+        $this->seedNotification($tenant, (string) $owner->id, CarbonImmutable::now()->subMonths(13));
+        $this->seedNotification($tenant, (string) $owner->id, CarbonImmutable::now()->subDays(10));
+
+        $this->assertSame(2, $this->inbox($tenant, (string) $owner->id));
+
+        $this->artisan('notifications:prune')->assertSuccessful();
+
+        // Only the recent (< 12 months) row survives.
+        $this->assertSame(1, $this->inbox($tenant, (string) $owner->id));
+
+        // Idempotent: a second run deletes nothing more.
+        $this->artisan('notifications:prune')->assertSuccessful();
+        $this->assertSame(1, $this->inbox($tenant, (string) $owner->id));
+    }
 
     private function inbox(Tenant $tenant, string $userId, ?string $type = null): int
     {

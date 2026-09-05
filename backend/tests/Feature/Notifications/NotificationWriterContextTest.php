@@ -124,6 +124,31 @@ class NotificationWriterContextTest extends TestCase
         $this->assertSame('', $this->writerFlag(), 'writer GUC must clear on the duplicate/no-op insert path too');
     }
 
+    public function test_maintenance_and_cutoff_gucs_are_transaction_local(): void
+    {
+        // Committed transaction: both GUCs must be discarded on COMMIT.
+        DB::transaction(function () {
+            DB::statement("select set_config('app.notification_maintenance', '1', true)");
+            DB::statement("select set_config('app.notification_prune_before', '2999-01-01T00:00:00Z', true)");
+        });
+        $after = DB::selectOne("select current_setting('app.notification_maintenance', true) m, current_setting('app.notification_prune_before', true) p");
+        $this->assertSame('', (string) ($after->m ?? ''), 'maintenance GUC must not survive commit');
+        $this->assertSame('', (string) ($after->p ?? ''), 'prune cutoff GUC must not survive commit');
+
+        // Rolled-back transaction: both GUCs must also be gone.
+        try {
+            DB::transaction(function () {
+                DB::statement("select set_config('app.notification_maintenance', '1', true)");
+                DB::statement("select set_config('app.notification_prune_before', '2999-01-01T00:00:00Z', true)");
+                throw new \RuntimeException('boom');
+            });
+        } catch (\RuntimeException) {
+        }
+        $after = DB::selectOne("select current_setting('app.notification_maintenance', true) m, current_setting('app.notification_prune_before', true) p");
+        $this->assertSame('', (string) ($after->m ?? ''), 'maintenance GUC must not survive rollback');
+        $this->assertSame('', (string) ($after->p ?? ''), 'prune cutoff GUC must not survive rollback');
+    }
+
     protected function tearDown(): void
     {
         if ($this->committedTenantIds !== [] && DB::getDriverName() === 'pgsql') {

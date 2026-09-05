@@ -32,11 +32,13 @@ class NotificationRlsTest extends TestCase
         DB::statement("select set_config('app.platform_readonly', ?, false)", [$g['platform'] ?? 'off']);
         DB::statement("select set_config('app.notification_writer', ?, false)", [$g['writer'] ?? '']);
         DB::statement("select set_config('app.notification_maintenance', ?, false)", [$g['maint'] ?? '']);
+        DB::statement("select set_config('app.notification_prune_before', ?, false)", [$g['prune'] ?? '']);
         try {
             return $cb();
         } finally {
             DB::statement("select set_config('app.notification_writer', '', false)");
             DB::statement("select set_config('app.notification_maintenance', '', false)");
+            DB::statement("select set_config('app.notification_prune_before', '', false)");
         }
     }
 
@@ -146,8 +148,8 @@ class NotificationRlsTest extends TestCase
             fn () => DB::table('notifications')->delete());
         $this->assertSame(0, $affected);
 
-        // Maintenance context in the same tenant → delete allowed.
-        $deleted = $this->withGucs(['tenant' => $tid, 'maint' => '1'],
+        // Maintenance context in the same tenant, with a future cutoff → delete allowed.
+        $deleted = $this->withGucs(['tenant' => $tid, 'maint' => '1', 'prune' => '2999-01-01T00:00:00Z'],
             fn () => DB::table('notifications')->delete());
         $this->assertGreaterThanOrEqual(1, $deleted);
     }
@@ -159,8 +161,8 @@ class NotificationRlsTest extends TestCase
         $a = $this->memberWithRole($tenantA, 'employee');
         $this->seedNotes($tenantA, $a);
 
-        // Maintenance context scoped to tenant B cannot touch tenant A rows.
-        $deleted = $this->withGucs(['tenant' => (string) $tenantB->getKey(), 'maint' => '1'],
+        // Maintenance context scoped to tenant B (future cutoff) cannot touch tenant A rows.
+        $deleted = $this->withGucs(['tenant' => (string) $tenantB->getKey(), 'maint' => '1', 'prune' => '2999-01-01T00:00:00Z'],
             fn () => DB::table('notifications')->delete());
         $this->assertSame(0, $deleted);
 
