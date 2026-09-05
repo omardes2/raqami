@@ -140,6 +140,28 @@ class MobileAuthTest extends TestCase
             ->getJson('/api/mobile/v1/auth/session')->assertOk();
     }
 
+    public function test_permission_gating_is_enforced_identically_over_bearer(): void
+    {
+        [, $tenant] = $this->createCompanyWithOwner();
+        // A plain employee: member of the tenant, but holds no management perms.
+        $employee = $this->memberWithRole($tenant, 'employee');
+
+        $token = $this->postJson('/api/mobile/v1/auth/login', [
+            'email' => $employee->email, 'password' => 'password', 'device_name' => 'Phone',
+        ])->json('token');
+
+        // Self-service endpoint (membership only) → allowed over Bearer.
+        $this->withHeaders($this->bearer($token) + $this->tenantHeaders($tenant))
+            ->getJson('/api/me/notifications')
+            ->assertOk();
+
+        // Permission-gated endpoint → forbidden over Bearer, exactly as it would
+        // be over the SPA cookie. The token does not widen authority.
+        $this->withHeaders($this->bearer($token) + $this->tenantHeaders($tenant))
+            ->getJson('/api/company')
+            ->assertForbidden();
+    }
+
     public function test_token_cannot_act_on_a_company_the_user_does_not_belong_to(): void
     {
         [$ownerA, $tenantA] = $this->createCompanyWithOwner(['name' => 'Alpha']);
