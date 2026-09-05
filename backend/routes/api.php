@@ -119,7 +119,8 @@ Route::middleware(['auth:sanctum', 'tenant'])->group(function () {
         ->middleware('throttle:6,1');
 
     Route::get('me', [MeController::class, 'show']);
-    Route::patch('me', [MeController::class, 'update']);
+    // Throttled: this path can change the password (Sprint 10 hardening).
+    Route::patch('me', [MeController::class, 'update'])->middleware('throttle:20,1');
 
     // Onboarding does NOT require an existing tenant (it creates one).
     Route::post('onboarding/company', [CompanyOnboardingController::class, 'store']);
@@ -156,7 +157,7 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->group(function
     // --- AI assistant (Sprint 9) — read-only, assistive summaries ---
     // Gated by ai.use; each feature also checks its report permission and gathers
     // only already-authorized aggregates. AI never mutates business state.
-    Route::middleware('permission.any:ai.use')->prefix('ai')->group(function () {
+    Route::middleware(['permission.any:ai.use', 'throttle:30,1'])->prefix('ai')->group(function () {
         Route::get('availability', [AiController::class, 'availability']);
         Route::post('insights', [AiController::class, 'insight']);
     });

@@ -72,8 +72,11 @@ class CompanyOnboardingService
                 ]);
 
                 // Owner role at company scope. Owner holds every permission
-                // inside its tenant but does NOT bypass tenant isolation.
-                $this->assignments->assign($owner, $roles['owner'], 'company', null, $owner);
+                // inside its tenant but does NOT bypass tenant isolation. This is
+                // the system bootstrap grant (the founder becomes owner), so it
+                // uses the internal no-actor path — the role-ceiling guard applies
+                // only to user-initiated grants. The grant is audited below.
+                $this->assignments->assign($owner, $roles['owner'], 'company', null);
 
                 $this->audit->log('tenant.created', [
                     'actor' => $owner,

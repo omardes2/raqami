@@ -19,7 +19,56 @@ use Illuminate\Support\Collection;
  */
 class AccessService
 {
+    /**
+     * Per-request memo of each user's role assignments (with role.permissions),
+     * keyed by "tenantId|userId". AccessService is bound as a singleton, so a
+     * list endpoint that checks access per row (e.g. the attendance records
+     * resource) loads a user's grants once instead of once per row. Scope
+     * filtering is then done in memory. Cleared when the tenant context changes.
+     *
+     * @var array<string, Collection<int, RoleAssignment>>
+     */
+    private array $assignmentCache = [];
+
+    private ?string $cacheTenantId = null;
+
     public function __construct(private readonly TenantContext $context) {}
+
+    /**
+     * Drop the per-request assignment memo. Called after a role assignment is
+     * written or revoked so a subsequent check in the same request reflects the
+     * change rather than a stale snapshot.
+     */
+    public function flush(): void
+    {
+        $this->assignmentCache = [];
+        $this->cacheTenantId = null;
+    }
+
+    /**
+     * The user's role assignments in the active tenant (cached per request),
+     * eager-loading role.permissions.
+     *
+     * @return Collection<int, RoleAssignment>
+     */
+    private function assignmentsFor(User $user): Collection
+    {
+        if (! $this->context->hasTenant()) {
+            return collect();
+        }
+
+        $tenantId = (string) $this->context->tenantId();
+        // A tenant switch within the process invalidates the memo.
+        if ($this->cacheTenantId !== $tenantId) {
+            $this->assignmentCache = [];
+            $this->cacheTenantId = $tenantId;
+        }
+
+        return $this->assignmentCache[$user->getKey()] ??= RoleAssignment::query()
+            ->where('user_id', $user->getKey())
+            ->with('role.permissions')
+            ->get();
+    }
 
     /**
      * Effective permission keys for a user in the active tenant, in effect for
@@ -27,26 +76,20 @@ class AccessService
      */
     public function permissionsFor(User $user, string $scopeType = 'company', ?string $scopeId = null): Collection
     {
-        if (! $this->context->hasTenant()) {
-            return collect();
-        }
-
-        $assignments = RoleAssignment::query()
-            ->where('user_id', $user->getKey())
-            ->where(function ($q) use ($scopeType, $scopeId) {
-                // Company-scope grants are always in effect.
-                $q->where('scope_type', 'company');
-                // Plus grants that match the specific target scope.
-                if ($scopeType !== 'company') {
-                    $q->orWhere(function ($q2) use ($scopeType, $scopeId) {
-                        $q2->where('scope_type', $scopeType)->where('scope_id', $scopeId);
-                    });
+        return $this->assignmentsFor($user)
+            ->filter(function (RoleAssignment $a) use ($scopeType, $scopeId) {
+                if ($a->scope_type === 'company') {
+                    return true; // company grants are always in effect
                 }
-            })
-            ->with('role.permissions')
-            ->get();
 
-        return $assignments
+                // scope_id is a char(26) column, so PostgreSQL pads shorter
+                // values with trailing spaces and ignores them on comparison.
+                // The in-memory filter must replicate that CHAR semantics, or a
+                // sub-ULID scope key (only ever seen in tests) would mismatch.
+                return $scopeType !== 'company'
+                    && $a->scope_type === $scopeType
+                    && rtrim((string) $a->scope_id) === rtrim((string) $scopeId);
+            })
             ->flatMap(fn (RoleAssignment $a) => $a->role?->permissions ?? collect())
             ->pluck('key')
             ->unique()
@@ -67,14 +110,7 @@ class AccessService
      */
     public function scopeGrantsFor(User $user, string $permission): Collection
     {
-        if (! $this->context->hasTenant()) {
-            return collect();
-        }
-
-        return RoleAssignment::query()
-            ->where('user_id', $user->getKey())
-            ->with('role.permissions')
-            ->get()
+        return $this->assignmentsFor($user)
             ->filter(fn (RoleAssignment $a) => ($a->role?->permissions ?? collect())
                 ->pluck('key')->contains($permission))
             ->map(fn (RoleAssignment $a) => [
@@ -96,14 +132,7 @@ class AccessService
      */
     public function allPermissions(User $user): Collection
     {
-        if (! $this->context->hasTenant()) {
-            return collect();
-        }
-
-        return RoleAssignment::query()
-            ->where('user_id', $user->getKey())
-            ->with('role.permissions')
-            ->get()
+        return $this->assignmentsFor($user)
             ->flatMap(fn (RoleAssignment $a) => $a->role?->permissions ?? collect())
             ->pluck('key')
             ->unique()
@@ -120,14 +149,7 @@ class AccessService
     /** Roles held by a user in the active tenant (for display). */
     public function roleSlugsFor(User $user): Collection
     {
-        if (! $this->context->hasTenant()) {
-            return collect();
-        }
-
-        return RoleAssignment::query()
-            ->where('user_id', $user->getKey())
-            ->with('role')
-            ->get()
+        return $this->assignmentsFor($user)
             ->map(fn (RoleAssignment $a) => $a->role?->slug)
             ->filter()
             ->unique()

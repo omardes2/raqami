@@ -8,6 +8,7 @@ use App\Modules\Authorization\Models\RoleAssignment;
 use App\Modules\Authorization\Support\PermissionCatalog;
 use App\Modules\Identity\Models\User;
 use App\Modules\Tenancy\Services\TenantContext;
+use Illuminate\Auth\Access\AuthorizationException;
 use InvalidArgumentException;
 
 /** Writes role assignments (scoped) and audits them. */
@@ -16,6 +17,7 @@ class RoleAssignmentService
     public function __construct(
         private readonly TenantContext $context,
         private readonly AuditLogger $audit,
+        private readonly AccessService $access,
     ) {}
 
     public function assignBySlug(
@@ -41,6 +43,13 @@ class RoleAssignmentService
             throw new InvalidArgumentException("Unknown scope type: {$scopeType}");
         }
 
+        // Role-ceiling guard (Sprint 10). Only enforced for a real acting User
+        // (the HTTP path); internal provisioning/onboarding passes no User actor
+        // and may seed any role, including owner.
+        if ($actor instanceof User) {
+            $this->assertActorMayGrant($actor, $role);
+        }
+
         $assignment = RoleAssignment::query()->firstOrCreate([
             'tenant_id' => $this->context->tenantId(),
             'user_id' => $user->getKey(),
@@ -50,6 +59,7 @@ class RoleAssignmentService
         ]);
 
         if ($assignment->wasRecentlyCreated) {
+            $this->access->flush(); // a new grant invalidates the per-request memo
             $this->audit->log('role.assigned', [
                 'actor' => $actor,
                 'subject' => $user,
@@ -64,6 +74,30 @@ class RoleAssignmentService
         return $assignment;
     }
 
+    /**
+     * A non-owner actor may never grant the owner role, and may never grant a
+     * role carrying a permission the actor does not themselves hold — preventing
+     * vertical privilege escalation within the tenant (e.g. an admin making
+     * themselves owner, or minting a role with powers beyond their own).
+     */
+    private function assertActorMayGrant(User $actor, Role $role): void
+    {
+        if ($this->access->roleSlugsFor($actor)->contains('owner')) {
+            return; // owner may grant any role within the tenant
+        }
+
+        if ($role->slug === 'owner') {
+            throw new AuthorizationException('Only an owner may grant the owner role.');
+        }
+
+        $actorPermissions = $this->access->allPermissions($actor)->flip();
+        foreach ($role->permissions()->pluck('key') as $permission) {
+            if (! $actorPermissions->has($permission)) {
+                throw new AuthorizationException('You cannot grant a role with permissions beyond your own.');
+            }
+        }
+    }
+
     public function revoke(RoleAssignment $assignment, mixed $actor = null): void
     {
         $meta = [
@@ -74,6 +108,7 @@ class RoleAssignmentService
         ];
 
         $assignment->delete();
+        $this->access->flush(); // a revoked grant invalidates the per-request memo
 
         $this->audit->log('role.removed', [
             'actor' => $actor,
