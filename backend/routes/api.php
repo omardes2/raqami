@@ -45,6 +45,7 @@ use App\Modules\Identity\Http\Controllers\InvitationController;
 use App\Modules\Identity\Http\Controllers\LoginController;
 use App\Modules\Identity\Http\Controllers\MeController;
 use App\Modules\Identity\Http\Controllers\MembershipController;
+use App\Modules\Identity\Http\Controllers\Mobile\MobileAuthController;
 use App\Modules\Identity\Http\Controllers\PasswordResetController;
 use App\Modules\Identity\Http\Controllers\RegisterController;
 use App\Modules\Identity\Http\Controllers\UserController;
@@ -107,6 +108,26 @@ Route::post('reset-password', [PasswordResetController::class, 'reset'])->middle
 Route::get('email/verify/{id}/{hash}', [EmailVerificationController::class, 'verify'])
     ->middleware(['auth:sanctum', 'signed', 'throttle:6,1'])
     ->name('verification.verify');
+
+/*
+|--------------------------------------------------------------------------
+| Mobile API (ADR-004, Sprint 10) — versioned Bearer-token auth surface
+|--------------------------------------------------------------------------
+| The mobile client authenticates here to obtain a stateless Sanctum personal
+| access token, then consumes the SAME tenant application API as the SPA by
+| sending `Authorization: Bearer <token>` + `X-Tenant-Id`. Tenancy, RLS, and
+| permission checks are identical — only the identity carrier differs.
+*/
+Route::prefix('mobile/v1')->group(function () {
+    Route::post('auth/login', [MobileAuthController::class, 'login'])->middleware('throttle:10,1');
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('auth/logout', [MobileAuthController::class, 'logout']);
+        // Session resolves the active tenant (X-Tenant-Id) so it can return the
+        // caller's permissions/roles for the selected company.
+        Route::get('auth/session', [MobileAuthController::class, 'session'])->middleware('tenant');
+    });
+});
 
 /*
 |--------------------------------------------------------------------------
