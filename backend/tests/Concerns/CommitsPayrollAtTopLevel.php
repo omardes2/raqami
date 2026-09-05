@@ -35,6 +35,22 @@ trait CommitsPayrollAtTopLevel
     protected function tearDown(): void
     {
         if ($this->committedTenantIds !== [] && DB::getDriverName() === 'pgsql') {
+            // Finalization may now enqueue payslip notifications (Sprint 8B). Those
+            // rows carry FORCE RLS with a maintenance-only DELETE policy, so the
+            // tenant-delete cascade below would be blocked — remove them first
+            // under a maintenance context so the cascade finds nothing.
+            foreach ($this->committedTenantIds as $tid) {
+                DB::statement("select set_config('app.tenant_id', ?, false)", [$tid]);
+                DB::statement("select set_config('app.platform_readonly', 'off', false)");
+                DB::statement("select set_config('app.notification_maintenance', '1', false)");
+                try {
+                    DB::table('notifications')->delete();
+                } finally {
+                    DB::statement("select set_config('app.notification_maintenance', '', false)");
+                }
+            }
+            DB::statement("select set_config('app.tenant_id', '', false)");
+
             $tables = ['payroll_entry_lines', 'payroll_entries', 'payroll_adjustments', 'payroll_runs', 'payroll_periods'];
             foreach ($tables as $t) {
                 DB::statement("ALTER TABLE {$t} DISABLE TRIGGER USER");

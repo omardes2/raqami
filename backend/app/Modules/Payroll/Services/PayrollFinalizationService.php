@@ -15,6 +15,7 @@ use App\Modules\Payroll\Enums\PayrollEntryStatus;
 use App\Modules\Payroll\Enums\PayrollLineDirection;
 use App\Modules\Payroll\Enums\PayrollPeriodStatus;
 use App\Modules\Payroll\Enums\PayrollRunStatus;
+use App\Modules\Payroll\Jobs\PayslipNotificationJob;
 use App\Modules\Payroll\Models\PayrollEntry;
 use App\Modules\Payroll\Models\PayrollEntryLine;
 use App\Modules\Payroll\Models\PayrollPeriod;
@@ -25,6 +26,9 @@ use App\Modules\Payroll\Support\PayrollFinalizationTransaction;
 use App\Modules\Payroll\Support\PayrollRunExecutionLock;
 use App\Modules\Tenancy\Services\TenantContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -198,6 +202,25 @@ class PayrollFinalizationService
                 ])->save();
 
                 $period->forceFill(['status' => PayrollPeriodStatus::Closed])->save();
+
+                // Post-commit, fully isolated: enqueue ONE fan-out job to notify
+                // employees their payslip is available. Registered inside this
+                // transaction so it fires only on a real COMMIT; the enqueue itself
+                // is wrapped so a broker outage can NEVER turn a finalized payroll
+                // into a failed request (A9). Missed runs are recoverable via
+                // `notifications:reconcile-payslips`.
+                $runIdForNotify = $runId;
+                DB::afterCommit(function () use ($runIdForNotify) {
+                    try {
+                        Bus::dispatch(new PayslipNotificationJob($runIdForNotify));
+                    } catch (\Throwable $e) {
+                        Log::warning('payroll.payslip_dispatch_failed', [
+                            'payroll_run_id' => $runIdForNotify,
+                            'exception' => $e::class,
+                            'message' => $e->getMessage(),
+                        ]);
+                    }
+                });
 
                 return $run->fresh();
             });
