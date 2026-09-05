@@ -7,6 +7,7 @@ use App\Modules\Employees\Models\Employee;
 use App\Modules\Employees\Services\EmployeeService;
 use App\Modules\Identity\Models\TenantMembership;
 use App\Modules\Identity\Models\User;
+use App\Modules\Notifications\Services\NotificationMaintenanceService;
 use App\Modules\Notifications\Services\NotificationService;
 use App\Modules\Payroll\Jobs\PayslipNotificationJob;
 use App\Modules\Payroll\Models\PayrollRun;
@@ -17,6 +18,7 @@ use App\Modules\Payroll\Services\PayrollPeriodService;
 use App\Modules\Payroll\Services\PayrollRunService;
 use App\Modules\Tenancy\Models\Tenant;
 use App\Modules\Tenancy\Services\TenantContext;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Tests\Concerns\CommitsPayrollAtTopLevel;
@@ -114,6 +116,23 @@ class PayrollNotificationTest extends TestCase
             ->handle(app(NotificationService::class)));
         $rows = $this->inboxRows($tenant, (string) $user->id, 'payroll.payslip_available');
         $this->assertCount(1, $rows);
+    }
+
+    public function test_reconcile_delivers_missing_payslip_notifications(): void
+    {
+        [$owner, $tenant] = $this->trackedCompany();
+        [$employee, $user] = $this->linkedEmployee($tenant, $owner);
+        // finalizedRun fakes the queue during finalize, so the fan-out job never
+        // ran — this is the "broker was down" state reconcile must recover. The
+        // fake stays active, so we assert reconcile RE-DISPATCHES the idempotent
+        // job for the finalized run (its delivery + dedupe are proven above).
+        $run = $this->finalizedRun($tenant, $owner);
+
+        $result = app(NotificationMaintenanceService::class)
+            ->reconcilePayslips(CarbonImmutable::now()->utc()->subDays(35));
+
+        $this->assertGreaterThanOrEqual(1, $result['runs']);
+        Queue::assertPushed(PayslipNotificationJob::class);
     }
 
     public function test_job_noops_when_run_not_finalized(): void
