@@ -28,7 +28,13 @@ class PayrollReportService
     /** Max distinct periods returned by the period report (bounded, no lifetime dump). */
     private const MAX_PERIODS = 24;
 
-    /** Max employees returned by the by-employee report (bounded result set). */
+    /**
+     * Max DISTINCT employees returned by the by-employee report. This bounds the
+     * employee POPULATION at the database (a SQL LIMIT on distinct employee ids),
+     * not the number of rows: an employee paid in JOD and USD is ONE employee and
+     * still contributes both per-currency rows. The cap is applied before any large
+     * aggregate is materialized, so the report never loads all-history company-wide.
+     */
     private const MAX_EMPLOYEES = 500;
 
     /** Base query over finalized entries whose run is finalized and period closed. */
@@ -151,14 +157,40 @@ class PayrollReportService
     /**
      * Finalized totals per employee, grouped by currency, using the finalized
      * employee_snapshot for safe historical identity (employee_number, name).
-     * Bounded to MAX_EMPLOYEES, ordered by employee_number.
      *
-     * @param  array{payroll_period_id?:?string, currency?:?string}  $f
+     * SQL-bounded before materialization: a first query selects at most
+     * MAX_EMPLOYEES DISTINCT eligible employee ids with a database LIMIT (stable
+     * employee_id order — never a mutable salary ranking), and both the aggregate
+     * and the identity lookup are then confined to that bounded id set. The report
+     * therefore never fetches the whole company-wide finalized population into PHP.
+     * Filters are applied to the finalized population BEFORE the limit, so an
+     * employee_id filter targets that employee directly rather than being applied
+     * after an arbitrary 500-employee cut.
+     *
+     * @param  array{payroll_period_id?:?string, employee_id?:?string, currency?:?string}  $f
      * @return array<int, array<string, mixed>>
      */
     public function byEmployee(array $f): array
     {
+        // Step 1 — bound the employee POPULATION at the database: at most
+        // MAX_EMPLOYEES distinct employee ids (one per employee, whatever their
+        // currency count), deterministic by employee_id, with a SQL LIMIT.
+        $employeeIds = $this->applyFilters($this->finalized(), $f)
+            ->select('payroll_entries.employee_id')
+            ->distinct()
+            ->orderBy('payroll_entries.employee_id')
+            ->limit(self::MAX_EMPLOYEES)
+            ->pluck('payroll_entries.employee_id')
+            ->all();
+
+        if ($employeeIds === []) {
+            return [];
+        }
+
+        // Step 2 — aggregate finalized money ONLY for the bounded id set, grouped
+        // by currency (never combined across currencies).
         $rows = $this->applyFilters($this->finalized(), $f)
+            ->whereIn('payroll_entries.employee_id', $employeeIds)
             ->selectRaw('payroll_entries.employee_id as employee_id')
             ->selectRaw('payroll_entries.currency as currency')
             ->selectRaw('coalesce(sum(payroll_entries.gross_minor),0) as gross_minor')
@@ -167,14 +199,10 @@ class PayrollReportService
             ->groupBy('payroll_entries.employee_id', 'payroll_entries.currency')
             ->get();
 
-        if ($rows->isEmpty()) {
-            return [];
-        }
-
-        // Safe historical identity from the latest finalized entry snapshot per
-        // employee (one bounded query; no N+1).
+        // Step 3 — safe historical identity (latest finalized snapshot per employee),
+        // confined to the same bounded id set. No N+1.
         $identities = $this->finalized()
-            ->whereIn('payroll_entries.employee_id', $rows->pluck('employee_id')->unique()->all())
+            ->whereIn('payroll_entries.employee_id', $employeeIds)
             ->orderByDesc('payroll_entries.finalized_at')
             ->get(['payroll_entries.employee_id', 'payroll_entries.employee_snapshot'])
             ->groupBy('employee_id')
@@ -199,7 +227,6 @@ class PayrollReportService
 
         return collect($byEmployee)
             ->sortBy(fn ($e) => $e['employee_number'] ?? '')
-            ->take(self::MAX_EMPLOYEES)
             ->values()
             ->all();
     }
