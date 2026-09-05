@@ -156,6 +156,9 @@ class PermissionCatalog
         'payroll.negative_override' => ['payroll', 'Finalize despite a negative net (with reason)'],
         'payroll.reports.view' => ['payroll', 'View payroll reports & totals'],
         'payroll.settings.manage' => ['payroll', 'Manage company payroll settings'],
+
+        // --- Sprint 9: AI assistant (read-only, assistive) ---
+        'ai.use' => ['ai', 'Use the AI assistant (read-only summaries within your own authorized scope)'],
     ];
 
     /** Sprint 3 + 4 attendance permission groups reused in default role mappings. */
@@ -324,6 +327,7 @@ class PermissionCatalog
                 'leave.negative_override', 'leave.attachments.view_sensitive',
                 ...self::TASKS_FULL,
                 ...self::PAYROLL_FULL,
+                'ai.use',
             ],
         ],
         'hr-manager' => [
@@ -341,6 +345,7 @@ class PermissionCatalog
                 'leave.attachments.view_sensitive',
                 // HR does NOT own tasks/projects by default (D9) — reports only.
                 'tasks.reports.view',
+                'ai.use',
             ],
         ],
         'department-manager' => [
@@ -355,6 +360,7 @@ class PermissionCatalog
                 ...self::LEAVE_MANAGER,
                 // Scope-limited task administration (branch/department by assignment).
                 ...self::TASKS_MANAGER,
+                'ai.use',
             ],
         ],
         'team-leader' => [
@@ -366,6 +372,7 @@ class PermissionCatalog
                 'user.view', 'teams.view', 'employees.view',
                 ...self::ATTENDANCE_VIEW, ...self::LEAVE_VIEW,
                 'tasks.view', 'tasks.assign', 'tasks.comment', 'tasks.attach', 'tasks.reports.view',
+                'ai.use',
             ],
         ],
         'accountant' => [
@@ -380,6 +387,7 @@ class PermissionCatalog
                 // compensation, run/calculate/adjust) — but NOT manage
                 // compensation, components, approve, finalize, override, settings.
                 ...self::PAYROLL_ACCOUNTANT,
+                'ai.use',
             ],
         ],
         'employee' => [

@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Ai\Http\Controllers\AiController;
 use App\Modules\Attendance\Http\Controllers\AttendanceAnomalyController;
 use App\Modules\Attendance\Http\Controllers\AttendanceController;
 use App\Modules\Attendance\Http\Controllers\AttendanceCorrectionController;
@@ -151,6 +152,14 @@ Route::middleware(['auth:sanctum', 'tenant', 'tenant.required'])->group(function
     // No blanket permission: DashboardService composes only the KPI cards the caller
     // is independently authorized and scoped to see; unauthorized cards are omitted.
     Route::get('dashboard/company', [DashboardController::class, 'company']);
+
+    // --- AI assistant (Sprint 9) — read-only, assistive summaries ---
+    // Gated by ai.use; each feature also checks its report permission and gathers
+    // only already-authorized aggregates. AI never mutates business state.
+    Route::middleware('permission.any:ai.use')->prefix('ai')->group(function () {
+        Route::get('availability', [AiController::class, 'availability']);
+        Route::post('insights', [AiController::class, 'insight']);
+    });
 
     // --- Personal notification inbox (Sprint 8B Phase 1) ---
     // No permission gate: a user reads only their own notifications (recipient-aware
