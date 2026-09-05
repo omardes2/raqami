@@ -32,6 +32,17 @@ class NotificationService
     public function __construct(private readonly TenantContext $context) {}
 
     /**
+     * Preferred producer entrypoint: send a WHITELISTED payload built by
+     * NotificationPayloadFactory. Domain code should always call this rather than
+     * the low-level notify() below, so a stable key + only safe params ever reach
+     * a stored notification.
+     */
+    public function send(string $recipientUserId, NotificationPayload $payload): NotificationResult
+    {
+        return $this->notify($recipientUserId, $payload->type, $payload->data(), $payload->options());
+    }
+
+    /**
      * @param  array{key:string, params?:array<string,mixed>}  $data  safe payload (translation key + locale-neutral params only)
      * @param  array{subject_type?:?string, subject_id?:?string, dedupe_key?:?string}  $opts
      */
@@ -66,16 +77,19 @@ class NotificationService
             'created_at' => now(),
         ];
 
-        // Enter the writer context only around the insert, and ALWAYS reset it —
-        // the INSERT RLS policy requires app.notification_writer='1', and the
-        // explicit finally guarantees the flag never outlives this call (no leak
-        // across pooled connections), deterministically in every environment.
-        try {
-            DB::statement("select set_config('app.notification_writer', '1', false)");
-            $inserted = DB::table('notifications')->insertOrIgnore($row);
-        } finally {
-            DB::statement("select set_config('app.notification_writer', '', false)");
-        }
+        // Writer context is TRANSACTION-LOCAL. set_config(..., true) scopes the
+        // app.notification_writer GUC to THIS short transaction only: it satisfies
+        // the INSERT RLS policy for the insert, then PostgreSQL discards it
+        // automatically on COMMIT, ROLLBACK, or any thrown exception. Safety does
+        // NOT depend on a session reset or a finally block, so the flag can never
+        // outlive the transaction — not on a pooled connection, and not on a
+        // long-lived queued-worker connection. This is the ONLY place the flag is
+        // ever set; there is deliberately no reusable "become a writer" helper.
+        $inserted = DB::transaction(function () use ($row): int {
+            DB::statement("select set_config('app.notification_writer', '1', true)");
+
+            return DB::table('notifications')->insertOrIgnore($row);
+        });
 
         return $inserted > 0 ? NotificationResult::Created : NotificationResult::Duplicate;
     }

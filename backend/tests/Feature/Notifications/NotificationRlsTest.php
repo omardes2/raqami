@@ -185,28 +185,25 @@ class NotificationRlsTest extends TestCase
         $this->assertTrue($denied);
     }
 
-    public function test_writer_guc_does_not_leak_after_service_call(): void
-    {
-        [$owner, $tenant] = $this->createCompanyWithOwner();
-        $a = $this->memberWithRole($tenant, 'employee');
-        $this->seedNotes($tenant, $a); // service enters + exits writer context
-
-        // The writer flag must be reset immediately after the service call.
-        $writer = DB::selectOne("select current_setting('app.notification_writer', true) as w")->w;
-        $this->assertTrue($writer === '' || $writer === null, 'writer flag must not leak past the service call');
-
-        // And a normal (no-writer) context is consequently denied INSERT.
-        $tid = (string) $tenant->getKey();
-        $denied = $this->withGucs(['tenant' => $tid, 'user' => (string) $a->getKey()],
-            fn () => $this->insertRejected($this->row($tid, (string) $a->getKey())));
-        $this->assertTrue($denied, 'writer flag must not leak past the service call');
-    }
+    // NOTE: the transaction-local writer GUC's no-leak guarantee (it is discarded
+    // by PostgreSQL on COMMIT/ROLLBACK, never by a session reset) CANNOT be proven
+    // under RefreshDatabase, whose wrapping transaction turns the service's
+    // DB::transaction into a savepoint that keeps the GUC alive on the outer
+    // transaction. It is proven at transaction level 0 in NotificationWriterContextTest.
 
     public function test_model_create_and_delete_denied_in_normal_context(): void
     {
         [$owner, $tenant] = $this->createCompanyWithOwner();
         $a = $this->memberWithRole($tenant, 'employee');
-        $this->seedNotes($tenant, $a);
+        $tid = (string) $tenant->getKey();
+        // Seed one row via a controlled, self-resetting writer context — NOT the
+        // service. The service now sets a TRANSACTION-LOCAL writer flag, which
+        // (inside this test's outer wrapping transaction) would legitimately
+        // persist and mask the "normal context" the assertions below rely on. A
+        // withGucs seed clears the writer flag in its finally, so the checks
+        // observe a genuine no-writer context.
+        $this->withGucs(['tenant' => $tid, 'writer' => '1'],
+            fn () => DB::table('notifications')->insert($this->row($tid, (string) $a->getKey())));
 
         // Eloquent create without writer context → RLS rejects (no accidental bypass).
         $ctx = app(TenantContext::class);

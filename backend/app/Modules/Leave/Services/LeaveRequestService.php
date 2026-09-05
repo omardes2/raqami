@@ -35,6 +35,7 @@ class LeaveRequestService
         private readonly LeaveBalanceService $balances,
         private readonly LeaveApprovalRouter $approvals,
         private readonly AuditLogger $audit,
+        private readonly LeaveNotifier $notifier,
     ) {}
 
     /**
@@ -148,6 +149,11 @@ class LeaveRequestService
 
                 // Build the snapshotted approval workflow (may auto-finalize).
                 $this->approvals->buildForSubmission($request->fresh(), $employee, $policy, $actor);
+
+                // Post-commit: notify named approvers of a request still awaiting
+                // them. The `none` flow auto-finalizes (no pending steps), so this
+                // no-ops and the "approved" notification fires from finalizeApproval.
+                $this->notifier->submitted($request->fresh());
 
                 return $request->fresh();
             });
