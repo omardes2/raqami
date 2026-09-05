@@ -633,3 +633,37 @@ the schedule, the geofence membership, lateness, worked time, and status.
 - **Approved by:** Project Owner (2026-09-05, Sprint 8B Phases 1–3; the
   cutoff-bounded maintenance SELECT/DELETE prune RLS explicitly approved as a
   narrow evolution to implement the 12-month retention feature).
+
+## ADR-024: AI assistant V1 — read-only, provider-neutral, entitlement-gated
+
+- **Status:** Accepted (Sprint 9).
+- **Context:** Add an assistive AI layer without letting AI mutate business state,
+  widen visibility, leak sensitive data, or hard-code a vendor — and without
+  running by default.
+- **Decision:**
+  1. **Read-only & assistive only.** AI never mutates payroll, attendance, leave,
+     financial records, or permissions and cannot trigger privileged actions
+     (ADR-011 guardrails). V1 features: dashboard summary, attendance + leave
+     insights, task workload summary, report explanation.
+  2. **No widened visibility.** Feature data is gathered ONLY through the existing
+     permission/scope-enforcing report services (each takes the acting user), and
+     each feature also checks its report permission. The model sees exactly what
+     the actor already could. Only aggregates/counts/minutes/labels are sent —
+     never salary, ids, bank, medical, or private reasons.
+  3. **Provider-neutral, disabled by default.** Business logic depends only on the
+     AiProvider contract; config selects the driver (NullAiProvider default). The
+     Anthropic Claude driver is config-gated and active only when
+     AI_PROVIDER_DRIVER=anthropic and an API key is set (env, never client-side).
+  4. **Gating & metering.** Runs only when the provider is enabled AND the tenant
+     is entitled (Billing PlanFeature 'ai_assistant') AND under a daily cap.
+     Every call is metered to the append-only, FORCE-RLS ai_usage_events ledger
+     (safe operational metadata only; provider cost in micro-USD is operational,
+     not tenant money).
+  5. **Robustness & safety.** Structured JSON output is validated with a graceful
+     text fallback; provider outages/timeouts degrade to a localized "unavailable"
+     notice and never break the core product; the system prompt treats supplied
+     data as untrusted (prompt-injection defense) and forbids privileged actions.
+  6. **Deferred:** autonomous/agentic AI, any AI-driven write, exposing payroll
+     amounts to general AI, streaming, and provider drivers beyond Anthropic.
+- **Approved by:** Project Owner (2026-09-05, Sprint 9: neutral interface
+  disabled-by-default, all four read-only features, minimal usage_events ledger).
