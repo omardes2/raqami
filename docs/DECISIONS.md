@@ -667,3 +667,43 @@ the schedule, the geofence membership, lateness, worked time, and status.
      amounts to general AI, streaming, and provider drivers beyond Anthropic.
 - **Approved by:** Project Owner (2026-09-05, Sprint 9: neutral interface
   disabled-by-default, all four read-only features, minimal usage_events ledger).
+
+---
+
+## ADR-025: Mobile API + Sprint 10 production hardening
+- **Status:** Accepted
+- **Date:** 2026-09-05
+- **Context:** V1 needs a mobile-consumable API (ADR-004 anticipated it) plus a
+  hardening pass surfaced by the pre-production security audit: a vertical
+  privilege-escalation vector on role assignment, an authorization N+1 on
+  per-row list endpoints, missing rate limits on sensitive endpoints, and no
+  registered production scheduler for the idempotent maintenance commands.
+- **Options:** (a) a separate mobile business API vs. a thin auth layer over the
+  existing versioned API; (b) tenant-bound tokens vs. reuse the existing
+  `X-Tenant-Id` + membership resolution.
+- **Decision:**
+  1. **Mobile = auth layer only.** `/api/mobile/v1/auth` (login/logout/session)
+     issues stateless Sanctum personal access tokens (ability `mobile`); the
+     client then consumes the SAME tenant application API as the SPA via
+     `Authorization: Bearer` + `X-Tenant-Id`. No mobile-specific business logic,
+     so tenancy/RLS/permission guarantees are shared by construction. Login is
+     brute-force rate-limited and stateless; re-login per device supersedes the
+     prior token; logout revokes only the current device token.
+  2. **Role-ceiling guard.** A non-owner actor may never grant the owner role nor
+     a role carrying permissions beyond their own; internal onboarding bootstrap
+     uses the no-actor path (still audited).
+  3. **Authorization memoization.** AccessService is a request-lifetime singleton
+     memoizing a user's role assignments and filtering scope in memory (CHAR(26)
+     `scope_id` compared with trailing-space semantics), removing the
+     attendance-listing N+1; the memo self-invalidates on tenant change and on
+     assignment writes. Guarded by a query-count regression test.
+  4. **Rate limits** on AI, profile update, and mobile login.
+  5. **Production scheduler** registered in `routes/console.php` (single
+     `schedule:run` cron) for all idempotent, tenant-aware maintenance commands.
+  6. **Operational docs:** deployment runbook, production security checklist,
+     mobile API guide, and V1 release notes.
+- **Consequences:** one API contract to maintain across web and mobile; tokens
+  are revoked via logout (no policy expiry in V1); host-based tenant resolution
+  remains deferred.
+- **Approved by:** Project Owner (2026-09-05, master completion prompt — Sprint
+  10 Mobile API + system-wide hardening under ADR-004).
